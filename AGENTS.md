@@ -21,10 +21,11 @@
 
 ## Saving & Publishing to GitHub
 - **Save automatically:** After each meaningful change (a new feature, fix, or content update), commit and push to GitHub without asking first, then tell the owner in one plain-English sentence what was saved.
-- **Use separate commands** (not chained with `&&`) so they match the owner's "Always allow" approvals:
+- **Commands to use:**
   1. `git add -A`
   2. `git commit -m "<short, plain-English summary>"` (for example, "Add focus timer page")
   3. `git push`
+- **Keep commands simple** so they match the owner's saved Jetski allow rules (`git add`, `git commit`, `git push`) and run without approval prompts: no `$(...)`, backticks, or flags before the subcommand (like `git -c ...`). Chaining with `&&` is fine.
 - **Check before saving:** Run `git status` first and make sure no secrets (`.env` files, API keys, passwords) are included.
 - **How pushing works:** Pushes go to `git@github.com:Juliafzq/ProjectFocus.git` using this machine's existing SSH key; no extra sign-in is needed.
 - **Stay private:** Never change the repository's visibility. If the GitHub CLI is installed and signed in, `gh repo view Juliafzq/ProjectFocus --json visibility` should report `PRIVATE`.
