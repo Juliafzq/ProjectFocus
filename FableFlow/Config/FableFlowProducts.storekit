@@ -1,0 +1,90 @@
+{
+  "identifier" : "FableFlowProducts",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "79.99",
+      "familyShareable" : true,
+      "internalID" : "LIFETIME_001",
+      "localizations" : [
+        {
+          "description" : "Buy Your Physical Tools Once — permanent access to all 4 heirloom tomatoes, card stack archive, and evening journal.",
+          "displayName" : "Buy Your Physical Tools Once (Lifetime)",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.fableflow.unlock.lifetime",
+      "referenceName" : "Lifetime Physical Tools Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "FABLE_FLOW_001",
+    "_developerTeamID" : "FABLEFLOW"
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "FABLE_FLOW_PRO_GROUP",
+      "localizations" : [],
+      "name" : "Fable / Flow Full Access",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "4.99",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "SUB_MONTHLY_001",
+          "introductoryOffer" : {
+            "internalID" : "TRIAL_7D_M",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Monthly full access after 7-day free trial.",
+              "displayName" : "Fable / Flow Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.fableflow.sub.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly Subscription",
+          "subscriptionGroupID" : "FABLE_FLOW_PRO_GROUP",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "34.99",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "SUB_ANNUAL_001",
+          "introductoryOffer" : {
+            "internalID" : "TRIAL_7D_Y",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Annual full access after 7-day free trial.",
+              "displayName" : "Fable / Flow Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.fableflow.sub.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Annual Subscription",
+          "subscriptionGroupID" : "FABLE_FLOW_PRO_GROUP",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
