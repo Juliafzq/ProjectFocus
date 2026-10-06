@@ -1,0 +1,799 @@
+/*
+ * Fable / Flow — Phase 1 Beta ("Core Tactile Loop") Stylesheet
+ * Follows UI Mockups 02-hero-timer.png, 03-grid-timer.png, and 04-card-front.png exactly.
+ */
+
+:root {
+  --canvas-bg: #E7E5DE;
+  --card-surface: #FAF9F5;
+  --ink-primary: #0F0F0F;
+  --ink-secondary: #6E6D68;
+  --ink-placeholder: #B4B2AB;
+  --hairline-crosshair: #9D9B95;
+  --card-divider: #E3E1DA;
+  --dot-grid-color: #CFCdc5;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #DCD9D0;
+  background-image: radial-gradient(circle at 50% 25%, #E7E5DE 0%, #D5D2C8 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Helvetica Neue", sans-serif;
+  color: var(--ink-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-x: hidden;
+  user-select: none;
+}
+
+/* =========================================================================
+   MOBILE VIEWPORT SHELL (Matches exact aspect ratio of UI Mockups)
+   ========================================================================= */
+
+.app-viewport {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  height: 852px;
+  background-color: var(--canvas-bg);
+  /* Subtle warm stone paper grain */
+  background-image:
+    radial-gradient(rgba(255,255,255,0.35) 1px, transparent 0),
+    linear-gradient(180deg, #EAE8E1 0%, #E4E2DA 100%);
+  background-size: 24px 24px, 100% 100%;
+  border-radius: 38px;
+  box-shadow:
+    0 28px 70px rgba(20, 19, 16, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.55) inset;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 18px auto;
+}
+
+@media (max-width: 480px) {
+  .app-viewport {
+    max-width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    margin: 0;
+    box-shadow: none;
+  }
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* =========================================================================
+   GLOBAL TOP NAVIGATION BAR (`Card | Timer` Pill + `[Profile]` Icon)
+   ========================================================================= */
+
+.global-top-bar {
+  position: relative;
+  width: 100%;
+  height: 86px;
+  padding: 24px 26px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.segmented-pill {
+  width: 236px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1.5px solid #B2B0A9;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 2.5px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+}
+
+.pill-segment-btn {
+  height: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  font-size: 17px;
+  font-weight: 500;
+  color: #5E5D59;
+  cursor: pointer;
+  transition: background-color 0.2s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+}
+
+.pill-segment-btn.active {
+  background-color: #080808;
+  color: #FFFFFF;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.profile-icon-btn {
+  position: absolute;
+  right: 28px;
+  top: 29px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #878680;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.profile-icon-btn:hover {
+  color: #111111;
+  transform: scale(1.05);
+}
+
+/* =========================================================================
+   SCREEN 1: FRONT OF TODAY'S CARD (Mockup 04-card-front.png)
+   ========================================================================= */
+
+.screen-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-stage-perspective {
+  flex: 1;
+  padding: 18px 34px 10px;
+  perspective: 1400px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.daily-card-3d {
+  width: 100%;
+  height: 586px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.58s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.daily-card-3d.is-flipped {
+  transform: rotateY(-180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  background-color: var(--card-surface);
+  border-radius: 15px;
+  box-shadow:
+    0 20px 44px rgba(24, 22, 18, 0.10),
+    0 3px 10px rgba(24, 22, 18, 0.05);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.card-face-back {
+  transform: rotateY(180deg);
+  padding: 28px;
+  justify-content: space-between;
+}
+
+.card-header-bar {
+  padding: 26px 26px 18px;
+  border-bottom: 1.5px solid var(--card-divider);
+  background-color: var(--card-surface);
+}
+
+.card-date-title {
+  font-size: 25.5px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0D0D0D;
+  line-height: 1.1;
+}
+
+.card-dot-grid-body {
+  flex: 1;
+  position: relative;
+  padding: 20px 0 16px;
+  /* Subtle 22px dot-grid matching Mockup 04-card-front.png */
+  background-image: radial-gradient(var(--dot-grid-color) 1.35px, transparent 1.35px);
+  background-size: 22px 22px;
+  background-position: 18px 14px;
+  overflow: hidden; /* Strictly zero vertical scroll */
+}
+
+.task-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 1fr 38px;
+  align-items: start;
+  padding: 11px 26px;
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.task-index {
+  font-size: 25px;
+  font-weight: 450;
+  color: #111111;
+  line-height: 1.24;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-title {
+  font-size: 25px;
+  font-weight: 450;
+  color: #111111;
+  line-height: 1.24;
+  padding-right: 12px;
+  word-break: break-word;
+}
+
+.pencil-strike-canvas {
+  position: absolute;
+  left: 22px;
+  top: 4px;
+  width: calc(100% - 92px);
+  height: 44px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.task-tomato-btn {
+  width: 34px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 5;
+}
+
+.task-tomato-btn:hover {
+  transform: scale(1.14);
+}
+
+.add-item-row {
+  padding: 12px 26px;
+  font-size: 25px;
+  font-weight: 400;
+  color: var(--ink-placeholder);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.add-item-row:hover {
+  color: #6E6D68;
+}
+
+/* Card Bottom Action Bar: [Stack] [Flip] [+] */
+.card-bottom-bar {
+  height: 96px;
+  padding: 0 66px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.card-bottom-icon-btn {
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: transparent;
+  color: #141414;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.card-bottom-icon-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+/* =========================================================================
+   SCREEN 2: 4-POMODORO 2x2 GRID VIEW (Mockup 03-grid-timer.png)
+   ========================================================================= */
+
+.four-tomato-grid {
+  flex: 1;
+  margin: 12px 16px 32px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  position: relative;
+}
+
+/* Thin continuous horizontal and vertical crosshairs (+) */
+.four-tomato-grid::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background-color: var(--hairline-crosshair);
+  transform: translateX(-0.5px);
+  pointer-events: none;
+}
+
+.four-tomato-grid::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background-color: var(--hairline-crosshair);
+  transform: translateY(-0.5px);
+  pointer-events: none;
+}
+
+.grid-quadrant {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 20px 8px 12px;
+}
+
+.grid-tomato-wrap {
+  position: relative;
+  width: 178px;
+  height: 164px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grid-tomato-wrap:hover {
+  transform: scale(1.025);
+}
+
+.grid-tomato-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(8px 14px 16px rgba(28, 22, 18, 0.16));
+  pointer-events: none;
+}
+
+.grid-tomato-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.grid-tomato-title {
+  pointer-events: auto;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.94);
+  margin-bottom: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.grid-tomato-title:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.grid-tomato-time {
+  font-size: 30px;
+  font-weight: 450;
+  letter-spacing: 0.01em;
+  color: #FFFFFF;
+  font-variant-numeric: tabular-nums;
+}
+
+.grid-tap-to-assign {
+  font-size: 16.5px;
+  font-weight: 450;
+  color: rgba(244, 242, 238, 0.88);
+  letter-spacing: 0.01em;
+  margin-top: 10px;
+}
+
+.grid-controls-row {
+  margin-top: 26px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 54px;
+}
+
+.grid-ctrl-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.grid-ctrl-btn:hover {
+  transform: scale(1.12);
+}
+
+/* Task Assignment Floating Dropdown (Matches Mockup 03-grid-timer.png) */
+.task-assign-dropdown {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 170px;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1.5px solid #141414;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
+  z-index: 30;
+  background-color: #FFFFFF;
+}
+
+.dropdown-custom-header {
+  width: 100%;
+  background-color: #0E0E0E;
+  color: #FFFFFF;
+  border: none;
+  padding: 10px 11px;
+  font-size: 13.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dropdown-custom-header:hover {
+  background-color: #222222;
+}
+
+.dropdown-task-list {
+  display: flex;
+  flex-direction: column;
+  background-color: #FFFFFF;
+}
+
+.dropdown-task-item {
+  width: 100%;
+  border: none;
+  border-top: 1px solid #EAE8E1;
+  background: #FFFFFF;
+  color: #111111;
+  padding: 10px 11px;
+  font-size: 14.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdown-task-item:first-child {
+  border-top: none;
+}
+
+.dropdown-task-item:hover {
+  background-color: #F4F2EC;
+}
+
+.dropdown-clear-item {
+  color: #8B1E24;
+  font-size: 13px;
+}
+
+/* =========================================================================
+   SCREEN 3: SINGLE BIG HERO TOMATO VIEW (Mockup 02-hero-timer.png)
+   ========================================================================= */
+
+.hero-timer-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 26px 28px;
+}
+
+.hero-readout-block {
+  padding-top: 8px;
+}
+
+.hero-digital-readout {
+  font-size: 106px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.96;
+  color: #0B0B0B;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-task-subtitle {
+  margin-top: 12px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #121212;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.hero-task-subtitle:hover {
+  opacity: 0.75;
+}
+
+.hero-tomato-stage-wrap {
+  position: relative;
+  width: 100%;
+  height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0;
+}
+
+.hero-tomato-stage {
+  width: 360px;
+  height: 335px;
+  cursor: ew-resize;
+  touch-action: none;
+  /* Realistic warm studio drop shadow to bottom-right matching Mockup 02-hero-timer.png */
+  filter: drop-shadow(20px 30px 28px rgba(36, 26, 20, 0.22));
+}
+
+.hero-wind-hint {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #8A8881;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Hero Bottom Control Bar: [2x2 Grid] [Play/Pause] [End/Stop] [Stopwatch] */
+.hero-bottom-bar {
+  height: 76px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-ctrl-btn {
+  width: 54px;
+  height: 54px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.hero-ctrl-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: scale(1.06);
+}
+
+.hero-ctrl-btn.stopwatch-active {
+  background-color: rgba(139, 30, 36, 0.12);
+}
+
+/* =========================================================================
+   TOASTS, BANNERS & MODALS
+   ========================================================================= */
+
+.notification-banner {
+  position: absolute;
+  top: 84px;
+  left: 24px;
+  right: 24px;
+  background-color: #111111;
+  color: #FAF9F5;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  z-index: 60;
+}
+
+.notification-banner.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.telemetry-toast {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(17, 17, 17, 0.86);
+  color: #FAF9F5;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 55;
+  white-space: nowrap;
+}
+
+.telemetry-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 15, 15, 0.42);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 80;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 340px;
+  background: #FAF9F5;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.25);
+  border: 1px solid #DFDDD5;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111111;
+  margin-bottom: 12px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 11px 13px;
+  font-size: 16px;
+  border: 1.5px solid #C8C6BE;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #111111;
+  outline: none;
+  margin-bottom: 16px;
+}
+
+.modal-input:focus {
+  border-color: #111111;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-btn {
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #C8C6BE;
+  background: #FFFFFF;
+  color: #111111;
+}
+
+.modal-btn-primary {
+  background: #111111;
+  color: #FFFFFF;
+  border-color: #111111;
+}
+
+.modal-btn-danger {
+  background: #8B1E24;
+  color: #FFFFFF;
+  border-color: #8B1E24;
+}
+
+/* =========================================================================
+   FLOATING BETA EVALUATION BAR (Desktop Helper Bar outside Phone Frame)
+   ========================================================================= */
+
+.beta-eval-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 8px 14px;
+  background: rgba(250, 249, 245, 0.9);
+  border: 1px solid #C8C6BE;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.beta-eval-btn {
+  border: 1px solid #C8C6BE;
+  background: #FFFFFF;
+  color: #1A1A1A;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.beta-eval-btn:hover {
+  border-color: #111111;
+}
+
+.beta-eval-btn.active-pill {
+  background: #111111;
+  color: #FFFFFF;
+  border-color: #111111;
+}

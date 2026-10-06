@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Fable / Flow — Project Focus Beta (Phase 1)</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Mobile App Viewport Shell (Exact UI Mockups Aspect Ratio) -->
+  <main class="app-viewport" id="app-viewport">
+
+    <!-- Global Top Navigation Bar (Mockups 02, 03, 04) -->
+    <header class="global-top-bar">
+      <div class="segmented-pill" role="tablist" aria-label="Workspace Pillar">
+        <button type="button" class="pill-segment-btn active" id="pill-card-btn" role="tab">Card</button>
+        <button type="button" class="pill-segment-btn" id="pill-timer-btn" role="tab">Timer</button>
+      </div>
+
+      <button type="button" class="profile-icon-btn" id="profile-btn" aria-label="Profile and Settings">
+        <svg width="29" height="29" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <circle cx="14" cy="9.2" r="4.6" stroke="currentColor" stroke-width="1.85" />
+          <path d="M5.2 24.2C5.9 19.6 9.4 17.2 14 17.2C18.6 17.2 22.1 19.6 22.8 24.2" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" />
+        </svg>
+      </button>
+    </header>
+
+    <!-- In-App Notification Banner (Completion Chime / Permanent Delete Confirmation) -->
+    <div id="notification-banner" class="notification-banner" role="status" aria-live="polite"></div>
+
+    <!-- ===================================================================
+         SCREEN 1: FRONT OF TODAY'S CARD (Mockup 04-card-front.png)
+         =================================================================== -->
+    <section id="screen-card" class="screen-container">
+      <div class="card-stage-perspective">
+        <div id="daily-card-3d" class="daily-card-3d">
+
+          <!-- Front Face of Today's Card -->
+          <div class="card-face card-face-front">
+            <div class="card-header-bar">
+              <h1 id="card-date-header" class="card-date-title">TUESDAY — OCT 06</h1>
+            </div>
+
+            <div class="card-dot-grid-body">
+              <div id="task-list-container" class="task-list-container"></div>
+              <div id="add-item-row" class="add-item-row">+ Add item</div>
+            </div>
+          </div>
+
+          <!-- Back Face Preview (Triggered by Right->Left Flip Gesture or Center Flip Button) -->
+          <div class="card-face card-face-back">
+            <div>
+              <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #8A8881; margin-bottom: 8px;">
+                BACK OF TODAY’S CARD (180° FLIP VERIFIED)
+              </div>
+              <h2 style="font-size: 24px; font-weight: 800; color: #111111; margin-bottom: 14px;">
+                TUESDAY — OCT 06
+              </h2>
+              <p style="font-size: 15.5px; line-height: 1.55; color: #4A4945;">
+                You triggered the <strong>180° Card Flip</strong> (<code style="background:#EAE8E1;padding:2px 6px;border-radius:4px;">Right → Left Δx &lt; -40 px</code> or Center Flip button).
+              </p>
+              <p style="font-size: 15px; line-height: 1.55; color: #6E6D68; margin-top: 12px;">
+                Full freeform reflection canvas, Polaroid photo frame, and movable sticker drawer unlock in <strong>Phase 2</strong>.
+              </p>
+            </div>
+            <button type="button" id="card-back-return-btn" class="modal-btn modal-btn-primary" style="width: 100%; padding: 12px;">
+              Flip Back to Card Front (Tasks)
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Bottom Action Bar: [Stack] [Flip] [+] -->
+      <footer class="card-bottom-bar">
+        <!-- Left: Stack Icon -->
+        <button type="button" id="card-stack-btn" class="card-bottom-icon-btn" aria-label="Card Stack Archive">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M16 5.5L27.5 11.5L16 17.5L4.5 11.5L16 5.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M4.5 16.2L16 22.2L27.5 16.2" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4.5 20.8L16 26.8L27.5 20.8" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <!-- Center: Flip Card Icon -->
+        <button type="button" id="card-flip-btn" class="card-bottom-icon-btn" aria-label="Flip Card 180 Degrees">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M14.5 7.5L6.5 10.2V24.5L14.5 21.8V7.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M17.5 7.5L25.5 10.2V24.5L17.5 21.8V7.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <!-- Right: Plus (+) Icon -->
+        <button type="button" id="card-plus-btn" class="card-bottom-icon-btn" aria-label="Add Task Item">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M16 6.5V25.5M6.5 16H25.5" stroke="#111111" stroke-width="2.1" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- ===================================================================
+         SCREEN 2: 4-POMODORO 2x2 GRID VIEW (Mockup 03-grid-timer.png)
+         =================================================================== -->
+    <section id="screen-grid" class="screen-container hidden">
+      <div class="four-tomato-grid">
+        <div id="grid-quad-0" class="grid-quadrant"></div>
+        <div id="grid-quad-1" class="grid-quadrant"></div>
+        <div id="grid-quad-2" class="grid-quadrant"></div>
+        <div id="grid-quad-3" class="grid-quadrant"></div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         SCREEN 3: SINGLE BIG HERO TOMATO VIEW (Mockup 02-hero-timer.png)
+         =================================================================== -->
+    <section id="screen-hero" class="screen-container hero-timer-screen hidden">
+      <!-- Upper-Left Digital Readout & Task Subtitle -->
+      <div class="hero-readout-block">
+        <div id="hero-readout" class="hero-digital-readout">02:30</div>
+        <div id="hero-subtitle" class="hero-task-subtitle" title="Tap to change task assignment">01 / MATH STUDY</div>
+      </div>
+
+      <!-- Center 3D Sculpted Heirloom Tomato with Equatorial Odometer Scale -->
+      <div class="hero-tomato-stage-wrap">
+        <div id="hero-tomato-stage" class="hero-tomato-stage" aria-label="Interactive 3D Heirloom Tomato Timer Dial"></div>
+        <div class="hero-wind-hint">← Drag Right-to-Left to wind (+5m) · Left-to-Right to unwind (-5m) →</div>
+      </div>
+
+      <!-- Bottom Control Bar: [2x2 Grid] [Play/Pause] [End/Reset] [Stopwatch] -->
+      <footer class="hero-bottom-bar">
+        <!-- 1. Return to 2x2 Grid View -->
+        <button type="button" id="hero-btn-grid" class="hero-ctrl-btn" aria-label="Switch to 4-Tomato 2x2 Grid View">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <rect x="4" y="4" width="11.5" height="11.5" rx="2.5" stroke="#0F0F0F" stroke-width="2.6"/>
+            <rect x="20.5" y="4" width="11.5" height="11.5" rx="2.5" stroke="#0F0F0F" stroke-width="2.6"/>
+            <rect x="4" y="20.5" width="11.5" height="11.5" rx="2.5" stroke="#0F0F0F" stroke-width="2.6"/>
+            <rect x="20.5" y="20.5" width="11.5" height="11.5" rx="2.5" stroke="#0F0F0F" stroke-width="2.6"/>
+          </svg>
+        </button>
+
+        <!-- 2. Play / Pause Active Timer -->
+        <button type="button" id="hero-btn-playpause" class="hero-ctrl-btn" aria-label="Play or Pause Timer">
+          <svg width="36" height="44" viewBox="0 0 36 44">
+            <rect x="4" y="2" width="10" height="40" rx="3" fill="#0F0F0F"/>
+            <rect x="22" y="2" width="10" height="40" rx="3" fill="#0F0F0F"/>
+          </svg>
+        </button>
+
+        <!-- 3. End / Reset Timer to 00:00 -->
+        <button type="button" id="hero-btn-stop" class="hero-ctrl-btn" aria-label="End and Reset Timer to 00:00">
+          <svg width="36" height="36" viewBox="0 0 36 36">
+            <rect x="3" y="3" width="30" height="30" rx="4.5" fill="#0F0F0F"/>
+          </svg>
+        </button>
+
+        <!-- 4. Stopwatch (Count-Up) Mode Toggle -->
+        <button type="button" id="hero-btn-stopwatch" class="hero-ctrl-btn" aria-label="Toggle Stopwatch Count-Up Mode">
+          <svg width="38" height="40" viewBox="0 0 38 40" fill="none">
+            <path d="M14 3.5H24M19 3.5V8M29.5 10.5L32.5 7.5" stroke="#0F0F0F" stroke-width="2.6" stroke-linecap="round"/>
+            <circle cx="19" cy="23" r="14" stroke="#0F0F0F" stroke-width="2.6"/>
+            <path d="M13.5 23.2L17.2 27L25 18.8" stroke="#0F0F0F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- Live Haptic & Foley Telemetry Pill -->
+    <div id="telemetry-toast" class="telemetry-toast" aria-live="polite"></div>
+
+    <!-- Modal for Adding / Editing Task or Custom Timer Title -->
+    <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-box">
+        <div id="modal-title" class="modal-title">Add Task</div>
+        <input id="modal-input" type="text" class="modal-input" maxlength="48" placeholder="Enter title..." />
+        <div class="modal-actions">
+          <button type="button" id="modal-cancel" class="modal-btn">Cancel</button>
+          <button type="button" id="modal-confirm" class="modal-btn modal-btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Permanent Delete Confirmation Modal (Trash Can Confirmation & Notification Rule) -->
+    <div id="delete-modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-box">
+        <div class="modal-title">Permanently delete this item?</div>
+        <p style="font-size: 14px; color: #5E5D59; margin-bottom: 18px; line-height: 1.45;">
+          This action cannot be undone. The item will be permanently removed from Today’s Card.
+        </p>
+        <div class="modal-actions">
+          <button type="button" id="delete-modal-cancel" class="modal-btn">Cancel</button>
+          <button type="button" id="delete-modal-confirm" class="modal-btn modal-btn-danger">Permanently Delete</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Quick Screen Switcher & Sensory Toolbar (Outside Mobile Frame for Instant Evaluation) -->
+  <nav class="beta-eval-toolbar" aria-label="Phase 1 Beta Quick Switcher">
+    <button type="button" id="demo-view-card" class="beta-eval-btn active-pill">1. Card Front (04)</button>
+    <button type="button" id="demo-view-grid" class="beta-eval-btn">2. 4-Tomato Grid (03)</button>
+    <button type="button" id="demo-view-hero" class="beta-eval-btn">3. Hero Tomato (02)</button>
+    <button type="button" id="demo-toggle-silent" class="beta-eval-btn">🔊 Foley Audio: ON</button>
+    <button type="button" id="demo-reset-state" class="beta-eval-btn">↺ Reset Mockup State</button>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
