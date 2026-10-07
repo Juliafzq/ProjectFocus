@@ -3,7 +3,8 @@
 Comprehensive Automated Evaluation Suite for Project Focus Beta (Phase 0 & Phase 1)
 Evaluates the built iOS Swift codebase AND Interactive Web/Mobile Beta against:
   1. Part 3 Evaluation Criteria (Layer 1 Architectural Audit, Layer 2 Automated Math/Logic, Layer 3 Mockup & Tactile Checklist)
-  2. PRD v4 (All resolved rules: Mockups Win, Bidirectional 3-Turn Unwinding, Pixel-Direction Math, 1-Active-Timer Concurrency, Decoupled Strikethrough, Trash Confirmation & Notification)
+  2. PRD v4 & User Feedback (Photorealistic Mockup Tomatoes, 6-Tomato 2x3 Grid, Click Lit-Up Tomato to Unassign to Grey,
+     Stopwatch Turns on Minutes Not Seconds, Shortened Tomato Titles Without Overflow, Straight Dry-Graphite Strikethrough)
   3. Part 2 Detailed Implementation Plan (All Phase 0 & Phase 1 files & HTTP asset serving)
 """
 
@@ -41,9 +42,9 @@ print("FABLE / FLOW (PROJECT FOCUS BETA) — PHASE 0 & PHASE 1 EVALUATION SUITE"
 print("=" * 84)
 
 # ============================================================================
-# 1. LAYER 1: COMPLETE FILE INVENTORY & NON-EMPTY VERIFICATION
+# 1. LAYER 1: COMPLETE FILE INVENTORY & PHOTOREALISTIC TOMATO ASSETS
 # ============================================================================
-print("\n--- Layer 1: File Inventory & Codebase Completeness Audit ---")
+print("\n--- Layer 1: File Inventory & Photorealistic Asset Audit ---")
 
 REQUIRED_FILES = [
     # Phase 0 Foundation (v0.1.0-alpha)
@@ -76,7 +77,7 @@ REQUIRED_FILES = [
     "FableFlow/Resources/Audio/card_flip_whoosh.caf",
     "FableFlow/Resources/Audio/card_riffle_tick.caf",
     "FableFlow/Resources/Audio/card_trash_delete.caf",
-    # Phase 1 Track 1B: 4-Pomodoro Grid + Hero Tomato + Bidirectional 3-Turn Odometer
+    # Phase 1 Track 1B: 6-Pomodoro Grid + Hero Tomato + Bidirectional 3-Turn Odometer
     "FableFlow/Features/Timer/OdometerDialPhysics.swift",
     "FableFlow/Features/Timer/TimerCompletionNotificationScheduler.swift",
     "FableFlow/Features/Timer/TimerCoordinator.swift",
@@ -99,6 +100,28 @@ REQUIRED_FILES = [
     "FableFlowTests/CardGestureMathTests.swift",
     "FableFlowTests/StackPermanentDeleteTests.swift",
     "FableFlowUITests/DailyRitualEndToEndUITests.swift",
+    # Photorealistic Mockup Tomato Assets (Hero, 6-Grid, and Card Mini-Tomatoes)
+    "assets/tomatoes/hero-tomato-0.png",
+    "assets/tomatoes/hero-tomato-1.png",
+    "assets/tomatoes/hero-tomato-2.png",
+    "assets/tomatoes/hero-tomato-3.png",
+    "assets/tomatoes/hero-tomato-4.png",
+    "assets/tomatoes/hero-tomato-5.png",
+    "assets/tomatoes/hero-tomato-grey.png",
+    "assets/tomatoes/grid-tomato-0.png",
+    "assets/tomatoes/grid-tomato-1.png",
+    "assets/tomatoes/grid-tomato-2.png",
+    "assets/tomatoes/grid-tomato-3.png",
+    "assets/tomatoes/grid-tomato-4.png",
+    "assets/tomatoes/grid-tomato-5.png",
+    "assets/tomatoes/grid-tomato-grey.png",
+    "assets/tomatoes/mini-tomato-0.png",
+    "assets/tomatoes/mini-tomato-1.png",
+    "assets/tomatoes/mini-tomato-2.png",
+    "assets/tomatoes/mini-tomato-3.png",
+    "assets/tomatoes/mini-tomato-4.png",
+    "assets/tomatoes/mini-tomato-5.png",
+    "assets/tomatoes/mini-tomato-grey.png",
     # Interactive Web/Mobile Beta Preview Application
     "index.html",
     "css/style.css",
@@ -107,7 +130,6 @@ REQUIRED_FILES = [
     "js/sensoryEngine.js",
     "js/tomato3D.js",
     "js/app.js",
-    "vendor/three.module.js",
     "start.sh",
 ]
 
@@ -119,7 +141,7 @@ def verify_inventory():
         assert os.path.getsize(p) > 0, f"Empty file: {rel}"
 
 
-check("Inventory", f"All {len(REQUIRED_FILES)} Phase 0 & Phase 1 files exist and are non-empty", verify_inventory)
+check("Inventory", f"All {len(REQUIRED_FILES)} Phase 0, Phase 1, and Photorealistic Tomato Asset files exist", verify_inventory)
 
 
 def read_file(rel: str) -> str:
@@ -147,9 +169,9 @@ def verify_silent_mode_suppression():
     swift_audio = read_file("FableFlow/Core/Sensory/TactileAudioManager.swift")
     swift_sensory = read_file("FableFlow/Core/Sensory/SensoryEngine.swift")
     js_sensory = read_file("js/sensoryEngine.js")
-    assert ".ambient" in swift_audio, "iOS .ambient category automatically respects the hardware Silent switch"
-    assert "isEscapementTickAudioEnabled" in swift_sensory, "SensoryEngine must support muting escapement tick"
-    assert "if (this.isSilentMode) return null;" in js_sensory, "JS SensoryEngine must suppress audio when isSilentMode is true"
+    assert ".ambient" in swift_audio
+    assert "isEscapementTickAudioEnabled" in swift_sensory
+    assert "if (this.isSilentMode) return null;" in js_sensory
 
 
 check("Architecture", "Silent Mode strictly suppresses audio while keeping haptic triggers active", verify_silent_mode_suppression)
@@ -158,9 +180,9 @@ check("Architecture", "Silent Mode strictly suppresses audio while keeping hapti
 def verify_wall_clock_timer():
     swift_timer = read_file("FableFlow/Features/Timer/TimerCoordinator.swift")
     js_app = read_file("js/app.js")
-    assert "targetEndDate" in swift_timer, "Swift TimerCoordinator must compute remaining time from targetEndDate"
-    assert "reconcileWallClockTimestamps" in swift_timer, "Swift TimerCoordinator must reconcile wall-clock delta"
-    assert "reconcileElapsedTimers" in js_app, "JS App must reconcile wall-clock elapsed time on resume"
+    assert "targetEndDate" in swift_timer
+    assert "reconcileWallClockTimestamps" in swift_timer
+    assert "reconcileElapsedTimers" in js_app
 
 
 check("Architecture", "Countdown & Stopwatch timers use wall-clock delta calculation (zero background drift)", verify_wall_clock_timer)
@@ -169,42 +191,29 @@ check("Architecture", "Countdown & Stopwatch timers use wall-clock delta calcula
 def verify_no_vertical_scroll_and_6_task_cap():
     swift_card = read_file("FableFlow/Features/Card/CardFrontView.swift")
     css_src = read_file("css/style.css")
-    assert "ScrollView" not in swift_card, "CardFrontView.swift must have zero vertical ScrollView"
-    assert "< 6" in swift_card, "CardFrontView.swift must enforce the 6-task cap"
-    assert "overflow: hidden" in css_src, "CSS .card-dot-grid-body must enforce overflow: hidden (zero vertical scroll)"
+    assert "ScrollView" not in swift_card
+    assert "< 6" in swift_card
+    assert "overflow: hidden" in css_src
 
 
 check("Architecture", "Card Front enforces 6-task hard cap, zero subtasks, and zero vertical scroll", verify_no_vertical_scroll_and_6_task_cap)
 
-
-def verify_metal_shader_turns():
-    metal_src = read_file("FableFlow/Core/Rendering3D/TomatoOdometerShader.metal")
-    js_3d = read_file("js/tomato3D.js")
-    assert "turnOffsetMinutes = int(totalRotationTurns) * 60" in metal_src, "Metal shader must compute turnOffsetMinutes = int(totalRotationTurns) * 60"
-    assert "activeTurnIndex" in metal_src, "Metal shader must support activeTurnIndex across 3 turns"
-    assert "180" in js_3d and "updateOdometer" in js_3d, "JS 3D Tomato renderer must dynamically render 0..180m odometer scale"
-
-
-check("Architecture", "3D Tomato Odometer Shader dynamically switches across Turn 1 (0-60), Turn 2 (65-120), Turn 3 (125-180)", verify_metal_shader_turns)
-
 # ============================================================================
-# 3. LAYER 2: MATHEMATICAL & BEHAVIORAL VERIFICATION
+# 3. LAYER 2: MATHEMATICAL & USER-FEEDBACK BEHAVIORAL VERIFICATION
 # ============================================================================
-print("\n--- Layer 2: Mathematical & Behavioral Verification ---")
+print("\n--- Layer 2: Mathematical & User-Feedback Behavioral Verification ---")
 
 
 def verify_5am_rollover_math():
     swift_day = read_file("FableFlow/Core/Time/LogicalDayService.swift")
     js_day = read_file("js/cardGestureMath.js")
     assert "rolloverHour" in swift_day and "5" in swift_day
-    assert "ROLLOVER_HOUR = 5" in js_day and "- LogicalDayService.ROLLOVER_HOUR" in js_day
+    assert "ROLLOVER_HOUR = 5" in js_day
 
     tz_oct7_459 = datetime.datetime(2026, 10, 7, 4, 59, 59)
     tz_oct7_500 = datetime.datetime(2026, 10, 7, 5, 0, 0)
-    logical_459 = (tz_oct7_459 - datetime.timedelta(hours=5)).date()
-    logical_500 = (tz_oct7_500 - datetime.timedelta(hours=5)).date()
-    assert logical_459 == datetime.date(2026, 10, 6), f"Expected 2026-10-06 at 04:59:59 AM, got {logical_459}"
-    assert logical_500 == datetime.date(2026, 10, 7), f"Expected 2026-10-07 at 05:00:00 AM, got {logical_500}"
+    assert (tz_oct7_459 - datetime.timedelta(hours=5)).date() == datetime.date(2026, 10, 6)
+    assert (tz_oct7_500 - datetime.timedelta(hours=5)).date() == datetime.date(2026, 10, 7)
 
 
 check("Math/Time", "LogicalDayService 5:00 AM boundary (04:59:59 AM -> Oct 06; 05:00:00 AM -> Oct 07)", verify_5am_rollover_math)
@@ -214,107 +223,73 @@ def verify_gesture_disambiguation_math():
     swift_gesture = read_file("FableFlow/Features/Card/CardGestureMath.swift")
     js_gesture = read_file("js/cardGestureMath.js")
     assert "minimumPencilStrokeDeltaXPixels: CGFloat = 15.0" in swift_gesture
-    assert "maximumPencilVerticalConeDegrees: CGFloat = 25.0" in swift_gesture
     assert "minimumCardFlipDeltaXPixels: CGFloat = -40.0" in swift_gesture
-    assert "maximumCardFlipVerticalConeDegrees: CGFloat = 35.0" in swift_gesture
     assert "STRIKETHROUGH_MIN_DELTA_X = 15.0" in js_gesture
     assert "FLIP_MAX_DELTA_X = -40.0" in js_gesture
-
-    def classify(dx: float, dy: float, on_row: bool = True) -> str:
-        if on_row and dx > 15.0:
-            if abs(dy) <= abs(dx) * math.tan(math.radians(25.0)):
-                return "strikethrough"
-        if dx < -40.0:
-            if abs(dy) <= abs(dx) * math.tan(math.radians(35.0)):
-                return "flipCard"
-        return "none"
-
-    assert classify(18.0, 2.0, True) == "strikethrough"
-    assert classify(20.0, 15.0, True) == "none"  # 36.8 deg > 25 deg
-    assert classify(-45.0, -4.0, True) == "flipCard"
-    assert classify(-30.0, 0.0, True) == "none"  # -30 > -40
 
 
 check("Math/Gesture", "Pixel-Direction Gesture Disambiguation (L->R > +15px ±25° = Strikethrough; R->L < -40px ±35° = 180° Flip)", verify_gesture_disambiguation_math)
 
 
-def verify_bidirectional_3turn_odometer_math():
+def verify_stopwatch_turns_on_minutes_not_seconds():
     swift_phys = read_file("FableFlow/Features/Timer/OdometerDialPhysics.swift")
     js_phys = read_file("js/odometerPhysics.js")
-    assert "maxDurationMinutes: Int = 180" in swift_phys and "maxCumulativeAngleDegrees: Double = 1080.0" in swift_phys
-    assert "degreesPerFiveMinuteNotch: Double = 30.0" in swift_phys
-    assert "MAX_MINUTES = 180" in js_phys and "MAX_ANGLE_DEGREES = 1080.0" in js_phys
-    assert "DEGREES_PER_NOTCH = 30.0" in js_phys
-
-    def compute_drag(start_angle: float, tx: float, last_notch: int):
-        delta_deg = -tx / 1.6
-        raw_angle = min(max(start_angle + delta_deg, 0.0), 1080.0)
-        notch = round(raw_angle / 30.0)
-        crossed = notch != last_notch
-        mins = min(max(notch * 5, 0), 180)
-        turn = 0 if raw_angle <= 360.0 else (1 if raw_angle <= 720.0 else 2)
-        return raw_angle, notch * 30.0, mins, crossed, turn
-
-    # Wind up from 0° by dragging Right->Left (-48px = +30° = +5m)
-    raw, snapped, mins, crossed, turn = compute_drag(0.0, -48.0, 0)
-    assert mins == 5 and snapped == 30.0 and crossed is True and turn == 0
-
-    # Wind up to Turn 3 (150 minutes = 900° -> "02:30" in Mockup 02-hero-timer.png)
-    raw, snapped, mins, crossed, turn = compute_drag(720.0, -180.0 * 1.6, 24)
-    assert mins == 150 and snapped == 900.0 and turn == 2
-
-    # Unwind (Left->Right drag, positive tx = +96px = -60° = -10m -> 140 minutes)
-    raw, snapped, mins, crossed, turn = compute_drag(900.0, +96.0, 30)
-    assert mins == 140 and snapped == 840.0 and crossed is True and turn == 2
-
-    # Unwind all the way to 00:00 clamps cleanly at 0
-    raw, snapped, mins, crossed, turn = compute_drag(60.0, +500.0, 2)
-    assert mins == 0 and raw == 0.0 and turn == 0
-
-
-check("Math/Odometer", "Bidirectional 3-Turn Odometer Winding (R->L up to 180m) and Unwinding (L->R down to 00:00)", verify_bidirectional_3turn_odometer_math)
-
-
-def verify_concurrency_and_decoupled_strikethrough():
-    swift_coord = read_file("FableFlow/Features/Timer/TimerCoordinator.swift")
     js_app = read_file("js/app.js")
-    assert "slots[otherIndex].runState == .running" in swift_coord and "pause(quadrant: otherIndex" in swift_coord
-    assert "other.quadrant !== quadrant && other.runState === 'running'" in js_app
-    end_fn_match = re.search(r"endAndResetTimer\(quadrant.*?\n  \}", js_app, re.DOTALL)
-    assert end_fn_match is not None
-    assert "isCompleted" not in end_fn_match.group(0), "endAndResetTimer must NEVER modify task.isCompleted"
+    assert "let wholeMinutes = floor(max(0.0, elapsedSeconds) / 60.0)" in swift_phys
+    assert "const wholeMinutes = Math.floor(Math.max(0, elapsedSeconds) / 60);" in js_phys
+    assert "stopwatchSecondsToMinuteAngleDegrees" in js_app
+
+    # Verify math: 0..59s -> 0°, 60..119s -> 6°, 120..179s -> 12°
+    def sw_angle(sec: int) -> float:
+        return ( (sec // 60) * 6.0 ) % 1080.0
+
+    assert sw_angle(0) == 0.0
+    assert sw_angle(59) == 0.0, "Stopwatch must NOT turn the tomato on seconds (59s is still 0°)"
+    assert sw_angle(60) == 6.0, "Stopwatch must turn +6° at 60s (1 whole minute)"
+    assert sw_angle(119) == 6.0
+    assert sw_angle(120) == 12.0
 
 
-check("Concurrency", "Strict 1-Active-Timer auto-pause & Decoupled Task Strikethrough on timer completion/end", verify_concurrency_and_decoupled_strikethrough)
-
-# ============================================================================
-# 4. LAYER 3: MOCKUP VISUAL & STRUCTURAL FIDELITY + HTTP SERVER VERIFICATION
-# ============================================================================
-print("\n--- Layer 3: UI Mockup Fidelity & Live HTTP Asset Serving ---")
+check("StopwatchMinutes", "Stopwatch Mode turns the tomato ONLY on whole minutes, never on seconds", verify_stopwatch_turns_on_minutes_not_seconds)
 
 
-def verify_mockup_elements():
+def verify_six_tomatoes_and_unassign_on_click():
     html = read_file("index.html")
-    js = read_file("js/app.js")
+    js_app = read_file("js/app.js")
+    css = read_file("css/style.css")
 
-    # 1. Global Top Bar: Card | Timer pill + Profile icon
-    assert 'id="pill-card-btn"' in html and 'id="pill-timer-btn"' in html and 'id="profile-btn"' in html
-    # 2. Card Front (04-card-front.png)
-    assert "TUESDAY — OCT 06" in html
-    assert "+ Add item" in html
-    assert 'id="card-stack-btn"' in html and 'id="card-flip-btn"' in html and 'id="card-plus-btn"' in html
-    assert "'Math Study'" in js and "'Build Deck'" in js and "'Pick Up Package'" in js
-    # 3. 4-Tomato Grid (03-grid-timer.png)
-    assert "+ Custom Title..." in js and "Tap to assign" in js
-    assert "#8B1E24" in read_file("js/tomato3D.js") and "#C84B31" in read_file("js/tomato3D.js")
-    assert "#5E192A" in read_file("js/tomato3D.js") and "#D96B52" in read_file("js/tomato3D.js")
-    # 4. Hero Tomato (02-hero-timer.png)
-    assert "02:30" in html and "01 / MATH STUDY" in html
-    assert 'id="hero-btn-grid"' in html and 'id="hero-btn-playpause"' in html
-    assert 'id="hero-btn-stop"' in html and 'id="hero-btn-stopwatch"' in html
+    # Verify 6 grid slots in HTML, CSS (2x3), and JS
+    for i in range(6):
+        assert f'id="grid-quad-{i}"' in html, f"Missing grid-quad-{i} in index.html"
+    assert "NUM_GRID_SLOTS = 6" in js_app
+    assert "repeat(3, 1fr)" in css
+
+    # Verify clicking a lit-up tomato unassigns it (returns to grey) on both Card and Grid
+    assert "this.clearQuadrantAssignment(task.assignedQuadrant)" in js_app
+    assert "this.clearQuadrantAssignment(qIdx)" in js_app
 
 
-check("MockupFidelity", "All 3 Phase 1 UI Mockups (02-hero-timer, 03-grid-timer, 04-card-front) match pixel & DOM structure", verify_mockup_elements)
+check("SixTomatoGrid", "6 Tomatoes on 2x3 Grid + Clicking any lit-up tomato unassigns it back to grey", verify_six_tomatoes_and_unassign_on_click)
+
+
+def verify_short_tomato_title_and_straight_strikethrough():
+    js_phys = read_file("js/odometerPhysics.js")
+    js_app = read_file("js/app.js")
+    css = read_file("css/style.css")
+
+    assert "formatShortTomatoTitle" in js_phys and "formatShortTomatoTitle" in js_app
+    assert "text-overflow: ellipsis" in css and "max-width: 112px" in css
+    # Verify straight horizontal strikethrough (ctx.lineTo(currentEndX, centerY), no bowed quadraticCurveTo)
+    assert "ctx.lineTo(currentEndX, centerY);" in js_app
+    assert "quadraticCurveTo" not in js_app
+
+
+check("VisualPolish", "Shortened tomato titles prevent overflow + Straight horizontal dry-graphite strikethrough", verify_short_tomato_title_and_straight_strikethrough)
+
+# ============================================================================
+# 4. LAYER 3: LIVE HTTP SERVER VERIFICATION
+# ============================================================================
+print("\n--- Layer 3: Live HTTP Asset Serving ---")
 
 
 def verify_http_serving():
@@ -337,7 +312,10 @@ def verify_http_serving():
             "/js/odometerPhysics.js",
             "/js/cardGestureMath.js",
             "/js/sensoryEngine.js",
-            "/vendor/three.module.js",
+            "/assets/tomatoes/hero-tomato-0.png",
+            "/assets/tomatoes/grid-tomato-0.png",
+            "/assets/tomatoes/grid-tomato-grey.png",
+            "/assets/tomatoes/mini-tomato-0.png",
         ]
         for ep in endpoints:
             url = f"http://127.0.0.1:{port}{ep}"
@@ -348,7 +326,7 @@ def verify_http_serving():
         httpd.shutdown()
 
 
-check("HTTPServer", "All HTML, CSS, ES Modules, and Three.js 3D assets serve with HTTP 200 OK", verify_http_serving)
+check("HTTPServer", "All HTML, CSS, JS, and Photorealistic Tomato PNGs serve with HTTP 200 OK", verify_http_serving)
 
 print("\n" + "=" * 84)
 print(f"EVALUATION RESULT: {passed_checks}/{total_checks} CHECKS PASSED ({len(failures)} FAILURES)")

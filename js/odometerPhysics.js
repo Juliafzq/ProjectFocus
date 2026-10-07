@@ -2,13 +2,11 @@
  * OdometerDialPhysics — Pure math & state machine for the 3-Turn Bidirectional
  * Heirloom Tomato Odometer Dial (0..180 minutes, 5-minute / 30° ratchet notches).
  *
- * Rules from PRD v4 & Mockup 02-hero-timer.png:
+ * Rules from PRD v4 & User Feedback:
  * - Dragging Right -> Left (negative deltaX) winds the timer UP (+5 min per 30° notch, max 180 min).
  * - Dragging Left -> Right (positive deltaX) unwinds the timer DOWN (-5 min per 30° notch, min 0 min).
- * - Turn 1: 0..60 min (angle 0..360°)
- * - Turn 2: 65..120 min (angle 360..720°)
- * - Turn 3: 125..180 min (angle 720..1080°)
- * - Readout formats as HH:MM when >= 60 min (e.g. 150 min -> "02:30", 45 min -> "00:45" in grid or MM:SS when ticking < 60m).
+ * - In Stopwatch Mode, the tomato turns ON THE MINUTES, NOT SECONDS (steps +6° every full 60s minute).
+ * - On the tomato body, only show the first few words so the text never overflows.
  */
 
 export class OdometerDialPhysics {
@@ -73,7 +71,7 @@ export class OdometerDialPhysics {
   }
 
   /**
-   * Convert remaining seconds to total continuous angle in degrees (0..1080°).
+   * Convert remaining countdown seconds to total angle in degrees (0..1080°).
    */
   static secondsToAngleDegrees(seconds) {
     const clampedSeconds = Math.min(
@@ -84,9 +82,36 @@ export class OdometerDialPhysics {
   }
 
   /**
+   * In Stopwatch Mode, the tomato turns ON THE MINUTES, NOT SECONDS:
+   * Only advances by 6° (1 minute mark) for each completed 60-second minute.
+   */
+  static stopwatchSecondsToMinuteAngleDegrees(elapsedSeconds) {
+    const wholeMinutes = Math.floor(Math.max(0, elapsedSeconds) / 60);
+    return (wholeMinutes * OdometerDialPhysics.DEGREES_PER_MINUTE) % OdometerDialPhysics.MAX_ANGLE_DEGREES;
+  }
+
+  /**
+   * Truncates a task title to the first few words so text never overflows on a tomato body.
+   */
+  static formatShortTomatoTitle(rawTitle, maxWords = 2, maxChars = 13) {
+    const cleaned = String(rawTitle || '').trim().replace(/\s+/g, ' ');
+    if (!cleaned) return '';
+    const words = cleaned.split(' ');
+    let candidate = words.slice(0, maxWords).join(' ');
+    const hadMoreWords = words.length > maxWords;
+
+    if (candidate.length > maxChars) {
+      candidate = candidate.slice(0, maxChars - 1).trimEnd() + '…';
+    } else if (hadMoreWords) {
+      if (candidate.length + 1 <= maxChars + 1) {
+        candidate += '…';
+      }
+    }
+    return candidate.toUpperCase();
+  }
+
+  /**
    * Format readout to match Mockups 02-hero-timer.png ("02:30" for 150 min) and 03-grid-timer.png ("00:45" for 45 min).
-   * - When exact whole minutes are displayed (or >= 60 minutes), mockup shows HH:MM (e.g., 150 min -> 02:30, 45 min -> 00:45).
-   * - When actively ticking with non-zero seconds remaining, we also provide a live seconds indicator or HH:MM / MM:SS option.
    */
   static formatMockupReadout(totalSeconds, mode = 'mockup_hhmm') {
     const clamped = Math.max(0, Math.floor(totalSeconds));
@@ -94,13 +119,11 @@ export class OdometerDialPhysics {
     const remSeconds = clamped % 60;
 
     if (mode === 'mockup_hhmm') {
-      // If exact minute boundary or >= 60 minutes, format as HH:MM (02:30 = 2h 30m, 00:45 = 0h 45m)
       if (remSeconds === 0 || totalMinutes >= 60) {
         const hours = Math.floor(totalMinutes / 60);
         const mins = totalMinutes % 60;
         return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
       }
-      // Sub-hour actively ticking with seconds: show MM:SS so user sees live second-by-second countdown
       return `${String(totalMinutes).padStart(2, '0')}:${String(remSeconds).padStart(2, '0')}`;
     }
 

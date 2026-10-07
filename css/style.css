@@ -1,17 +1,17 @@
 /*
- * Fable / Flow — Phase 1 Beta ("Core Tactile Loop") Stylesheet
- * Follows UI Mockups 02-hero-timer.png, 03-grid-timer.png, and 04-card-front.png exactly.
+ * Fable / Flow — Project Focus Beta (Phase 1) Stylesheet
+ * Follows UI Mockups 02-hero-timer.png, 03-grid-timer.png, and 04-card-front.png pixel-for-pixel.
  */
 
 :root {
-  --canvas-bg: #E7E5DE;
-  --card-surface: #FAF9F5;
-  --ink-primary: #0F0F0F;
+  --canvas-bg: #E9E8E2;
+  --card-surface: #FFFFFF;
+  --ink-primary: #0D0D0D;
   --ink-secondary: #6E6D68;
   --ink-placeholder: #B4B2AB;
   --hairline-crosshair: #9D9B95;
-  --card-divider: #E3E1DA;
-  --dot-grid-color: #CFCdc5;
+  --card-divider: #E5E4DE;
+  --dot-grid-color: #D4D2CA;
 }
 
 * {
@@ -24,8 +24,7 @@
 html, body {
   width: 100%;
   min-height: 100vh;
-  background-color: #DCD9D0;
-  background-image: radial-gradient(circle at 50% 25%, #E7E5DE 0%, #D5D2C8 100%);
+  background-color: #DAD8D0;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Helvetica Neue", sans-serif;
   color: var(--ink-primary);
   display: flex;
@@ -37,7 +36,7 @@ html, body {
 }
 
 /* =========================================================================
-   MOBILE VIEWPORT SHELL (Matches exact aspect ratio of UI Mockups)
+   MOBILE VIEWPORT SHELL (Exact #E9E8E2 Background Matching Mockup Sprites)
    ========================================================================= */
 
 .app-viewport {
@@ -46,19 +45,14 @@ html, body {
   max-width: 430px;
   height: 852px;
   background-color: var(--canvas-bg);
-  /* Subtle warm stone paper grain */
-  background-image:
-    radial-gradient(rgba(255,255,255,0.35) 1px, transparent 0),
-    linear-gradient(180deg, #EAE8E1 0%, #E4E2DA 100%);
-  background-size: 24px 24px, 100% 100%;
   border-radius: 38px;
   box-shadow:
-    0 28px 70px rgba(20, 19, 16, 0.22),
+    0 28px 70px rgba(20, 19, 16, 0.20),
     0 0 0 1px rgba(255, 255, 255, 0.55) inset;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  margin: 18px auto;
+  margin: 14px auto 10px;
 }
 
 @media (max-width: 480px) {
@@ -82,8 +76,8 @@ html, body {
 .global-top-bar {
   position: relative;
   width: 100%;
-  height: 86px;
-  padding: 24px 26px 10px;
+  height: 82px;
+  padding: 22px 26px 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -92,12 +86,12 @@ html, body {
 }
 
 .segmented-pill {
-  width: 236px;
-  height: 46px;
+  width: 232px;
+  height: 44px;
   border-radius: 999px;
   border: 1.5px solid #B2B0A9;
-  background: rgba(255, 255, 255, 0.18);
-  padding: 2.5px;
+  background: transparent;
+  padding: 2px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
@@ -108,24 +102,23 @@ html, body {
   border: none;
   background: transparent;
   border-radius: 999px;
-  font-size: 17px;
+  font-size: 16.5px;
   font-weight: 500;
   color: #5E5D59;
   cursor: pointer;
-  transition: background-color 0.2s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 .pill-segment-btn.active {
-  background-color: #080808;
+  background-color: #050505;
   color: #FFFFFF;
   font-weight: 500;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
 .profile-icon-btn {
   position: absolute;
   right: 28px;
-  top: 29px;
+  top: 27px;
   width: 36px;
   height: 36px;
   border: none;
@@ -181,10 +174,10 @@ html, body {
   position: absolute;
   inset: 0;
   background-color: var(--card-surface);
-  border-radius: 15px;
+  border-radius: 14px;
   box-shadow:
-    0 20px 44px rgba(24, 22, 18, 0.10),
-    0 3px 10px rgba(24, 22, 18, 0.05);
+    0 20px 42px rgba(24, 22, 18, 0.09),
+    0 3px 10px rgba(24, 22, 18, 0.04);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   display: flex;
@@ -208,14 +201,15 @@ html, body {
   font-size: 25.5px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #0D0D0D;
+  color: #0B0B0B;
   line-height: 1.1;
 }
 
 .card-dot-grid-body {
   flex: 1;
   position: relative;
-  padding: 20px 0 16px;
+  padding: 18px 0 16px;
+  background-color: #FFFFFF;
   /* Subtle 22px dot-grid matching Mockup 04-card-front.png */
   background-image: radial-gradient(var(--dot-grid-color) 1.35px, transparent 1.35px);
   background-size: 22px 22px;
@@ -226,7 +220,7 @@ html, body {
 .task-list-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .task-row {
@@ -234,7 +228,7 @@ html, body {
   display: grid;
   grid-template-columns: 44px 1fr 38px;
   align-items: start;
-  padding: 11px 26px;
+  padding: 11px 24px 11px 26px;
   cursor: ew-resize;
   touch-action: pan-y;
 }
@@ -242,7 +236,7 @@ html, body {
 .task-index {
   font-size: 25px;
   font-weight: 450;
-  color: #111111;
+  color: #0F0F0F;
   line-height: 1.24;
   font-variant-numeric: tabular-nums;
 }
@@ -250,38 +244,51 @@ html, body {
 .task-title {
   font-size: 25px;
   font-weight: 450;
-  color: #111111;
+  color: #0F0F0F;
   line-height: 1.24;
   padding-right: 12px;
   word-break: break-word;
 }
 
+/*
+ * Realistic Graphite Pencil Strikethrough Canvas
+ * Aligned straight horizontally across the middle of the first line of text ("02 Build Deck")
+ * matching Mockup 04-card-front.png exactly.
+ */
 .pencil-strike-canvas {
   position: absolute;
   left: 22px;
-  top: 4px;
-  width: calc(100% - 92px);
-  height: 44px;
+  top: 19px;
+  width: 262px;
+  height: 16px;
   pointer-events: none;
   z-index: 4;
 }
 
 .task-tomato-btn {
   width: 34px;
-  height: 32px;
+  height: 34px;
   border: none;
   background: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 1px;
-  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  margin-top: -1px;
+  transition: transform 0.15s ease;
   z-index: 5;
 }
 
 .task-tomato-btn:hover {
-  transform: scale(1.14);
+  transform: scale(1.12);
+}
+
+.task-mini-tomato-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  display: block;
+  border-radius: 50%;
 }
 
 .add-item-row {
@@ -299,7 +306,7 @@ html, body {
 
 /* Card Bottom Action Bar: [Stack] [Flip] [+] */
 .card-bottom-bar {
-  height: 96px;
+  height: 94px;
   padding: 0 66px 14px;
   display: flex;
   align-items: center;
@@ -327,41 +334,16 @@ html, body {
 }
 
 /* =========================================================================
-   SCREEN 2: 4-POMODORO 2x2 GRID VIEW (Mockup 03-grid-timer.png)
+   SCREEN 2: 6-POMODORO 2x3 GRID VIEW (Mockup 03-grid-timer.png + 6 Slots)
    ========================================================================= */
 
-.four-tomato-grid {
+.six-tomato-grid {
   flex: 1;
-  margin: 12px 16px 32px;
+  margin: 4px 16px 20px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
   position: relative;
-}
-
-/* Thin continuous horizontal and vertical crosshairs (+) */
-.four-tomato-grid::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  background-color: var(--hairline-crosshair);
-  transform: translateX(-0.5px);
-  pointer-events: none;
-}
-
-.four-tomato-grid::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-  background-color: var(--hairline-crosshair);
-  transform: translateY(-0.5px);
-  pointer-events: none;
 }
 
 .grid-quadrant {
@@ -369,19 +351,31 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 20px 8px 12px;
+  justify-content: center;
+  padding: 6px 4px;
+  border-right: 1px solid var(--hairline-crosshair);
+  border-bottom: 1px solid var(--hairline-crosshair);
+}
+
+/* Remove outer right border on right-column cells (1, 3, 5) */
+.grid-quadrant:nth-child(2n) {
+  border-right: none;
+}
+
+/* Remove bottom border on bottom-row cells (4, 5) */
+.grid-quadrant:nth-child(n+5) {
+  border-bottom: none;
 }
 
 .grid-tomato-wrap {
   position: relative;
-  width: 178px;
-  height: 164px;
+  width: 158px;
+  height: 146px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .grid-tomato-wrap:hover {
@@ -392,7 +386,6 @@ html, body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(8px 14px 16px rgba(28, 22, 18, 0.16));
   pointer-events: none;
 }
 
@@ -408,51 +401,58 @@ html, body {
   pointer-events: none;
 }
 
+/* Strictly constrain title to first few words inside the tomato belly without overflow */
 .grid-tomato-title {
-  pointer-events: auto;
-  font-size: 13.5px;
+  pointer-events: none;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.94);
-  margin-bottom: 3px;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.grid-tomato-title:hover {
-  background: rgba(0, 0, 0, 0.18);
+  margin-bottom: 1px;
 }
 
 .grid-tomato-time {
-  font-size: 30px;
+  pointer-events: auto;
+  font-size: 26px;
   font-weight: 450;
   letter-spacing: 0.01em;
   color: #FFFFFF;
   font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.grid-tomato-time:hover {
+  background-color: rgba(0, 0, 0, 0.18);
 }
 
 .grid-tap-to-assign {
-  font-size: 16.5px;
+  font-size: 15px;
   font-weight: 450;
-  color: rgba(244, 242, 238, 0.88);
+  color: rgba(244, 242, 238, 0.92);
   letter-spacing: 0.01em;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .grid-controls-row {
-  margin-top: 26px;
-  height: 36px;
+  margin-top: 6px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 54px;
+  gap: 38px;
 }
 
 .grid-ctrl-btn {
   border: none;
   background: transparent;
   cursor: pointer;
-  padding: 4px;
+  padding: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -460,21 +460,21 @@ html, body {
 }
 
 .grid-ctrl-btn:hover {
-  transform: scale(1.12);
+  transform: scale(1.14);
 }
 
 /* Task Assignment Floating Dropdown (Matches Mockup 03-grid-timer.png) */
 .task-assign-dropdown {
   position: absolute;
-  top: 56px;
+  top: 42px;
   left: 50%;
   transform: translateX(-50%);
-  width: 170px;
+  width: 168px;
   border-radius: 9px;
   overflow: hidden;
   border: 1.5px solid #141414;
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
-  z-index: 30;
+  z-index: 40;
   background-color: #FFFFFF;
 }
 
@@ -483,8 +483,8 @@ html, body {
   background-color: #0E0E0E;
   color: #FFFFFF;
   border: none;
-  padding: 10px 11px;
-  font-size: 13.5px;
+  padding: 9px 11px;
+  font-size: 13px;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -501,6 +501,8 @@ html, body {
   display: flex;
   flex-direction: column;
   background-color: #FFFFFF;
+  max-height: 150px;
+  overflow-y: auto;
 }
 
 .dropdown-task-item {
@@ -509,11 +511,14 @@ html, body {
   border-top: 1px solid #EAE8E1;
   background: #FFFFFF;
   color: #111111;
-  padding: 10px 11px;
-  font-size: 14.5px;
+  padding: 9px 11px;
+  font-size: 14px;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dropdown-task-item:first-child {
@@ -522,11 +527,6 @@ html, body {
 
 .dropdown-task-item:hover {
   background-color: #F4F2EC;
-}
-
-.dropdown-clear-item {
-  color: #8B1E24;
-  font-size: 13px;
 }
 
 /* =========================================================================
@@ -538,30 +538,34 @@ html, body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 12px 26px 28px;
+  padding: 8px 26px 26px;
 }
 
 .hero-readout-block {
-  padding-top: 8px;
+  padding-top: 4px;
 }
 
 .hero-digital-readout {
-  font-size: 106px;
+  font-size: 108px;
   font-weight: 800;
   letter-spacing: -0.035em;
-  line-height: 0.96;
-  color: #0B0B0B;
+  line-height: 0.95;
+  color: #080808;
   font-variant-numeric: tabular-nums;
 }
 
 .hero-task-subtitle {
-  margin-top: 12px;
+  margin-top: 10px;
   font-size: 24px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: #121212;
+  color: #111111;
   cursor: pointer;
   display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hero-task-subtitle:hover {
@@ -571,36 +575,24 @@ html, body {
 .hero-tomato-stage-wrap {
   position: relative;
   width: 100%;
-  height: 350px;
+  height: 365px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 .hero-tomato-stage {
-  width: 360px;
-  height: 335px;
+  width: 378px;
+  height: 328px;
   cursor: ew-resize;
   touch-action: none;
-  /* Realistic warm studio drop shadow to bottom-right matching Mockup 02-hero-timer.png */
-  filter: drop-shadow(20px 30px 28px rgba(36, 26, 20, 0.22));
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.hero-wind-hint {
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 11.5px;
-  font-weight: 500;
-  color: #8A8881;
-  letter-spacing: 0.03em;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-/* Hero Bottom Control Bar: [2x2 Grid] [Play/Pause] [End/Stop] [Stopwatch] */
+/* Hero Bottom Control Bar: [Grid] [Play/Pause] [End/Stop] [Stopwatch] */
 .hero-bottom-bar {
   height: 76px;
   padding: 0 28px;
@@ -768,9 +760,9 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   padding: 8px 14px;
-  background: rgba(250, 249, 245, 0.9);
+  background: rgba(250, 249, 245, 0.92);
   border: 1px solid #C8C6BE;
   border-radius: 999px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);

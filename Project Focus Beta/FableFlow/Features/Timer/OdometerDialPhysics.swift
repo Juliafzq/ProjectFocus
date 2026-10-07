@@ -61,10 +61,24 @@ public enum OdometerDialPhysics {
         return (clamped / Double(maxDurationSeconds)) * maxCumulativeAngleDegrees
     }
 
-    /// In Count-Up Stopwatch Mode, advances forward at 1 minute notch (+6°) per elapsed minute.
+    /// In Count-Up Stopwatch Mode, advances forward ONLY on whole minutes (+6° per completed minute, not seconds).
     public static func forwardAngleDegrees(forStopwatchElapsedSeconds elapsedSeconds: Double) -> Double {
-        let elapsedMinutes = max(0.0, elapsedSeconds) / 60.0
-        return elapsedMinutes * 6.0
+        let wholeMinutes = floor(max(0.0, elapsedSeconds) / 60.0)
+        return (wholeMinutes * 6.0).truncatingRemainder(dividingBy: maxCumulativeAngleDegrees)
+    }
+
+    /// Truncates a task title to the first few words so text never overflows on a tomato body.
+    public static func formatShortTomatoTitle(_ rawTitle: String, maxWords: Int = 2, maxChars: Int = 13) -> String {
+        let words = rawTitle.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        guard !words.isEmpty else { return "" }
+        var candidate = words.prefix(maxWords).joined(separator: " ")
+        let hadMoreWords = words.count > maxWords
+        if candidate.count > maxChars {
+            candidate = String(candidate.prefix(maxChars - 1)).trimmingCharacters(in: .whitespaces) + "…"
+        } else if hadMoreWords {
+            candidate += "…"
+        }
+        return candidate.uppercased()
     }
 
     /// Returns 0 for Turn 1 (0–60 mins), 1 for Turn 2 (65–120 mins), 2 for Turn 3 (125–180 mins).

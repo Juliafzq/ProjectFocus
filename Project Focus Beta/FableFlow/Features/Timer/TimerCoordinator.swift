@@ -28,7 +28,7 @@ public final class TimerCoordinator {
     }
 
     public func slot(forQuadrant quadrant: Int) -> TomatoTimerSlot {
-        let clamped = min(max(quadrant, 0), 3)
+        let clamped = min(max(quadrant, 0), 5)
         return slots[clamped]
     }
 
@@ -108,9 +108,9 @@ public final class TimerCoordinator {
 
     /// Starts (`Play ▶`) the specified quadrant and automatically pauses any other running timer.
     public func play(quadrant: Int, at now: Date = .now) {
-        let clamped = min(max(quadrant, 0), 3)
+        let clamped = min(max(quadrant, 0), 5)
         // Enforce 1-active-timer rule: pause all other running timers first.
-        for otherIndex in 0..<4 where otherIndex != clamped {
+        for otherIndex in 0..<slots.count where otherIndex != clamped {
             if slots[otherIndex].runState == .running {
                 pause(quadrant: otherIndex, at: now)
             }
@@ -204,12 +204,12 @@ public final class TimerCoordinator {
             sortBy: [SortDescriptor(\TomatoTimerSlot.quadrantIndex, order: .forward)]
         )
         let existing = (try? modelContext.fetch(descriptor)) ?? []
-        if existing.count == 4 {
+        if existing.count == 6 {
             self.slots = existing
             return
         }
         var created: [TomatoTimerSlot] = []
-        for idx in 0..<4 {
+        for idx in 0..<6 {
             let slot = TomatoTimerSlot(quadrantIndex: idx)
             modelContext.insert(slot)
             created.append(slot)
