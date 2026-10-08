@@ -152,9 +152,27 @@ public final class TimerCoordinator {
         try? modelContext.save()
     }
 
-    /// Ends (`End / Reset ■`) the focus session and resets the clock back to `00:00`.
-    /// Intentionally decoupled from task completion: NEVER crosses out the corresponding task on Today's Card.
-    public func endAndReset(quadrant: Int) {
+    /// Handles the two-step End (`■`) -> Silver Metallic (`.completed`) -> Reset (`↺`) lifecycle:
+    /// - When not `.completed`: transitions the tomato into Satin Silver Metallic (`.completed`) without clearing its time.
+    /// - When already `.completed`: resets the timer to `00:00` and returns the tomato to its heirloom color (`.idle`).
+    public func endAndReset(quadrant: Int, at now: Date = .now) {
+        let targetSlot = slot(forQuadrant: quadrant)
+        notificationScheduler.cancelCompletionChime(forQuadrant: quadrant)
+        if targetSlot.runState == .completed {
+            resetCompletedTimer(quadrant: quadrant)
+        } else {
+            if targetSlot.runState == .running {
+                targetSlot.pausedRemainingOrElapsedSeconds = targetSlot.currentSeconds(at: now)
+            }
+            targetSlot.targetEndDate = nil
+            targetSlot.anchorStartDate = nil
+            targetSlot.runState = .completed
+            sensoryEngine.playTimerCompletionChime()
+            try? modelContext.save()
+        }
+    }
+
+    public func resetCompletedTimer(quadrant: Int) {
         let targetSlot = slot(forQuadrant: quadrant)
         notificationScheduler.cancelCompletionChime(forQuadrant: quadrant)
         targetSlot.runState = .idle
@@ -188,7 +206,7 @@ public final class TimerCoordinator {
             let item = slots[index]
             if item.mode == .countdown && item.runState == .running {
                 if item.currentSeconds(at: now) <= 0 {
-                    item.runState = .idle
+                    item.runState = .completed
                     item.pausedRemainingOrElapsedSeconds = 0
                     item.targetEndDate = nil
                     notificationScheduler.cancelCompletionChime(forQuadrant: index)

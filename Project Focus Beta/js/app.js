@@ -337,7 +337,7 @@ export class FableFlowApp {
     });
 
     this.els.heroBtnStop.addEventListener('click', () => {
-      this.endAndResetTimer(this.state.selectedQuadrant, false);
+      this.handleEndOrResetButton(this.state.selectedQuadrant);
     });
 
     this.els.heroBtnStopwatch.addEventListener('click', () => {
@@ -468,6 +468,9 @@ export class FableFlowApp {
         this.sensory.playDialRatchetNotch(isWindingUp);
       }
 
+      if (slot.runState === 'completed') {
+        slot.runState = 'idle';
+      }
       slot.angleDegrees = update.rawAngleDegrees;
       slot.configuredMinutes = update.snappedMinutes;
       slot.remainingSeconds = update.snappedMinutes * 60;
@@ -478,7 +481,8 @@ export class FableFlowApp {
       this.hero3D.updateOdometer(
         slot.angleDegrees,
         slot.quadrant,
-        Boolean(slot.assignedTaskId || slot.customTitle)
+        Boolean(slot.assignedTaskId || slot.customTitle),
+        slot.runState === 'completed'
       );
     });
 
@@ -547,7 +551,8 @@ export class FableFlowApp {
         this.hero3D.updateOdometer(
           parsedMins * OdometerDialPhysics.DEGREES_PER_MINUTE,
           slot.quadrant,
-          isAssigned
+          isAssigned,
+          false
         );
       }
     });
@@ -685,9 +690,9 @@ export class FableFlowApp {
             anyUpdated = true;
 
             if (slot.remainingSeconds === 0) {
-              this.endAndResetTimer(slot.quadrant, true);
+              this.endTimerToSilver(slot.quadrant, true);
               this.showNotificationBanner(
-                `Pomodoro completed for "${(slot.customTitle || 'Timer').toUpperCase()}"! Dial reset to 00:00.`
+                `Pomodoro completed for "${(slot.customTitle || 'Timer').toUpperCase()}"! Tap Reset (↺) to reset tomato.`
               );
             }
           }
@@ -752,24 +757,65 @@ export class FableFlowApp {
     this.renderAll();
   }
 
-  endAndResetTimer(quadrant, completedNaturally = false) {
+  /**
+   * Handles the End (■) / Reset (↺) button:
+   * - Step 1 (End): When the timer is running, paused, or idle, clicking End (■) transitions
+   *   the tomato smoothly into a Silver Metallic tomato (`runState = 'completed'`) WITHOUT
+   *   clearing its time, preventing accidental clearing. The End button then becomes a Reset (↺) button.
+   * - Step 2 (Reset): When the tomato is already in the Silver Metallic (`'completed'`) state,
+   *   clicking the Reset (↺) button clears and resets the timer to 00:00 and smoothly transitions
+   *   the tomato back to its heirloom color.
+   */
+  handleEndOrResetButton(quadrant) {
+    const slot = this.state.timers[quadrant];
+    if (!slot) return;
+
+    if (slot.runState === 'completed') {
+      this.resetCompletedTimer(quadrant);
+    } else {
+      this.endTimerToSilver(quadrant, false);
+    }
+  }
+
+  endTimerToSilver(quadrant, completedNaturally = false) {
     this.closeHeroTimeEditorDOM();
     const slot = this.state.timers[quadrant];
     if (!slot) return;
 
+    slot._justTransitionedSilver = slot.runState !== 'completed';
+    slot.runState = 'completed';
+    slot.lastTickTimestamp = null;
+
+    this.sensory.playCompletionChime();
+    if (!completedNaturally) {
+      this.showTelemetryToast('Timer ended (Silver Metallic) — tap Reset (↺) to reset to 00:00');
+    }
+
+    this.saveState();
+    this.renderAll();
+  }
+
+  resetCompletedTimer(quadrant) {
+    this.closeHeroTimeEditorDOM();
+    const slot = this.state.timers[quadrant];
+    if (!slot) return;
+
+    slot._justTransitionedFromSilver = slot.runState === 'completed';
     slot.runState = 'idle';
     slot.remainingSeconds = 0;
     slot.configuredMinutes = 0;
     slot.angleDegrees = 0.0;
     slot.lastTickTimestamp = null;
 
-    this.sensory.playCompletionChime();
-    if (!completedNaturally) {
-      this.showTelemetryToast('Timer ended & reset to 00:00 (Card task untouched)');
-    }
+    this.sensory.playDialRatchetNotch(false);
+    this.showTelemetryToast('Tomato reset to 00:00');
 
     this.saveState();
     this.renderAll();
+  }
+
+  endAndResetTimer(quadrant, completedNaturally = false) {
+    this.endTimerToSilver(quadrant, completedNaturally);
   }
 
   toggleStopwatchMode(quadrant) {
@@ -992,9 +1038,13 @@ export class FableFlowApp {
 
       const miniImg = document.createElement('img');
       miniImg.className = 'task-mini-tomato-img';
-      miniImg.src = this.gridRenderer.getMiniDataURL(
-        isLit ? task.assignedQuadrant : 'unassigned'
-      );
+      const assignedSlot = isLit ? this.state.timers[task.assignedQuadrant] : null;
+      const miniPaletteKey = !isLit
+        ? 'unassigned'
+        : assignedSlot && assignedSlot.runState === 'completed'
+        ? 'completed'
+        : task.assignedQuadrant;
+      miniImg.src = this.gridRenderer.getMiniDataURL(miniPaletteKey);
       miniImg.alt = isLit ? 'Assigned Tomato' : 'Unassigned Grey Tomato';
       tomatoBtn.appendChild(miniImg);
 
@@ -1157,8 +1207,10 @@ export class FableFlowApp {
       if (!quadEl) return;
 
       const isAssigned = Boolean(slot.assignedTaskId || slot.customTitle);
+      const isCompleted = slot.runState === 'completed';
       const paletteKey = isAssigned ? qIdx : 'unassigned';
       const imgDataUrl = this.gridRenderer.getDataURL(paletteKey);
+      const silverImgDataUrl = this.gridRenderer.getDataURL('completed');
 
       const readoutText = OdometerDialPhysics.formatMockupReadout(
         slot.remainingSeconds
@@ -1176,13 +1228,44 @@ export class FableFlowApp {
       const tomatoWrap = document.createElement('div');
       tomatoWrap.className = 'grid-tomato-wrap';
 
+      if (isAssigned && isCompleted && !slot._justTransitionedSilver) {
+        tomatoWrap.classList.add('is-silver-completed');
+      } else if (isAssigned && !isCompleted && slot._justTransitionedFromSilver) {
+        tomatoWrap.classList.add('is-silver-completed');
+      }
+
       const img = document.createElement('img');
-      img.className = 'grid-tomato-img';
+      img.className = 'grid-tomato-img grid-tomato-base-img';
       img.src = imgDataUrl;
       img.alt = isAssigned
         ? `${shortTitleText} Tomato Timer`
         : 'Unassigned Tomato Timer';
       tomatoWrap.appendChild(img);
+
+      if (isAssigned) {
+        const silverImg = document.createElement('img');
+        silverImg.className = 'grid-tomato-img grid-tomato-silver-img';
+        silverImg.src = silverImgDataUrl;
+        silverImg.alt = '';
+        silverImg.setAttribute('aria-hidden', 'true');
+        tomatoWrap.appendChild(silverImg);
+      }
+
+      if (slot._justTransitionedSilver) {
+        slot._justTransitionedSilver = false;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            tomatoWrap.classList.add('is-silver-completed');
+          });
+        });
+      } else if (slot._justTransitionedFromSilver) {
+        slot._justTransitionedFromSilver = false;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            tomatoWrap.classList.remove('is-silver-completed');
+          });
+        });
+      }
 
       const overlay = document.createElement('div');
       overlay.className = 'grid-tomato-overlay';
@@ -1258,11 +1341,19 @@ export class FableFlowApp {
         const stopBtn = document.createElement('button');
         stopBtn.type = 'button';
         stopBtn.className = 'grid-ctrl-btn';
-        stopBtn.setAttribute('aria-label', 'End and Reset Timer');
-        stopBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.5" fill="#0F0F0F"/></svg>`;
+        stopBtn.setAttribute(
+          'aria-label',
+          isCompleted ? 'Reset Timer to 00:00' : 'End Timer (Turn Silver Metallic)'
+        );
+        stopBtn.title = isCompleted
+          ? 'Reset Tomato Timer to 00:00'
+          : 'End Timer (Turns tomato Silver Metallic without clearing)';
+        stopBtn.innerHTML = isCompleted
+          ? `<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M4.8 9.8C6.2 6.1 9.8 3.6 13.8 3.6C18.9 3.6 22.4 7.8 22.4 12.6C22.4 17.6 18.4 21.4 13.5 21.4C9.5 21.4 6.1 18.9 4.9 15.3" stroke="#0F0F0F" stroke-width="2.3" stroke-linecap="round"/><path d="M3.5 4.5V10.3H9.3" stroke="#0F0F0F" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+          : `<svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.5" fill="#0F0F0F"/></svg>`;
         stopBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.endAndResetTimer(qIdx, false);
+          this.handleEndOrResetButton(qIdx);
         });
 
         controlsRow.appendChild(playPauseBtn);
@@ -1347,14 +1438,33 @@ export class FableFlowApp {
     }
 
     const isAssigned = Boolean(slot.assignedTaskId || slot.customTitle);
+    const isCompleted = slot.runState === 'completed';
     if (this.hero3D) {
-      this.hero3D.updateOdometer(slot.angleDegrees, slot.quadrant, isAssigned);
+      this.hero3D.updateOdometer(
+        slot.angleDegrees,
+        slot.quadrant,
+        isAssigned,
+        isCompleted
+      );
     }
 
     this.els.heroBtnPlayPause.innerHTML =
       slot.runState === 'running'
         ? `<svg width="36" height="44" viewBox="0 0 36 44"><rect x="4" y="2" width="10" height="40" rx="3" fill="#0F0F0F"/><rect x="22" y="2" width="10" height="40" rx="3" fill="#0F0F0F"/></svg>`
         : `<svg width="36" height="44" viewBox="0 0 36 44"><path d="M6 3 L33 22 L6 41 Z" fill="#0F0F0F" stroke="#0F0F0F" stroke-width="2" stroke-linejoin="round"/></svg>`;
+
+    if (this.els.heroBtnStop) {
+      this.els.heroBtnStop.setAttribute(
+        'aria-label',
+        isCompleted ? 'Reset Timer to 00:00' : 'End Timer (Turn Silver Metallic)'
+      );
+      this.els.heroBtnStop.title = isCompleted
+        ? 'Reset Tomato Timer to 00:00'
+        : 'End Timer (Turns tomato Silver Metallic without clearing)';
+      this.els.heroBtnStop.innerHTML = isCompleted
+        ? `<svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M7.5 14.5C9.5 9.2 14.6 5.5 20.5 5.5C28.2 5.5 33.5 11.8 33.5 18.8C33.5 26.2 27.6 31.8 20.2 31.8C14.2 31.8 9.2 28.1 7.4 22.8" stroke="#0F0F0F" stroke-width="3.0" stroke-linecap="round"/><path d="M5.5 6.8V15.2H13.9" stroke="#0F0F0F" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+        : `<svg width="36" height="36" viewBox="0 0 36 36"><rect x="3" y="3" width="30" height="30" rx="4.5" fill="#0F0F0F"/></svg>`;
+    }
 
     this.els.heroBtnStopwatch.classList.toggle(
       'stopwatch-active',

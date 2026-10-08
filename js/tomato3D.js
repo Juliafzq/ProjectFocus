@@ -14,51 +14,58 @@ export const HEIRLOOM_PALETTE = {
   0: {
     name: 'Deep Crimson',
     hex: '#8B1E24',
-    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261008_v6',
-    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261008_v6',
-    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261008_v6',
+    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261008_v9',
+    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261008_v9',
+    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261008_v9',
   },
   1: {
     name: 'Warm Terracotta',
     hex: '#C84B31',
-    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261008_v6',
-    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261008_v6',
-    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261008_v6',
+    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261008_v9',
+    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261008_v9',
+    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261008_v9',
   },
   2: {
     name: 'Rich Dark Burgundy',
     hex: '#5E192A',
-    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261008_v6',
-    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261008_v6',
-    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261008_v6',
+    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261008_v9',
+    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261008_v9',
+    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261008_v9',
   },
   3: {
     name: 'Sun-Ripened Coral',
     hex: '#D96B52',
-    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261008_v6',
-    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261008_v6',
-    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261008_v6',
+    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261008_v9',
+    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261008_v9',
+    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261008_v9',
   },
   4: {
     name: 'Golden Persimmon',
     hex: '#C96A2B',
-    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261008_v6',
-    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261008_v6',
-    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261008_v6',
+    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261008_v9',
+    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261008_v9',
+    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261008_v9',
   },
   5: {
     name: 'Spiced Garnet',
     hex: '#9E2A3B',
-    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261008_v6',
-    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261008_v6',
-    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261008_v6',
+    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261008_v9',
+    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261008_v9',
+    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261008_v9',
+  },
+  completed: {
+    name: 'Satin Silver Metallic',
+    hex: '#C2C7CE',
+    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261008_v9',
+    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261008_v9',
+    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261008_v9',
   },
   unassigned: {
     name: 'Matte Neutral Grey',
     hex: '#8E8D8A',
-    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261008_v6',
-    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261008_v6',
-    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261008_v6',
+    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261008_v9',
+    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261008_v9',
+    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261008_v9',
   },
 };
 
@@ -89,6 +96,11 @@ export class HeroTomato3DView {
     this.currentAngleDegrees = 900.0; // 150 minutes (02:30)
     this.quadrantIndex = 0;
     this.isAssigned = true;
+    this.isCompleted = false;
+    this.silverBlend = 0.0;
+    this.targetSilverBlend = 0.0;
+    this._silverAnimFrame = null;
+    this._silverAnimLastTs = 0;
     this.images = new Map();
 
     // Expanded 700 x 600 coordinate space (crop x=54..754, y=536..1136) so the entire soft shadow fits with zero border line
@@ -192,6 +204,9 @@ export class HeroTomato3DView {
     const prs = [];
     const pgs = [];
     const pbs = [];
+    const silverPRs = [];
+    const silverPGs = [];
+    const silverPBs = [];
     const baseAlphas = [];
 
     for (let by = 0; by < this.bandH; by++) {
@@ -236,6 +251,12 @@ export class HeroTomato3DView {
         const pg = Math.round(202 * light);
         const pb = Math.round(198 * light);
 
+        // On the Satin Silver Metallic tomato, etched dark anthracite-charcoal markings provide crisp minimalistic contrast
+        const sLight = Math.max(0.55, Math.min(1.0, 0.90 - 0.25 * sinT));
+        const spr = Math.round(32 * sLight);
+        const spg = Math.round(34 * sLight);
+        const spb = Math.round(38 * sLight);
+
         const rimFade = absDeg > 81.0 ? (85.0 - absDeg) / 4.0 : 1.0;
         const baseAlpha = 0.86 * Math.max(0.0, Math.min(1.0, rimFade));
 
@@ -246,6 +267,9 @@ export class HeroTomato3DView {
         prs.push(pr);
         pgs.push(pg);
         pbs.push(pb);
+        silverPRs.push(spr);
+        silverPGs.push(spg);
+        silverPBs.push(spb);
         baseAlphas.push(baseAlpha);
       }
     }
@@ -258,11 +282,14 @@ export class HeroTomato3DView {
     this.meshPR = new Uint8Array(prs);
     this.meshPG = new Uint8Array(pgs);
     this.meshPB = new Uint8Array(pbs);
+    this.meshSilverPR = new Uint8Array(silverPRs);
+    this.meshSilverPG = new Uint8Array(silverPGs);
+    this.meshSilverPB = new Uint8Array(silverPBs);
     this.meshBaseAlpha = new Float32Array(baseAlphas);
   }
 
   _preloadImages() {
-    const keys = [0, 1, 2, 3, 4, 5, 'unassigned'];
+    const keys = [0, 1, 2, 3, 4, 5, 'completed', 'unassigned'];
     keys.forEach((k) => {
       const entry = HEIRLOOM_PALETTE[k];
       if (!entry) return;
@@ -275,11 +302,46 @@ export class HeroTomato3DView {
     });
   }
 
-  updateOdometer(angleDegrees, quadrantIndex = 0, isAssigned = true) {
+  updateOdometer(angleDegrees, quadrantIndex = 0, isAssigned = true, isCompleted = false) {
     this.currentAngleDegrees = angleDegrees;
     this.quadrantIndex = quadrantIndex;
     this.isAssigned = isAssigned;
-    this.render();
+    this.isCompleted = Boolean(isCompleted);
+    this.targetSilverBlend = this.isCompleted ? 1.0 : 0.0;
+
+    if (Math.abs(this.targetSilverBlend - this.silverBlend) > 0.004) {
+      this._startSilverTransition();
+    } else {
+      this.silverBlend = this.targetSilverBlend;
+      this.render();
+    }
+  }
+
+  _startSilverTransition() {
+    if (this._silverAnimFrame) {
+      this.render();
+      return;
+    }
+    this._silverAnimLastTs = performance.now();
+    const step = (now) => {
+      const dt = Math.min(0.06, Math.max(0.008, (now - this._silverAnimLastTs) / 1000.0));
+      this._silverAnimLastTs = now;
+      const speed = 2.05; // ~490ms full smooth transition
+      if (this.silverBlend < this.targetSilverBlend) {
+        this.silverBlend = Math.min(this.targetSilverBlend, this.silverBlend + dt * speed);
+      } else {
+        this.silverBlend = Math.max(this.targetSilverBlend, this.silverBlend - dt * speed);
+      }
+      this.render();
+      if (Math.abs(this.targetSilverBlend - this.silverBlend) > 0.004) {
+        this._silverAnimFrame = requestAnimationFrame(step);
+      } else {
+        this.silverBlend = this.targetSilverBlend;
+        this._silverAnimFrame = null;
+        this.render();
+      }
+    };
+    this._silverAnimFrame = requestAnimationFrame(step);
   }
 
   resize() {
@@ -310,11 +372,24 @@ export class HeroTomato3DView {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.scale(scale, scale);
 
-    // Always use Deep Crimson (or the assigned quadrant's heirloom red) on the Hero view when active
+    // Smooth cosine-eased blend factor [0..1] between active heirloom color and Satin Silver Metallic
+    const sBlend = 0.5 * (1.0 - Math.cos(Math.PI * Math.max(0.0, Math.min(1.0, this.silverBlend))));
+
+    // Draw base Heirloom Tomato
     const key = this.isAssigned ? (this.quadrantIndex ?? 0) : 0;
     const img = this.images.get(key) || this.images.get(0);
-    if (img && img.complete) {
+    if (img && img.complete && sBlend < 0.999) {
+      ctx.globalAlpha = 1.0;
       ctx.drawImage(img, 0, 0, this.baseW, this.baseH);
+    }
+
+    // Smoothly cross-dissolve into Satin Silver Metallic Tomato when completed/ended
+    if (sBlend > 0.001) {
+      const silverImg = this.images.get('completed');
+      if (silverImg && silverImg.complete) {
+        ctx.globalAlpha = sBlend;
+        ctx.drawImage(silverImg, 0, 0, this.baseW, this.baseH);
+      }
     }
     ctx.restore();
 
@@ -331,6 +406,7 @@ export class HeroTomato3DView {
       data[i] = 0;
     }
 
+    const invBlend = 1.0 - sBlend;
     const count = this.meshCount;
     for (let n = 0; n < count; n++) {
       const thetaDeg = this.meshThetaDeg[n];
@@ -365,9 +441,9 @@ export class HeroTomato3DView {
       if (alphaSum <= 2.0) continue;
       const alphaTex = alphaSum * (0.25 / 255.0);
       const outIdx = this.meshPixelIdx[n];
-      data[outIdx] = this.meshPR[n];
-      data[outIdx + 1] = this.meshPG[n];
-      data[outIdx + 2] = this.meshPB[n];
+      data[outIdx] = (this.meshPR[n] * invBlend + this.meshSilverPR[n] * sBlend) | 0;
+      data[outIdx + 1] = (this.meshPG[n] * invBlend + this.meshSilverPG[n] * sBlend) | 0;
+      data[outIdx + 2] = (this.meshPB[n] * invBlend + this.meshSilverPB[n] * sBlend) | 0;
       data[outIdx + 3] = Math.round(alphaTex * this.meshBaseAlpha[n] * 255.0);
     }
 

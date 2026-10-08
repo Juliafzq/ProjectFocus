@@ -10,6 +10,7 @@ public enum TimerRunState: String, Codable, Sendable {
     case idle
     case running
     case paused
+    case completed // Satin Silver Metallic state (prevents accidental clearing on End; button becomes Reset)
 }
 
 @Model

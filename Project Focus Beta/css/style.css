@@ -384,6 +384,18 @@ html, body {
   height: 100%;
   object-fit: contain;
   pointer-events: none;
+  display: block;
+}
+
+.grid-tomato-silver-img {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grid-tomato-wrap.is-silver-completed .grid-tomato-silver-img {
+  opacity: 1;
 }
 
 .grid-tomato-overlay {
@@ -396,6 +408,7 @@ html, body {
   padding-top: 12px;
   text-align: center;
   pointer-events: none;
+  z-index: 2;
 }
 
 /* Strictly constrain title to first few words inside the tomato belly without overflow */
@@ -410,6 +423,11 @@ html, body {
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.94);
   margin-bottom: 1px;
+  transition: color 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grid-tomato-wrap.is-silver-completed .grid-tomato-title {
+  color: rgba(30, 32, 36, 0.88);
 }
 
 .grid-tomato-time {
@@ -421,7 +439,12 @@ html, body {
   font-variant-numeric: tabular-nums;
   padding: 1px 6px;
   border-radius: 6px;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grid-tomato-wrap.is-silver-completed .grid-tomato-time {
+  color: #1A1C20;
+  font-weight: 550;
 }
 
 .grid-tomato-time:hover {

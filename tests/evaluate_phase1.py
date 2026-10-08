@@ -350,6 +350,40 @@ def verify_tap_on_digits_time_entry():
 
 check("TapDigitsTimeEntry", "Tapping Hero digits (#hero-readout) opens inline time input (0–180m / HH:MM + presets) and rotates 3D tomato", verify_tap_on_digits_time_entry)
 
+
+def verify_silver_metallic_tomato_and_two_step_end_reset():
+    js_tomato = read_file("js/tomato3D.js")
+    js_app = read_file("js/app.js")
+    css = read_file("css/style.css")
+    swift_slot = read_file("FableFlow/Core/Models/TomatoTimerSlot.swift")
+    swift_coord = read_file("FableFlow/Features/Timer/TimerCoordinator.swift")
+
+    # 1. Verify photorealistic silver metallic tomato sprites exist
+    for asset_name in [
+        "assets/tomatoes/hero-tomato-silver.png",
+        "assets/tomatoes/grid-tomato-silver.png",
+        "assets/tomatoes/mini-tomato-silver.png",
+    ]:
+        full = os.path.join(ROOT, asset_name)
+        assert os.path.exists(full) and os.path.getsize(full) > 500, f"Missing silver asset {asset_name}"
+
+    # 2. Verify smooth transition in HeroTomato3DView and Grid CSS
+    assert "hero-tomato-silver.png" in js_tomato
+    assert "_startSilverTransition()" in js_tomato
+    assert "this.silverBlend" in js_tomato
+    assert ".grid-tomato-silver-img" in css
+    assert ".grid-tomato-wrap.is-silver-completed" in css
+
+    # 3. Verify two-step End -> Silver Metallic ('completed') -> Reset ('idle' at 00:00)
+    assert "handleEndOrResetButton(quadrant)" in js_app
+    assert "endTimerToSilver(quadrant" in js_app
+    assert "resetCompletedTimer(quadrant)" in js_app
+    assert "case completed" in swift_slot
+    assert "resetCompletedTimer(quadrant:" in swift_coord
+
+
+check("SilverMetallicReset", "Countdown finish or End click smoothly transitions tomato to Silver Metallic and turns End into Reset button", verify_silver_metallic_tomato_and_two_step_end_reset)
+
 # ============================================================================
 # 4. LAYER 3: LIVE HTTP SERVER VERIFICATION
 # ============================================================================

@@ -409,6 +409,126 @@ def recolor_tomato_patch(w, h, src_rgb, target_hue_deg, sat_scale=1.0, val_scale
     return out
 
 
+def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
+    """
+    Transforms the studio-lit heirloom tomato into a minimalistic, sculptural
+    Satin Silver Metallic tomato (anodized aluminum / brushed platinum-silver finish)
+    for the completed / ended timer state.
+    Uses a 2D silhouette-aware studio smoothing pass on the illumination field so
+    the metallic skin is silky-smooth anodized aluminum with zero JPEG grain.
+    """
+    out = bytearray(src_rgb)
+    cx_norm = w * 0.48
+    cy_norm = h * 0.44
+
+    # 1. Build raw studio illumination field u_raw[y][x] for tomato body pixels
+    u_raw = [[None] * w for _ in range(h)]
+    spec_raw = [[0.0] * w for _ in range(h)]
+    body_weight = [[0.0] * w for _ in range(h)]
+
+    for y in range(h):
+        for x in range(w):
+            i = (y * w + x) * 3
+            r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
+            if r > 172 and g > 168 and b > 162 and (r - g) < 22:
+                continue
+            redness = r - max(g, b)
+            if redness > 5:
+                rf, gf = r / 255.0, g / 255.0
+                body_weight[y][x] = min(1.0, (redness - 5.0) / 18.0)
+                u_raw[y][x] = max(0.0, min(1.0, (rf - 0.12) / 0.53))
+                spec_raw[y][x] = min(1.0, max(0.0, gf - 0.10) / 0.24)
+
+    # 2. Smooth u_raw with a silhouette-aware 2-pass studio kernel (eliminates JPEG grain & rim streaks
+    #    while preserving the sharp dark equatorial seam groove around y ~ 290..308 on Hero)
+    u_smooth = [row[:] for row in u_raw]
+    for _ in range(2):
+        nxt = [row[:] for row in u_smooth]
+        for y in range(2, h - 2):
+            for x in range(2, w - 2):
+                u0 = u_smooth[y][x]
+                if u0 is None:
+                    continue
+                acc = 0.0
+                wsum = 0.0
+                for dy in range(-2, 3):
+                    for dx in range(-2, 3):
+                        un = u_smooth[y + dy][x + dx]
+                        if un is None:
+                            continue
+                        # Edge-stopping bilateral weight so the dark center seam stays razor-sharp
+                        diff = abs(un - u0)
+                        if diff > 0.16:
+                            continue
+                        wt = (0.18 - diff)
+                        acc += wt * un
+                        wsum += wt
+                if wsum > 0:
+                    nxt[y][x] = acc / wsum
+        u_smooth = nxt
+
+    for y in range(h):
+        for x in range(w):
+            i = (y * w + x) * 3
+            r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
+            rf, gf, bf = r / 255.0, g / 255.0, b / 255.0
+
+            # Center pointer triangle (▲) on Hero tomato: render as crisp dark anthracite to match the silver dial scale
+            if is_hero and (314 <= x <= 348) and (298 <= y <= 336):
+                if r > 135 and g > 95:
+                    # Smooth blend based on how white the triangle pixel is
+                    whiteness = min(1.0, max(0.0, (g - 85.0) / 135.0))
+                    u = u_smooth[y][x] if u_smooth[y][x] is not None else 0.62
+                    silver_bg = (0.24 + 0.60 * (u ** 0.78)) * 255.0
+                    anthracite = 36.0
+                    val = int(round((1.0 - whiteness) * silver_bg + whiteness * anthracite))
+                    out[i] = max(0, min(255, int(round(val * 0.96))))
+                    out[i + 1] = max(0, min(255, val))
+                    out[i + 2] = max(0, min(255, int(round(val * 1.05))))
+                    continue
+
+            if r > 172 and g > 168 and b > 162 and (r - g) < 22:
+                continue
+
+            w_body = body_weight[y][x]
+            greenness = g - max(r, b)
+
+            if w_body > 0.0 and u_smooth[y][x] is not None:
+                u = u_smooth[y][x]
+                dx_k = (x - (cx_norm - w * 0.11)) / (w * 0.28)
+                dy_k = (y - (cy_norm - h * 0.10)) / (h * 0.26)
+                key_sheen = 0.14 * math.exp(-0.5 * (dx_k * dx_k + dy_k * dy_k))
+
+                silver_base = 0.23 + 0.61 * (u ** 0.78)
+                spec_lobe = (
+                    0.15 * (max(0.0, (u - 0.38) / 0.62) ** 2.0)
+                    + 0.18 * spec_raw[y][x]
+                    + key_sheen * u
+                )
+                metal_v = max(0.18, min(0.985, silver_base + spec_lobe))
+
+                nr = min(1.0, metal_v * 0.976)
+                ng = min(1.0, metal_v * 0.992)
+                nb = min(1.0, metal_v * 1.024)
+
+                out[i] = int(round((1.0 - w_body) * r + w_body * (nr * 255.0)))
+                out[i + 1] = int(round((1.0 - w_body) * g + w_body * (ng * 255.0)))
+                out[i + 2] = int(round((1.0 - w_body) * b + w_body * (nb * 255.0)))
+            elif y < h * 0.48 and (greenness > 2 or (g >= r and r < 145)):
+                stem_w = min(1.0, max(0.0, (g - r + 14.0) / 20.0))
+                lum = 0.35 * rf + 0.50 * gf + 0.15 * bf
+                u_s = max(0.0, min(1.0, (lum - 0.06) / 0.45))
+                pewter_v = min(0.92, 0.24 + 0.64 * (u_s ** 0.80))
+                nr = pewter_v * 0.975
+                ng = pewter_v * 0.992
+                nb = min(1.0, pewter_v * 1.025)
+                out[i] = int(round((1.0 - stem_w) * r + stem_w * (nr * 255.0)))
+                out[i + 1] = int(round((1.0 - stem_w) * g + stem_w * (ng * 255.0)))
+                out[i + 2] = int(round((1.0 - stem_w) * b + stem_w * (nb * 255.0)))
+
+    return out
+
+
 # ============================================================================
 # 1. EXTRACT & CLEAN HERO TOMATO FROM 02-hero-timer.png
 # ============================================================================
@@ -429,6 +549,7 @@ if __name__ == "__main__":
     write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "hero-tomato-4.png"))
     write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "hero-tomato-5.png"))
     write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 0.0, 0.0, 1.05, grey_mode=True), os.path.join(OUT_DIR, "hero-tomato-grey.png"))
+    write_png(hw, hh, recolor_silver_metallic(hw, hh, hero_crimson, is_hero=True), os.path.join(OUT_DIR, "hero-tomato-silver.png"))
 
     # ============================================================================
     # 2. EXTRACT & CLEAN GRID TOMATOES FROM 03-grid-timer.png
@@ -467,6 +588,7 @@ if __name__ == "__main__":
     write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "grid-tomato-3.png"))
     write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "grid-tomato-4.png"))
     write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "grid-tomato-5.png"))
+    write_png(gw0, gh0, recolor_silver_metallic(gw0, gh0, grid_crimson), os.path.join(OUT_DIR, "grid-tomato-silver.png"))
 
     # ============================================================================
     # 3. EXTRACT MINI CARD TOMATOES FROM 04-card-front.png
@@ -488,5 +610,6 @@ if __name__ == "__main__":
     write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "mini-tomato-3.png"))
     write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "mini-tomato-4.png"))
     write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "mini-tomato-5.png"))
+    write_png(mw, mh, recolor_silver_metallic(mw, mh, mini_0), os.path.join(OUT_DIR, "mini-tomato-silver.png"))
 
     print("Done!")

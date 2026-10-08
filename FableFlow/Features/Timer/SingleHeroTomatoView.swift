@@ -177,16 +177,22 @@ public struct SingleHeroTomatoView: View {
 
                 Spacer()
 
-                // 3. Center-Right [End / Reset ■]
+                // 3. Center-Right [End ■ -> Silver Metallic -> Reset ↺]
                 Button {
                     timerCoordinator.endAndReset(quadrant: quadrantIndex)
                 } label: {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(ThemeTokens.inkPrimary)
-                        .frame(width: 28, height: 28)
+                    if slot.runState == .completed {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(ThemeTokens.inkPrimary)
+                    } else {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(ThemeTokens.inkPrimary)
+                            .frame(width: 28, height: 28)
+                    }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("End and reset timer to 00:00")
+                .accessibilityLabel(slot.runState == .completed ? "Reset timer to 00:00" : "End timer and turn tomato silver metallic")
 
                 Spacer()
 
