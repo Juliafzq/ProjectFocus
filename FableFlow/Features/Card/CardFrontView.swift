@@ -51,10 +51,8 @@ public struct CardFrontView: View {
                 Divider()
                     .background(Color.black.opacity(0.12))
 
-                // Dot-Grid Body + Flat 6-Task List (No Vertical Scroll)
+                // Clean White Card Body + Flat 6-Task List (No Vertical Scroll, No Dots)
                 ZStack(alignment: .topLeading) {
-                    dotGridBackground
-
                     VStack(alignment: .leading, spacing: 18) {
                         ForEach(card.sortedTasks, id: \.id) { task in
                             TaskRowView(

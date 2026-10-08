@@ -284,9 +284,12 @@ def verify_short_tomato_title_and_straight_strikethrough():
     assert "quadraticCurveTo" not in js_app
     # Verify Left -> Right erase direction (startProgress = progress, endProgress = 1.0)
     assert "drawGraphiteStroke(strikeCanvas, progress, 1.0);" in js_app
+    # Verify Front Card page dots are removed (background-image: none)
+    assert "background-image: none;" in css
+    assert "radial-gradient(var(--dot-grid-color)" not in css
 
 
-check("VisualPolish", "Shortened tomato titles + Straight horizontal strikethrough + Left->Right erase direction", verify_short_tomato_title_and_straight_strikethrough)
+check("VisualPolish", "Shortened tomato titles + Straight horizontal strikethrough + Left->Right erase + Clean white card (no dots)", verify_short_tomato_title_and_straight_strikethrough)
 
 
 def verify_hero_tomato_3d_curve_and_edge_shading():

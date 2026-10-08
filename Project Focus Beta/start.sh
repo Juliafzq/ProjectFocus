@@ -15,7 +15,33 @@ trap cleanup EXIT SIGINT SIGTERM
 fuser -k ${PUBLIC_PORT}/tcp >/dev/null 2>&1 || true
 fuser -k ${BACKEND_PORT}/tcp >/dev/null 2>&1 || true
 
-python3 -m http.server "$BACKEND_PORT" --bind 127.0.0.1 &
+python3 - "$BACKEND_PORT" << 'EOF' &
+import http.server
+import socketserver
+import sys
+
+port = int(sys.argv[1])
+
+class NoCacheHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        # Strip conditional cache headers so the server always sends fresh 200 OK content
+        for hdr in ("If-Modified-Since", "If-None-Match"):
+            if hdr in self.headers:
+                del self.headers[hdr]
+        super().do_GET()
+
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
+class ReusableTCPServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+
+with ReusableTCPServer(("127.0.0.1", port), NoCacheHTTPRequestHandler) as httpd:
+    httpd.serve_forever()
+EOF
 PY_PID=$!
 
 if [[ -x /google/data/ro/projects/gfe/siloed_gfe2_bin ]]; then

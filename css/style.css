@@ -210,10 +210,7 @@ html, body {
   position: relative;
   padding: 18px 0 16px;
   background-color: #FFFFFF;
-  /* Subtle 22px dot-grid matching Mockup 04-card-front.png */
-  background-image: radial-gradient(var(--dot-grid-color) 1.35px, transparent 1.35px);
-  background-size: 22px 22px;
-  background-position: 18px 14px;
+  background-image: none; /* Clean solid white index card surface (no dots) */
   overflow: hidden; /* Strictly zero vertical scroll */
 }
 

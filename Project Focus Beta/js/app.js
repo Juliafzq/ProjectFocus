@@ -11,12 +11,12 @@
  * 7. Default state starts cleanly with a single "Example Task".
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js';
-import { CardGestureMath } from './cardGestureMath.js';
-import { SensoryEngine } from './sensoryEngine.js';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261008_v4';
+import { CardGestureMath } from './cardGestureMath.js?v=20261008_v4';
+import { SensoryEngine } from './sensoryEngine.js?v=20261008_v4';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261008_v4';
 
-const STORAGE_KEY = 'fable_flow_phase1_beta_v3';
+const STORAGE_KEY = 'fable_flow_phase1_beta_v4';
 const NUM_GRID_SLOTS = 6;
 
 export class FableFlowApp {
@@ -132,6 +132,10 @@ export class FableFlowApp {
 
   loadInitialState() {
     try {
+      // Remove any legacy cached storage keys so old demo items never reappear
+      ['fable_flow_phase1_beta_v1', 'fable_flow_phase1_beta_v2', 'fable_flow_phase1_beta_v3'].forEach((k) =>
+        localStorage.removeItem(k)
+      );
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
