@@ -140,8 +140,9 @@ def sample_bilinear(w, h, buf, fx, fy):
 
 def smooth_hero_center_opening_and_edges(w, h, rgb):
     """
-    Eliminates all periodic tick-root bumps along the center seam opening and straightens
-    the left/right outer silhouette edges where the center opening meets the edge of the tomato.
+    Eliminates all periodic tick-root bumps and Laplace-inpainted number blotches
+    along the equatorial band above the center seam opening while keeping the natural
+    outer silhouette edges 100% untouched and crisp.
     """
     left_edge = {}
     right_edge = {}
@@ -159,46 +160,51 @@ def smooth_hero_center_opening_and_edges(w, h, rgb):
 
     src = bytearray(rgb)
     pass1 = bytearray(rgb)
-    for y in range(765, 845):
+    for y in range(730, 845):
         lx = left_edge.get(y, 170)
         rx = right_edge.get(y, 598)
-        for x in range(lx + 1, rx):
+        for x in range(lx + 4, rx - 3):
             sy = fit_seam_y(x)
             dy = y - sy
-            if -28.0 <= dy <= 5.5:
+            if -64.0 <= dy <= 3.0:
                 samples = []
-                for dx in range(-18, 19, 2):
-                    nx = max(lx + 4, min(rx - 4, x + dx))
+                for dx in range(-20, 21, 2):
+                    nx = max(lx + 5, min(rx - 5, x + dx))
                     ny = fit_seam_y(nx) + dy
                     s_rgb = sample_bilinear(w, h, src, nx, ny)
-                    if s_rgb[0] - s_rgb[1] > 35:
+                    if s_rgb[0] - s_rgb[1] > 32:
                         samples.append(s_rgb)
                 if samples:
                     samples.sort(key=lambda t: t[1] + 0.5 * t[0])
-                    lo = max(0, int(len(samples) * 0.15))
-                    hi = max(lo + 1, int(len(samples) * 0.45))
+                    lo = max(0, int(len(samples) * 0.34))
+                    hi = max(lo + 1, int(len(samples) * 0.64))
                     sub = samples[lo:hi]
                     i = (y * w + x) * 3
                     for c in range(3):
                         pass1[i + c] = int(round(sum(p[c] for p in sub) / len(sub)))
 
-    for y in range(765, 845):
+    rng = random.Random(108)
+    for y in range(730, 845):
         lx = left_edge.get(y, 170)
         rx = right_edge.get(y, 598)
-        for x in range(lx + 1, rx):
+        for x in range(lx + 4, rx - 3):
             sy = fit_seam_y(x)
             dy = y - sy
-            if -28.0 <= dy <= 5.5:
-                if dy < -14.0:
-                    blend = 0.5 * (1.0 - math.cos(math.pi * (dy - (-28.0)) / 14.0))
-                elif dy > 3.0:
-                    blend = 0.5 * (1.0 + math.cos(math.pi * (dy - 3.0) / 2.5))
+            if -64.0 <= dy <= 3.0:
+                if dy < -44.0:
+                    blend = 0.5 * (1.0 - math.cos(math.pi * (dy - (-64.0)) / 20.0))
+                elif dy > 1.0:
+                    blend = 0.5 * (1.0 + math.cos(math.pi * (dy - 1.0) / 2.0))
                 else:
                     blend = 1.0
+                # Taper blend smoothly near left/right silhouette edges so the natural rim is untouched
+                edge_dist = min(x - (lx + 3), (rx - 3) - x)
+                if edge_dist < 10:
+                    blend *= 0.5 * (1.0 - math.cos(math.pi * max(0.0, edge_dist) / 10.0))
                 acc = [0.0, 0.0, 0.0]
                 wsum = 0.0
                 for dx in range(-14, 15, 2):
-                    nx = max(lx + 4, min(rx - 4, x + dx))
+                    nx = max(lx + 5, min(rx - 5, x + dx))
                     ny = fit_seam_y(nx) + dy
                     wt = math.exp(-(dx * dx) / (2.0 * 8.0 * 8.0))
                     s_rgb = sample_bilinear(w, h, pass1, nx, ny)
@@ -206,53 +212,10 @@ def smooth_hero_center_opening_and_edges(w, h, rgb):
                         acc[c] += wt * s_rgb[c]
                     wsum += wt
                 i = (y * w + x) * 3
+                grain = rng.uniform(-1.1, 1.1)
                 for c in range(3):
-                    smoothed = acc[c] / wsum
-                    rgb[i + c] = int(round((1.0 - blend) * src[i + c] + blend * smoothed))
-
-    # Remove JPEG ringing line just inside left/right silhouette rim (within 11px of edge)
-    rim_src = bytearray(rgb)
-    for y in range(700, 865):
-        lx = left_edge.get(y)
-        if lx:
-            i_in = (y * w + (lx + 12)) * 3
-            i_out = (y * w + (lx + 1)) * 3
-            for dx in range(2, 12):
-                t = (dx - 1) / 11.0
-                i = (y * w + (lx + dx)) * 3
-                for c in range(3):
-                    lin = rim_src[i_out + c] * (1.0 - t) + rim_src[i_in + c] * t
-                    rgb[i + c] = int(round(0.65 * lin + 0.35 * rim_src[i + c]))
-        rx = right_edge.get(y)
-        if rx:
-            i_in = (y * w + (rx - 12)) * 3
-            i_out = (y * w + (rx - 1)) * 3
-            for dx in range(2, 12):
-                t = (dx - 1) / 11.0
-                i = (y * w + (rx - dx)) * 3
-                for c in range(3):
-                    lin = rim_src[i_out + c] * (1.0 - t) + rim_src[i_in + c] * t
-                    rgb[i + c] = int(round(0.65 * lin + 0.35 * rim_src[i + c]))
-
-    # Straighten the outer silhouette columns at the left (x=166..170) and right (x=597..601) ends of the center opening
-    for x_cols, x_ref in [([166, 167, 168, 169, 170], 171), ([601, 600, 599, 598, 597], 596)]:
-        y_top, y_bot = 785, 809
-        for idx_col, x in enumerate(x_cols):
-            i_top = (y_top * w + x) * 3
-            i_bot = (y_bot * w + x) * 3
-            for y in range(y_top + 1, y_bot):
-                t = (y - y_top) / (y_bot - y_top)
-                i = (y * w + x) * 3
-                i_in = (y * w + x_ref) * 3
-                i_in_top = (y_top * w + x_ref) * 3
-                i_in_bot = (y_bot * w + x_ref) * 3
-                for c in range(3):
-                    base = rgb[i_top + c] * (1.0 - t) + rgb[i_bot + c] * t
-                    in_base = rgb[i_in_top + c] * (1.0 - t) + rgb[i_in_bot + c] * t
-                    delta = rgb[i_in + c] - in_base
-                    tomato_weight = 0.85 if idx_col >= 2 else (0.35 if idx_col == 1 else 0.0)
-                    val = int(round(base + tomato_weight * delta))
-                    rgb[i + c] = max(0, min(255, val))
+                    smoothed = acc[c] / wsum + (grain * 0.8 if c == 0 else grain * 0.45)
+                    rgb[i + c] = max(0, min(255, int(round((1.0 - blend) * src[i + c] + blend * smoothed))))
 
 
 def feather_background_to_canvas_bg(w, h, rgb, target_bg=(231, 232, 226), margin=54):
@@ -389,16 +352,20 @@ def recolor_tomato_patch(w, h, src_rgb, target_hue_deg, sat_scale=1.0, val_scale
             i = (y * w + x) * 3
             r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
             redness = r - max(g, b)
-            if redness <= 12:
-                continue
-            weight = min(1.0, (redness - 12.0) / 28.0)
-            rf, gf, bf = r / 255.0, g / 255.0, b / 255.0
-            hh, ss, vv = colorsys.rgb_to_hsv(rf, gf, bf)
             if grey_mode:
+                if redness <= 5:
+                    continue
+                weight = min(1.0, (redness - 5.0) / 14.0)
+                rf, gf, bf = r / 255.0, g / 255.0, b / 255.0
                 lum = 0.42 * rf + 0.32 * gf + 0.26 * bf
                 grey_v = min(0.92, pow(lum, 0.78) * 1.18 * val_scale)
                 nr, ng, nb = grey_v, grey_v, grey_v * 0.99
             else:
+                if redness <= 6:
+                    continue
+                weight = min(1.0, (redness - 6.0) / 22.0)
+                rf, gf, bf = r / 255.0, g / 255.0, b / 255.0
+                hh, ss, vv = colorsys.rgb_to_hsv(rf, gf, bf)
                 ns = min(1.0, ss * sat_scale)
                 nv = min(1.0, pow(vv, 0.96) * val_scale)
                 nr, ng, nb = colorsys.hsv_to_rgb(target_h, ns, nv)
@@ -411,19 +378,18 @@ def recolor_tomato_patch(w, h, src_rgb, target_hue_deg, sat_scale=1.0, val_scale
 
 def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
     """
-    Transforms the studio-lit heirloom tomato into a sleek, minimalistic
-    Liquid / Anodized Silver Metallic tomato for the completed / ended timer state.
-    Combines a wide-smoothed studio illumination field (zero blotches/grain) with
-    analytical 3D metallic reflections:
-    - Focused studio softbox specular highlight on the upper-left dome
-    - Crisp grazing-angle Fresnel metallic rim reflection along the 3D contour
-    - Sleek metallic horizon band & cool silver-chrome chromaticity (R < G < B)
+    Transforms the studio-lit heirloom tomato into a mirror-polished, high-gloss
+    Silver Metallic tomato with:
+    1. 100% natural, studio-anti-aliased outer edges (zero halo, zero dark rim ring,
+       zero shadow speckles) by computing sub-pixel foreground opacity alpha(x, y)
+       relative to local interior redness and compositing over local neutral background.
+    2. Ultra-smooth, even 3D metallic cheeks & belly (via C-infinity paraboloid-dome
+       normals + multi-pass seam-aware smoothing) while preserving 100% crisp 3D
+       stem and calyx leaves via a smooth 2D elliptical crown mask.
+    3. One luminous, high-gloss studio softbox highlight on the upper-left cheek.
     """
     out = bytearray(src_rgb)
-
-    u_raw = [[None] * w for _ in range(h)]
-    body_weight = [[0.0] * w for _ in range(h)]
-
+    rg_grid = [[0.0] * w for _ in range(h)]
     min_x, max_x = w, 0
     min_y, max_y = h, 0
 
@@ -431,56 +397,158 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
         for x in range(w):
             i = (y * w + x) * 3
             r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
-            if r > 172 and g > 168 and b > 162 and (r - g) < 22:
-                continue
-            redness = r - max(g, b)
-            if redness > 5:
-                rf = r / 255.0
-                bw = min(1.0, (redness - 5.0) / 18.0)
-                body_weight[y][x] = bw
-                u_raw[y][x] = max(0.0, min(1.0, (rf - 0.12) / 0.53))
-                if bw > 0.5:
-                    if x < min_x:
-                        min_x = x
-                    if x > max_x:
-                        max_x = x
-                    if y < min_y:
-                        min_y = y
-                    if y > max_y:
-                        max_y = y
+            rg = float(r - max(g, b))
+            rg_grid[y][x] = rg
+            if rg >= 22.0:
+                if x < min_x:
+                    min_x = x
+                if x > max_x:
+                    max_x = x
+                if y < min_y:
+                    min_y = y
+                if y > max_y:
+                    max_y = y
 
     cx = 0.5 * (min_x + max_x)
-    cy = 0.5 * (min_y + max_y)
     rx = max(1.0, 0.5 * (max_x - min_x))
-    ry = max(1.0, 0.5 * (max_y - min_y))
+    span_y = max(1.0, float(max_y - min_y))
+    cy_body = min_y + 0.545 * span_y
+    ry_body = max(1.0, 0.455 * span_y)
 
-    # Multi-pass silhouette-aware smoothing on the cheek/equatorial zone (eliminating inpaint grain)
-    # while keeping the top stem leaves/calyx (y < min_y + 0.26*(max_y-min_y)) and center seam 100% sharp!
-    crown_y_limit = min_y + 0.25 * (max_y - min_y)
-    u_smooth = [row[:] for row in u_raw]
-    for p_idx in range(4):
-        nxt = [row[:] for row in u_smooth]
-        for y in range(3, h - 3):
-            is_crown = y < crown_y_limit
-            if is_crown and p_idx >= 1:
+    alpha_grid = [[0.0] * w for _ in range(h)]
+    bg_rgb_grid = [[None] * w for _ in range(h)]
+    u_raw = [[None] * w for _ in range(h)]
+
+    for y in range(h):
+        y0 = max(0, y - 4)
+        y1 = min(h - 1, y + 4)
+        for x in range(w):
+            rg = rg_grid[y][x]
+            if rg <= 4.5:
                 continue
-            rad = 1 if is_crown else 3
-            thresh = 0.07 if is_crown else 0.13
-            for x in range(3, w - 3):
-                u0 = u_smooth[y][x]
+            x0 = max(0, x - 4)
+            x1 = min(w - 1, x + 4)
+            loc_max = rg
+            bg_r, bg_g, bg_b, bg_cnt = 0.0, 0.0, 0.0, 0
+            best_outside_g = -1.0
+            best_outside_rgb = None
+            for ny in range(y0, y1 + 1):
+                row_rg = rg_grid[ny]
+                for nx in range(x0, x1 + 1):
+                    v_rg = row_rg[nx]
+                    if v_rg > loc_max:
+                        loc_max = v_rg
+                    ni = (ny * w + nx) * 3
+                    nr_p, ng_p, nb_p = src_rgb[ni], src_rgb[ni + 1], src_rgb[ni + 2]
+                    if v_rg <= 5.5:
+                        bg_r += nr_p
+                        bg_g += ng_p
+                        bg_b += nb_p
+                        bg_cnt += 1
+                    if v_rg <= 11.0 and ng_p > best_outside_g:
+                        best_outside_g = float(ng_p)
+                        lum_out = 0.32 * nr_p + 0.43 * ng_p + 0.25 * nb_p
+                        best_outside_rgb = (lum_out, lum_out, lum_out * 0.98)
+            if loc_max < 18.0:
+                continue
+
+            hi_rg = max(18.0, 0.78 * loc_max)
+            alpha = min(1.0, max(0.0, (rg - 4.5) / (hi_rg - 4.5)))
+            alpha_grid[y][x] = alpha
+
+            i = (y * w + x) * 3
+            r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
+            if bg_cnt > 0:
+                bg_rgb_grid[y][x] = (bg_r / bg_cnt, bg_g / bg_cnt, bg_b / bg_cnt)
+            elif best_outside_rgb is not None:
+                bg_rgb_grid[y][x] = best_outside_rgb
+            else:
+                neutral = 0.5 * (g + b) + 0.45 * max(0.0, r - 0.5 * (g + b))
+                bg_rgb_grid[y][x] = (neutral, neutral, neutral)
+
+            is_pointer = is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 135 and g > 95)
+            if alpha >= 0.72 and not is_pointer:
+                rf, gf = r / 255.0, g / 255.0
+                illum = 0.68 * rf + 0.32 * gf
+                u_raw[y][x] = max(0.0, min(1.0, (illum - 0.08) / 0.46))
+
+    # Extrapolate u_raw 5 pixels outward into the anti-aliased rim (0 < alpha < 0.72) and pointer box
+    for _ in range(6):
+        nxt_u = [row[:] for row in u_raw]
+        for y in range(1, h - 1):
+            for x in range(1, w - 1):
+                if u_raw[y][x] is None and (alpha_grid[y][x] > 0.0 or (is_hero and 312 <= x <= 350 and 296 <= y <= 338)):
+                    acc = 0.0
+                    cnt = 0
+                    for dy in (-1, 0, 1):
+                        for dx in (-1, 0, 1):
+                            un = u_raw[y + dy][x + dx]
+                            if un is not None:
+                                acc += un
+                                cnt += 1
+                    if cnt > 0:
+                        nxt_u[y][x] = acc / cnt
+        u_raw = nxt_u
+
+    # 3-pass edge-preserving bilateral filter (eliminates fine clay grain while keeping 3D stem & calyx ridges razor-sharp)
+    u_crisp = [row[:] for row in u_raw]
+    for _ in range(3):
+        nxt_c = [row[:] for row in u_crisp]
+        for y in range(2, h - 2):
+            for x in range(2, w - 2):
+                u0 = u_crisp[y][x]
                 if u0 is None:
                     continue
                 acc = 0.0
                 wsum = 0.0
-                for dy in range(-rad, rad + 1):
-                    for dx in range(-rad, rad + 1):
-                        un = u_smooth[y + dy][x + dx]
+                for dy in (-2, -1, 0, 1, 2):
+                    for dx in (-2, -1, 0, 1, 2):
+                        un = u_crisp[y + dy][x + dx]
+                        if un is not None:
+                            diff = abs(un - u0)
+                            w_range = math.exp(-((diff / 0.055) ** 2))
+                            w_space = math.exp(-(dx * dx + dy * dy) / 3.5)
+                            wt = w_range * w_space
+                            acc += wt * un
+                            wsum += wt
+                if wsum > 0:
+                    nxt_c[y][x] = acc / wsum
+        u_crisp = nxt_c
+
+    # Multi-pass seam-aware smoothing across the entire tomato (eliminates uneven clay lumps, zero crown seam step)
+    u_smooth = [row[:] for row in u_crisp]
+    num_passes = 10 if is_hero else 7
+    for p_idx in range(num_passes):
+        nxt = [row[:] for row in u_smooth]
+        step = 3 if (p_idx < num_passes - 2) else 1
+        for y in range(4, h - 4):
+            for x in range(4, w - 4):
+                u0 = u_smooth[y][x]
+                if u0 is None:
+                    continue
+                if is_hero:
+                    seam_y_here = fit_seam_y(x + 54) - 536.0
+                    if abs(y - seam_y_here) <= 3.5:
+                        continue
+                    above_seam = y < seam_y_here
+                acc = 0.0
+                wsum = 0.0
+                for dy in (-2 * step, -step, 0, step, 2 * step):
+                    ny_p = y + dy
+                    if ny_p < 2 or ny_p >= h - 2:
+                        continue
+                    for dx in (-2 * step, -step, 0, step, 2 * step):
+                        nx_p = x + dx
+                        if nx_p < 2 or nx_p >= w - 2:
+                            continue
+                        un = u_smooth[ny_p][nx_p]
                         if un is None:
                             continue
-                        diff = abs(un - u0)
-                        if diff > thresh:
-                            continue
-                        wt = (thresh + 0.02) - diff
+                        if is_hero:
+                            seam_y_n = fit_seam_y(nx_p + 54) - 536.0
+                            if (ny_p < seam_y_n) != above_seam or abs(ny_p - seam_y_n) <= 3.0:
+                                continue
+                        wt = 2.0 if (dx == 0 and dy == 0) else 1.0
                         acc += wt * un
                         wsum += wt
                 if wsum > 0:
@@ -491,82 +559,150 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
         for x in range(w):
             i = (y * w + x) * 3
             r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
-            rf, gf, bf = r / 255.0, g / 255.0, b / 255.0
 
-            # Center pointer triangle (▲) on Hero tomato: render as crisp dark anthracite to match the silver dial scale
+            # Preserve the center pointer triangle (▲) on Hero silver tomato as a crisp dark-anthracite etched mark
             if is_hero and (314 <= x <= 348) and (298 <= y <= 336):
                 if r > 135 and g > 95:
                     whiteness = min(1.0, max(0.0, (g - 85.0) / 135.0))
-                    u = u_smooth[y][x] if u_smooth[y][x] is not None else 0.62
-                    silver_bg = (0.28 + 0.56 * (u ** 0.82)) * 255.0
-                    anthracite = 26.0
-                    val = int(round((1.0 - whiteness) * silver_bg + whiteness * anthracite))
-                    out[i] = max(0, min(255, int(round(val * 0.94))))
-                    out[i + 1] = max(0, min(255, int(round(val * 0.98))))
-                    out[i + 2] = max(0, min(255, int(round(val * 1.06))))
+                    u = u_smooth[y][x] if u_smooth[y][x] is not None else 0.56
+                    silver_bg = (0.30 + 0.52 * u) * 255.0
+                    anthracite = 32.0
+                    val = (1.0 - whiteness) * silver_bg + whiteness * anthracite
+                    out[i] = max(0, min(255, int(round(val * 0.968))))
+                    out[i + 1] = max(0, min(255, int(round(val * 0.986))))
+                    out[i + 2] = max(0, min(255, int(round(val * 1.024))))
                     continue
 
-            if r > 172 and g > 168 and b > 162 and (r - g) < 22:
+            alpha = alpha_grid[y][x]
+            if alpha <= 0.0 or u_smooth[y][x] is None:
                 continue
 
-            w_body = body_weight[y][x]
-            greenness = g - max(r, b)
+            nx = (x - cx) / rx
+            ny_top = (y - min_y) / span_y
+            bx = nx
+            by = (y - cy_body) / ry_body
 
-            if w_body > 0.0 and u_smooth[y][x] is not None:
-                u = u_smooth[y][x]
+            # C-infinity smooth paraboloid-dome normal (never clamps at r=1, zero bottom-right crescent ridge)
+            inv_norm = 1.0 / math.sqrt(1.0 + 0.85 * (bx * bx + by * by))
+            nnx = -0.92 * bx * inv_norm
+            nny = -0.92 * by * inv_norm
+            nnz = 1.0 * inv_norm
 
-                # Analytical 3D surface normal on the tomato dome
+            n_dot_key = max(0.0, -0.46 * nnx - 0.42 * nny + 0.782 * nnz)
+            n_dot_fill = max(0.0, 0.35 * nnx + 0.30 * nny + 0.45 * nnz)
+            u_analytic = max(0.08, min(0.98, 0.16 + 0.72 * (n_dot_key ** 0.90) + 0.08 * (n_dot_fill ** 1.35)))
+
+            # Smooth 2D elliptical crown mask around the stem & calyx leaves (zero horizontal line)
+            d_calyx = math.sqrt((nx / 0.62) ** 2 + ((ny_top - 0.135) / 0.175) ** 2)
+            if d_calyx <= 0.82:
+                w_calyx = 1.0
+            elif d_calyx >= 1.36:
+                w_calyx = 0.0
+            else:
+                w_calyx = 0.5 * (1.0 + math.cos(math.pi * (d_calyx - 0.82) / (1.36 - 0.82)))
+
+            seam_darken = 1.0
+            if is_hero:
+                seam_y_here = fit_seam_y(x + 54) - 536.0
+                dy_seam = y - seam_y_here
+                if -4.5 <= dy_seam <= 6.5:
+                    u_seam = u_crisp[y][x] if u_crisp[y][x] is not None else u_smooth[y][x]
+                    seam_t = math.exp(-((dy_seam - 0.8) / 2.6) ** 2)
+                    seam_darken = 1.0 - 0.68 * seam_t * (1.0 - min(1.0, u_seam * 1.3))
+
+            u_calyx_val = 0.80 * u_crisp[y][x] + 0.20 * u_analytic
+            u_body_val = (0.32 * u_smooth[y][x] + 0.68 * u_analytic) * seam_darken
+            u_blend = w_calyx * u_calyx_val + (1.0 - w_calyx) * u_body_val
+
+            s_curve = u_blend * u_blend * (3.0 - 2.0 * u_blend)
+            base_metal = 0.15 + 0.72 * (0.38 * u_blend + 0.62 * s_curve)
+
+            # One luminous studio softbox specular highlight on the upper-left cheek
+            dx1 = bx - (-0.32)
+            dy1 = by - (-0.28)
+            rot_u = 0.80 * dx1 + 0.60 * dy1
+            rot_v = -0.60 * dx1 + 0.80 * dy1
+            spec_mask = (1.0 - 0.82 * w_calyx) * seam_darken
+            spec_glow = 0.24 * math.exp(-0.5 * ((rot_u / 0.32) ** 2 + (rot_v / 0.19) ** 2)) * spec_mask
+            spec_core = 0.19 * math.exp(-0.5 * ((rot_u / 0.14) ** 2 + (rot_v / 0.08) ** 2)) * spec_mask
+
+            metal_v = max(0.10, min(0.996, base_metal + spec_glow + spec_core))
+            hi = max(0.0, min(1.0, (metal_v - 0.72) / 0.27))
+            mr = metal_v * (0.968 + 0.030 * hi) * 255.0
+            mg = metal_v * (0.986 + 0.013 * hi) * 255.0
+            mb = min(1.0, metal_v * (1.024 - 0.018 * hi)) * 255.0
+
+            bg_r, bg_g, bg_b = bg_rgb_grid[y][x]
+            out[i] = max(0, min(255, int(round((1.0 - alpha) * bg_r + alpha * mr))))
+            out[i + 1] = max(0, min(255, int(round((1.0 - alpha) * bg_g + alpha * mg))))
+            out[i + 2] = max(0, min(255, int(round((1.0 - alpha) * bg_b + alpha * mb))))
+
+    return out
+
+
+def render_shiny_mini_tomato(w, h, mini_grey_rgb, mode="silver", hue_deg=0.0, sat_val=0.82, val_scale=1.0):
+    """
+    Renders a clean, glossy 58x58 small tomato icon for Today's Card using the
+    artifact-free `mini_grey` silhouette template:
+    - Zero horizontal strips or JPEG blocks
+    - Zero pink/red outer halo or stem gap
+    - Smooth C-infinity dome shading (zero bottom-right dark crescent ridge)
+    - Just ONE crisp, shiny specular highlight on the upper-left cheek!
+    """
+    out = bytearray(w * h * 3)
+    cx, cy = 29.0, 33.5
+    rx, ry = 23.5, 19.5
+    target_h = (hue_deg % 360.0) / 360.0
+
+    for y in range(h):
+        for x in range(w):
+            i = (y * w + x) * 3
+            r, g, b = mini_grey_rgb[i], mini_grey_rgb[i + 1], mini_grey_rgb[i + 2]
+            lum = (r + g + b) / 3.0
+
+            alpha = max(0.0, min(1.0, (251.0 - lum) / (251.0 - 142.0)))
+            if alpha <= 0.005:
+                out[i], out[i + 1], out[i + 2] = 255, 255, 255
+                continue
+
+            if mode == "grey":
+                fg_r, fg_g, fg_b = 140.0, 140.0, 142.0
+            else:
                 nx = (x - cx) / rx
                 ny = (y - cy) / ry
-                r2 = min(1.0, nx * nx + ny * ny)
-                nz = math.sqrt(max(0.01, 1.0 - r2))
+                inv_norm = 1.0 / math.sqrt(1.0 + 0.90 * (nx * nx + ny * ny))
+                nnx = -0.95 * nx * inv_norm
+                nny = -0.95 * ny * inv_norm
+                nnz = 1.0 * inv_norm
 
-                # 1. Bright metallic silver S-curve reflectance (preserves 3D lobes and deep equatorial seam)
-                s_curve = u * u * (3.0 - 2.0 * u)
-                base_metal = 0.18 + 0.67 * (0.45 * u + 0.55 * s_curve)
+                n_dot_l = max(0.0, -0.44 * nnx - 0.42 * nny + 0.794 * nnz)
+                n_dot_fill = max(0.0, 0.32 * nnx + 0.28 * nny + 0.50 * nnz)
+                dx_h = nx - (-0.32)
+                dy_h = ny - (-0.28)
+                stem_mask = max(0.0, min(1.0, (y - 17.5) / 3.5))
+                one_highlight = (
+                    0.40 * math.exp(-0.5 * ((dx_h / 0.24) ** 2 + (dy_h / 0.20) ** 2))
+                    + 0.24 * math.exp(-0.5 * ((dx_h / 0.11) ** 2 + (dy_h / 0.09) ** 2))
+                ) * stem_mask
 
-                # 2. Focused Tilted Elliptical Studio Softbox Specular Reflection on upper-left cheek
-                dx1 = nx - (-0.30)
-                dy1 = ny - (-0.27)
-                rot_u = 0.78 * dx1 + 0.62 * dy1
-                rot_v = -0.62 * dx1 + 0.78 * dy1
-                spec_softbox = 0.26 * math.exp(-0.5 * ((rot_u / 0.27) ** 2 + (rot_v / 0.14) ** 2)) * min(1.0, u * 1.35)
-                spec_core = 0.14 * math.exp(-0.5 * ((rot_u / 0.13) ** 2 + (rot_v / 0.065) ** 2)) * min(1.0, u * 1.4)
+                if mode == "silver":
+                    base_v = 0.34 + 0.48 * (n_dot_l ** 0.88) + 0.06 * (n_dot_fill ** 1.3)
+                    metal_v = min(0.99, base_v + one_highlight)
+                    hi = max(0.0, min(1.0, (metal_v - 0.72) / 0.26))
+                    fg_r = metal_v * (0.965 + 0.032 * hi) * 255.0
+                    fg_g = metal_v * (0.985 + 0.014 * hi) * 255.0
+                    fg_b = min(1.0, metal_v * (1.025 - 0.018 * hi)) * 255.0
+                else:
+                    base_v = min(1.0, (0.50 + 0.44 * (n_dot_l ** 0.88) + 0.05 * n_dot_fill) * val_scale)
+                    cr, cg, cb = colorsys.hsv_to_rgb(target_h, sat_val, base_v)
+                    spec = one_highlight * 0.62
+                    fg_r = min(1.0, cr + spec * (1.0 - cr * 0.45)) * 255.0
+                    fg_g = min(1.0, cg + spec * 0.88) * 255.0
+                    fg_b = min(1.0, cb + spec * 0.85) * 255.0
 
-                # 3. Crisp Grazing Fresnel Metallic Rim Reflection (left & top-right contours)
-                fresnel = ((1.0 - nz) ** 2.1) * (0.16 * max(0.0, -nx * 0.7 + 0.35) + 0.11 * max(0.0, nx - 0.10)) * min(1.0, u * 1.6)
-
-                # 4. Metallic Environment Band (sleek horizon contrast + bright lower belly bounce reflection)
-                env_band = -0.10 * math.exp(-((ny - 0.16) / 0.19) ** 2) + 0.11 * math.exp(-((ny - 0.55) / 0.17) ** 2) * min(1.0, u * 1.55)
-
-                # 5. Subtle fine horizontal brushed-anodized micro-sheen
-                micro_brush = 0.004 * math.sin(y * 1.35) * nz
-
-                metal_v = base_metal + spec_softbox + spec_core + fresnel + env_band + micro_brush
-                metal_v = max(0.11, min(0.996, metal_v))
-
-                # Crisp Bright Silver-Chrome Tint (neutral-cool bright silver, never slate blue)
-                hi = max(0.0, min(1.0, (metal_v - 0.74) / 0.25))
-                nr = metal_v * (0.968 + 0.030 * hi)
-                ng = metal_v * (0.986 + 0.013 * hi)
-                nb = min(1.0, metal_v * (1.026 - 0.020 * hi))
-
-                out[i] = int(round((1.0 - w_body) * r + w_body * (nr * 255.0)))
-                out[i + 1] = int(round((1.0 - w_body) * g + w_body * (ng * 255.0)))
-                out[i + 2] = int(round((1.0 - w_body) * b + w_body * (nb * 255.0)))
-            elif y < h * 0.48 and (greenness > 2 or (g >= r and r < 145)):
-                # Transform the top stem into matching polished silver-chrome metal
-                stem_w = min(1.0, max(0.0, (g - r + 14.0) / 20.0))
-                lum = 0.35 * rf + 0.50 * gf + 0.15 * bf
-                u_s = max(0.0, min(1.0, (lum - 0.05) / 0.43))
-                s_stem = u_s * u_s * (3.0 - 2.0 * u_s)
-                chrome_stem = min(0.95, 0.15 + 0.74 * s_stem + 0.10 * (u_s ** 2.6))
-                nr = chrome_stem * 0.938
-                ng = chrome_stem * 0.978
-                nb = min(1.0, chrome_stem * 1.052)
-                out[i] = int(round((1.0 - stem_w) * r + stem_w * (nr * 255.0)))
-                out[i + 1] = int(round((1.0 - stem_w) * g + stem_w * (ng * 255.0)))
-                out[i + 2] = int(round((1.0 - stem_w) * b + stem_w * (nb * 255.0)))
+            out[i] = max(0, min(255, int(round((1.0 - alpha) * 255.0 + alpha * fg_r))))
+            out[i + 1] = max(0, min(255, int(round((1.0 - alpha) * 255.0 + alpha * fg_g))))
+            out[i + 2] = max(0, min(255, int(round((1.0 - alpha) * 255.0 + alpha * fg_b))))
 
     return out
 
@@ -638,20 +774,15 @@ if __name__ == "__main__":
     print("Extracting photorealistic Card Mini-Tomatoes from 04-card-front.png...")
     w4, h4, rgb4 = read_ppm(os.path.join(ROOT, "docs/mockup-images/04-card-front.png"))
 
-    # Exact 58x58 crops centered on Row 01 (y=372..430), Row 02 (y=493..551), Row 03 (y=614..672)
-    mw, mh, mini_0 = crop_rgb(w4, h4, rgb4, 605, 372, 663, 430)
-    write_png(mw, mh, mini_0, os.path.join(OUT_DIR, "mini-tomato-0.png"))
-
-    _, _, mini_1 = crop_rgb(w4, h4, rgb4, 605, 493, 663, 551)
-    write_png(mw, mh, mini_1, os.path.join(OUT_DIR, "mini-tomato-1.png"))
-
-    _, _, mini_grey = crop_rgb(w4, h4, rgb4, 605, 614, 663, 672)
-    write_png(mw, mh, mini_grey, os.path.join(OUT_DIR, "mini-tomato-grey.png"))
-
-    write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 346.0, 0.88, 0.92), os.path.join(OUT_DIR, "mini-tomato-2.png"))
-    write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "mini-tomato-3.png"))
-    write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "mini-tomato-4.png"))
-    write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "mini-tomato-5.png"))
-    write_png(mw, mh, recolor_silver_metallic(mw, mh, mini_0), os.path.join(OUT_DIR, "mini-tomato-silver.png"))
+    # Use the clean grey mini-tomato silhouette from Row 03 (y=614..672) so there are zero JPEG strips or red edge halos
+    mw, mh, mini_grey = crop_rgb(w4, h4, rgb4, 605, 614, 663, 672)
+    write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="grey"), os.path.join(OUT_DIR, "mini-tomato-grey.png"))
+    write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="color", hue_deg=356.0, sat_val=0.84, val_scale=0.76), os.path.join(OUT_DIR, "mini-tomato-0.png"))
+    write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="color", hue_deg=14.0, sat_val=0.72, val_scale=0.88), os.path.join(OUT_DIR, "mini-tomato-1.png"))
+    write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="color", hue_deg=346.0, sat_val=0.78, val_scale=0.68), os.path.join(OUT_DIR, "mini-tomato-2.png"))
+    write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="color", hue_deg=9.0, sat_val=0.70, val_scale=0.94), os.path.join(OUT_DIR, "mini-tomato-3.png"))
+    write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="color", hue_deg=24.0, sat_val=0.76, val_scale=0.92), os.path.join(OUT_DIR, "mini-tomato-4.png"))
+    write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="color", hue_deg=354.0, sat_val=0.76, val_scale=0.82), os.path.join(OUT_DIR, "mini-tomato-5.png"))
+    write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="silver"), os.path.join(OUT_DIR, "mini-tomato-silver.png"))
 
     print("Done!")

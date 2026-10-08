@@ -14,70 +14,70 @@ export const HEIRLOOM_PALETTE = {
   0: {
     name: 'Deep Crimson',
     hex: '#8B1E24',
-    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261008_v10',
-    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261008_v10',
-    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261008_v10',
+    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261008_v11',
+    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261008_v11',
+    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261008_v11',
   },
   1: {
     name: 'Warm Terracotta',
     hex: '#C84B31',
-    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261008_v10',
-    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261008_v10',
-    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261008_v10',
+    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261008_v11',
+    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261008_v11',
+    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261008_v11',
   },
   2: {
     name: 'Rich Dark Burgundy',
     hex: '#5E192A',
-    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261008_v10',
-    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261008_v10',
-    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261008_v10',
+    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261008_v11',
+    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261008_v11',
+    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261008_v11',
   },
   3: {
     name: 'Sun-Ripened Coral',
     hex: '#D96B52',
-    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261008_v10',
-    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261008_v10',
-    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261008_v10',
+    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261008_v11',
+    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261008_v11',
+    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261008_v11',
   },
   4: {
     name: 'Golden Persimmon',
     hex: '#C96A2B',
-    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261008_v10',
-    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261008_v10',
-    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261008_v10',
+    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261008_v11',
+    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261008_v11',
+    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261008_v11',
   },
   5: {
     name: 'Spiced Garnet',
     hex: '#9E2A3B',
-    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261008_v10',
-    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261008_v10',
-    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261008_v10',
+    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261008_v11',
+    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261008_v11',
+    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261008_v11',
   },
   completed: {
     name: 'Satin Silver Metallic',
     hex: '#C2C7CE',
-    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261008_v10',
-    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261008_v10',
-    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261008_v10',
+    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261008_v11',
+    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261008_v11',
+    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261008_v11',
   },
   unassigned: {
     name: 'Matte Neutral Grey',
     hex: '#8E8D8A',
-    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261008_v10',
-    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261008_v10',
-    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261008_v10',
+    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261008_v11',
+    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261008_v11',
+    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261008_v11',
   },
 };
 
 /**
  * Exact sub-pixel equatorial seam curve y(x) measured directly from the dark seam groove
- * in 02-hero-timer.png (in local tomato coordinates where center x = 251.0).
+ * in 02-hero-timer.png (in local tomato coordinates where center x = 250.5, R_eq = 215.5).
  * Follows the exact smooth analytical polynomial fit to the dark center opening
  * without hooking or curving backwards at the left/right edges.
  */
 export function getTomatoSeamY(x) {
-  const cx = 251.0;
-  const rx = 215.0;
+  const cx = 250.5;
+  const rx = 215.5;
   const u = Math.max(-1.0, Math.min(1.0, (x - cx) / rx));
   return 258.8 + 0.5 * u - 18.2 * (u * u) - 15.2 * (u * u * u * u);
 }
@@ -181,11 +181,11 @@ export class HeroTomato3DView {
    * horizontal perspective derivative du_dsx, and 3D directional studio key-light shading (pr, pg, pb).
    */
   _buildTomato3DMesh() {
-    this.bandX0 = 35;
+    this.bandX0 = 32;
     this.bandY0 = 140;
-    this.bandW1x = 432;
+    this.bandW1x = 438;
     this.bandH1x = 126;
-    this.bandW = this.bandW1x * 2; // 864 Retina px
+    this.bandW = this.bandW1x * 2; // 876 Retina px
     this.bandH = this.bandH1x * 2; // 252 Retina px
 
     this.bandCanvas = document.createElement('canvas');
@@ -194,7 +194,8 @@ export class HeroTomato3DView {
     this.bandCtx = this.bandCanvas.getContext('2d');
     this.bandImageData = this.bandCtx.createImageData(this.bandW, this.bandH);
 
-    const cx = 251.0;
+    const cx = 250.5;
+    const R_eq = 215.5;
     const degPerMin = 3.0;
 
     const pixelIndices = [];
@@ -213,52 +214,54 @@ export class HeroTomato3DView {
       const ly = this.bandY0 + by * 0.5;
       for (let bx = 0; bx < this.bandW; bx++) {
         const lx = this.bandX0 + bx * 0.5;
-        const seamYApprox = getTomatoSeamY(lx);
-        const vRaw = seamYApprox - ly;
+        const u = (lx - cx) / R_eq;
+        const absU = Math.abs(u);
+        if (absU >= 0.996) continue;
+
+        const seamY = getTomatoSeamY(lx);
+        const vRaw = seamY - ly;
         if (vRaw < 0 || vRaw >= 78.0) continue;
 
-        // 3D tomato upper dome radius R(v) tapers inward as height v increases toward the top stem
-        const Rv = 213.0 - 0.14 * vRaw - 0.0012 * vRaw * vRaw;
-        const uNorm = (lx - cx) / Rv;
-        if (Math.abs(uNorm) >= 0.992) continue;
+        // Perspective-camera horizon mapping (camera at finite distance D ~ 4R so visual edge u=+-1 maps to sinPersp=+-0.968)
+        const sinPersp = 0.968 * u;
+        const cosPersp = Math.sqrt(Math.max(0.06, 1.0 - sinPersp * sinPersp));
+        const thetaBaseDeg = ((Math.asin(sinPersp) * 180.0) / Math.PI) * 1.0805;
 
-        const thetaRad = Math.asin(uNorm);
-        const thetaDeg = (thetaRad * 180.0) / Math.PI;
-        const absDeg = Math.abs(thetaDeg);
-        if (absDeg > 85.0) continue;
+        // Smoothly relax the sharp u^4 cut-lip term as height rises from the seam ticks into the upper-dome numbers
+        const tLat = Math.max(0.0, Math.min(1.0, (vRaw - 15.0) / 28.0));
+        const sLat = tLat * tLat * (3.0 - 2.0 * tLat);
+        const u2 = u * u;
+        const u4 = u2 * u2;
+        const yLatBase = seamY + 8.6 * sLat * u4;
 
-        const cosT = Math.cos(thetaRad);
-        const sinT = uNorm;
-
-        // Project along the 3D meridian to the true equatorial seam anchor at azimuth thetaRad
-        const xSeamLocal = cx + 213.0 * sinT;
-        const trueSeamY = getTomatoSeamY(xSeamLocal);
-        const v = (trueSeamY - ly) / (0.86 + 0.14 * cosT);
+        const v = (yLatBase - ly) / (0.90 + 0.10 * cosPersp);
         if (v < 0 || v >= 78.5) continue;
 
         const sv = (this.stripH - 1) - v * 2.0;
         if (sv < 0 || sv >= this.stripH - 1) continue;
 
-        // Horizontal UV derivative du/dbx for 4x supersampled anti-aliasing on foreshortened side numbers
-        const duDsx =
-          (((180.0 / Math.PI) / Math.max(25.0, Rv * cosT)) / degPerMin) *
-          this.pxPerMin *
-          0.5;
+        // Bounded inward meridian tilt outside asin() so digits at the visual curve edge never shear or clip at the top
+        const meridianTiltDeg = -1.45 * u * ((v - 5.0) / 35.0);
+        const thetaDeg = thetaBaseDeg + meridianTiltDeg;
 
-        // 3D studio key-light shading on the tomato surface normal N = (sinT, 0.18, cosT)
-        const light = Math.max(0.48, Math.min(1.02, 0.86 - 0.34 * sinT + 0.08 * cosT));
+        // Horizontal UV derivative du/dbx for 4x supersampled anti-aliasing on perspective-foreshortened side numbers
+        const dThetaDu = ((0.968 * 1.0805 * 180.0) / Math.PI) / cosPersp;
+        const duDsx = ((dThetaDu / R_eq) / degPerMin) * this.pxPerMin * 0.5;
+
+        // 3D studio key-light shading on the tomato surface normal N = (sinPersp, 0.18, cosPersp)
+        const light = Math.max(0.48, Math.min(1.02, 0.86 - 0.34 * sinPersp + 0.08 * cosPersp));
         const pr = Math.round(246 * light);
         const pg = Math.round(202 * light);
         const pb = Math.round(198 * light);
 
         // On the Satin Silver Metallic tomato, etched dark anthracite-charcoal markings provide crisp minimalistic contrast
-        const sLight = Math.max(0.55, Math.min(1.0, 0.90 - 0.25 * sinT));
+        const sLight = Math.max(0.55, Math.min(1.0, 0.90 - 0.25 * sinPersp));
         const spr = Math.round(32 * sLight);
         const spg = Math.round(34 * sLight);
         const spb = Math.round(38 * sLight);
 
-        const rimFade = absDeg > 81.0 ? (85.0 - absDeg) / 4.0 : 1.0;
-        const baseAlpha = 0.86 * Math.max(0.0, Math.min(1.0, rimFade));
+        const rimFade = absU > 0.968 ? (0.996 - absU) / (0.996 - 0.968) : 1.0;
+        const baseAlpha = 0.88 * Math.max(0.0, Math.min(1.0, rimFade));
 
         pixelIndices.push((by * this.bandW + bx) * 4);
         thetaDegs.push(thetaDeg);
