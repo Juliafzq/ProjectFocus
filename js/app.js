@@ -2,12 +2,13 @@
  * Fable / Flow — Phase 1 Beta ("Core Tactile Loop") Application Controller
  *
  * Implements all PRD v4 & User Feedback requirements:
- * 1. Exact Photorealistic Mockup Tomatoes extracted from 02-hero-timer.png, 03-grid-timer.png, 04-card-front.png.
- * 2. 6-Tomato Grid (2x3 layout) matching the 6 tasks on Today's Card.
+ * 1. Exact Photorealistic Mockup Tomatoes with sub-pixel equatorial seam curve & realistic 3D edge shading.
+ * 2. 6-Tomato Grid (2x3 layout) matching the 6 task slots on Today's Card.
  * 3. Clicking any lit-up (assigned) tomato unassigns it and returns it to Matte Neutral Grey ("Tap to assign").
- * 4. On the tomato body, only the first few words are shown (`formatShortTomatoTitle`) so text never overflows.
- * 5. In Stopwatch Mode, the tomato turns ON THE MINUTES, NOT SECONDS (`stopwatchSecondsToMinuteAngleDegrees`).
- * 6. Visually exact straight horizontal dry-graphite pencil strikethrough across the center of completed tasks.
+ * 4. Clicking a grey tomato on the Front Card lights it up (assigns it) AND brings the user to the Timer page.
+ * 5. Set of Timer (Grid) dropdown excludes any task that is already selected and assigned to a tomato.
+ * 6. Front Card Left -> Right drag both strikes through AND erases from Left -> Right.
+ * 7. Default state starts cleanly with a single "Example Task".
  */
 
 import { OdometerDialPhysics } from './odometerPhysics.js';
@@ -15,7 +16,7 @@ import { CardGestureMath } from './cardGestureMath.js';
 import { SensoryEngine } from './sensoryEngine.js';
 import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js';
 
-const STORAGE_KEY = 'fable_flow_phase1_beta_v2';
+const STORAGE_KEY = 'fable_flow_phase1_beta_v3';
 const NUM_GRID_SLOTS = 6;
 
 export class FableFlowApp {
@@ -38,30 +39,16 @@ export class FableFlowApp {
   getDefaultState() {
     return {
       activePillar: 'card', // 'card' | 'timer'
-      timerSubMode: 'hero', // 'grid' | 'hero'
+      timerSubMode: 'grid', // 'grid' | 'hero'
       selectedQuadrant: 0,
-      openDropdownQuadrant: 2, // Mockup 03-grid-timer.png shows dropdown open on Slot 2 initially
+      openDropdownQuadrant: null,
       isCardFlipped: false,
       cardHeaderDate: 'TUESDAY — OCT 06',
       tasks: [
         {
           id: 'task-1',
           orderIndex: 1,
-          title: 'Math Study',
-          isCompleted: false,
-          assignedQuadrant: 0,
-        },
-        {
-          id: 'task-2',
-          orderIndex: 2,
-          title: 'Build Deck',
-          isCompleted: true, // Crossed out in Mockup 04-card-front.png!
-          assignedQuadrant: 1,
-        },
-        {
-          id: 'task-3',
-          orderIndex: 3,
-          title: 'Pick Up Package',
+          title: 'Example Task',
           isCompleted: false,
           assignedQuadrant: null,
         },
@@ -69,26 +56,26 @@ export class FableFlowApp {
       timers: [
         {
           quadrant: 0,
-          assignedTaskId: 'task-1',
-          assignedTaskOrder: 1,
-          customTitle: 'Math Study',
+          assignedTaskId: null,
+          assignedTaskOrder: null,
+          customTitle: null,
           mode: 'countdown', // 'countdown' | 'stopwatch'
-          runState: 'running', // 'idle' | 'running' | 'paused'
-          configuredMinutes: 150, // 02:30 (150 minutes) on Turn 3!
-          remainingSeconds: 150 * 60,
-          angleDegrees: 150 * 6.0, // 900°
-          lastTickTimestamp: Date.now(),
+          runState: 'idle', // 'idle' | 'running' | 'paused'
+          configuredMinutes: 25,
+          remainingSeconds: 25 * 60,
+          angleDegrees: 25 * 6.0, // 150°
+          lastTickTimestamp: null,
         },
         {
           quadrant: 1,
-          assignedTaskId: 'task-2',
-          assignedTaskOrder: 2,
-          customTitle: 'Build Deck',
+          assignedTaskId: null,
+          assignedTaskOrder: null,
+          customTitle: null,
           mode: 'countdown',
-          runState: 'paused',
-          configuredMinutes: 45, // 00:45 (45 minutes) on Turn 1!
-          remainingSeconds: 45 * 60,
-          angleDegrees: 45 * 6.0, // 270°
+          runState: 'idle',
+          configuredMinutes: 0,
+          remainingSeconds: 0,
+          angleDegrees: 0,
           lastTickTimestamp: null,
         },
         {
@@ -173,7 +160,7 @@ export class FableFlowApp {
     this.state = this.getDefaultState();
     this.saveState();
     this.renderAll();
-    this.showNotificationBanner('Restored UI Mockup default state (Tuesday — Oct 06).');
+    this.showNotificationBanner('Restored clean default state with Example Task.');
   }
 
   reconcileElapsedTimers(stateObj) {
@@ -643,7 +630,6 @@ export class FableFlowApp {
     const slot = this.state.timers[quadrant];
     if (!slot) return;
 
-    // If this task was already assigned to another quadrant, unassign that old quadrant first
     if (
       task.assignedQuadrant !== null &&
       task.assignedQuadrant !== undefined &&
@@ -652,7 +638,6 @@ export class FableFlowApp {
       this.clearQuadrantAssignment(task.assignedQuadrant);
     }
 
-    // Clear any previous task pointing to this quadrant
     for (const t of this.state.tasks) {
       if (t.assignedQuadrant === quadrant) {
         t.assignedQuadrant = null;
@@ -732,7 +717,8 @@ export class FableFlowApp {
   /**
    * Clicking a task's right-side tomato icon on Today's Card:
    * - If the tomato is ALREADY LIT UP (assigned), clicking it UNASSIGNS the tomato (returns it to grey)!
-   * - If the tomato is GREY (unassigned), clicking it assigns the task to the next free slot (lighting it up)!
+   * - If the tomato is GREY (unassigned), clicking it lights up a tomato (assigns the task)
+   *   AND brings the user to the Timer page!
    */
   handleCardTaskTomatoClick(task) {
     if (task.assignedQuadrant !== null && task.assignedQuadrant !== undefined) {
@@ -745,6 +731,12 @@ export class FableFlowApp {
     );
     const targetQuad = freeSlot ? freeSlot.quadrant : 0;
     this.assignTaskToQuadrant(targetQuad, task);
+
+    // Navigate directly to the Timer page with this tomato selected
+    this.state.selectedQuadrant = targetQuad;
+    this.state.activePillar = 'timer';
+    this.saveState();
+    this.renderAll();
   }
 
   // =========================================================================
@@ -811,16 +803,14 @@ export class FableFlowApp {
       titleSpan.className = 'task-title';
       titleSpan.textContent = task.title;
       titleSpan.title =
-        'Drag Left → Right to cross out with graphite pencil, or double-click to edit';
+        'Drag Left → Right to strike through or erase (Left → Right), or double-click to edit';
       titleSpan.addEventListener('dblclick', () => this.openEditTaskModal(task));
 
-      // Visually Exact Straight Horizontal Graphite Strikethrough Canvas (2x Retina: 524x32 for 262x16 CSS)
       const strikeCanvas = document.createElement('canvas');
       strikeCanvas.className = 'pencil-strike-canvas';
       strikeCanvas.width = 524;
       strikeCanvas.height = 32;
 
-      // Right-aligned Photorealistic Mini-Tomato Button (extracted from 04-card-front.png)
       const tomatoBtn = document.createElement('button');
       tomatoBtn.className = 'task-tomato-btn';
       tomatoBtn.type = 'button';
@@ -828,7 +818,7 @@ export class FableFlowApp {
         task.assignedQuadrant !== null && task.assignedQuadrant !== undefined;
       tomatoBtn.title = isLit
         ? 'Click lit-up tomato to unassign (return to grey)'
-        : 'Click grey tomato to assign to a Pomodoro timer';
+        : 'Click grey tomato to light up and open Timer page';
 
       const miniImg = document.createElement('img');
       miniImg.className = 'task-mini-tomato-img';
@@ -851,7 +841,7 @@ export class FableFlowApp {
       container.appendChild(row);
 
       requestAnimationFrame(() => {
-        this.drawGraphiteStroke(strikeCanvas, task.isCompleted ? 1.0 : 0.0);
+        this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
       });
 
       this.bindTaskRowPencilGesture(row, task, strikeCanvas);
@@ -865,52 +855,55 @@ export class FableFlowApp {
   }
 
   /**
-   * Draws a straight horizontal dry-graphite pencil strikethrough right across the middle
-   * of the task row ("02 Build Deck"), matching Mockup 04-card-front.png pixel-for-pixel.
+   * Draws a straight horizontal dry-graphite pencil strikethrough between normalized [startProgress, endProgress].
+   * - Striking through (Left -> Right): startProgress = 0.0, endProgress = progress (grows Left -> Right).
+   * - Erasing (Left -> Right): startProgress = progress, endProgress = 1.0 (erases from Left -> Right!).
    */
-  drawGraphiteStroke(canvas, progress) {
+  drawGraphiteStroke(canvas, startProgress = 0.0, endProgress = 0.0) {
     const ctx = canvas.getContext('2d');
     const W = canvas.width; // 524
     const H = canvas.height; // 32
     ctx.clearRect(0, 0, W, H);
-    if (progress <= 0.01) return;
 
-    const startX = 2;
-    const maxEndX = W - 6;
-    const currentEndX = startX + (maxEndX - startX) * Math.min(progress, 1.0);
-    const centerY = H * 0.5; // Dead-center vertically (y = 16)
+    const sProg = Math.max(0.0, Math.min(1.0, startProgress));
+    const eProg = Math.max(0.0, Math.min(1.0, endProgress));
+    if (eProg - sProg <= 0.01) return;
+
+    const minX = 2;
+    const maxX = W - 6;
+    const totalSpan = maxX - minX;
+
+    const currentStartX = minX + totalSpan * sProg;
+    const currentEndX = minX + totalSpan * eProg;
+    const centerY = H * 0.5;
 
     ctx.save();
 
-    // 1. Core horizontal graphite shaft (tapers softly in the rightmost 22% like 04-card-front.png)
-    const grad = ctx.createLinearGradient(startX, centerY, currentEndX, centerY);
+    const grad = ctx.createLinearGradient(minX, centerY, maxX, centerY);
     grad.addColorStop(0.0, 'rgba(65, 63, 60, 0.88)');
     grad.addColorStop(0.68, 'rgba(72, 70, 66, 0.82)');
     grad.addColorStop(0.88, 'rgba(110, 108, 104, 0.58)');
     grad.addColorStop(1.0, 'rgba(150, 148, 144, 0.12)');
 
     ctx.strokeStyle = grad;
-    ctx.lineWidth = 4.6; // ~2.3px at 1x CSS
+    ctx.lineWidth = 4.6;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(startX, centerY);
+    ctx.moveTo(currentStartX, centerY);
     ctx.lineTo(currentEndX, centerY);
     ctx.stroke();
 
-    // 2. Dry charcoal / cotton-paper tooth speckles along the horizontal stroke
-    const span = currentEndX - startX;
-    const numGrains = Math.floor(span * 1.6);
+    const numGrains = Math.floor(totalSpan * 1.6);
     for (let i = 0; i < numGrains; i++) {
       const t = i / Math.max(1, numGrains);
-      const gx = startX + t * span;
-      // Deterministic dry-pencil grain distribution
+      if (t < sProg || t > eProg) continue;
+      const gx = minX + t * totalSpan;
       const hash1 = Math.sin(i * 12.9898 + 4.1) * 43758.5453;
       const frac1 = hash1 - Math.floor(hash1);
       const hash2 = Math.cos(i * 78.233 + 1.7) * 24634.6345;
       const frac2 = hash2 - Math.floor(hash2);
 
       const offsetY = (frac1 - 0.5) * 6.8;
-      // Fade out grain density near the far-right tail
       const tailFade = t > 0.72 ? (1.0 - (t - 0.72) / 0.28) * 0.85 : 1.0;
       const alpha = (0.22 + 0.36 * frac2) * tailFade;
 
@@ -946,9 +939,11 @@ export class FableFlowApp {
       );
       if (progress > 0) {
         if (!task.isCompleted) {
-          this.drawGraphiteStroke(strikeCanvas, progress);
+          // Left -> Right strike-through: line grows from Left (0.0) to Right (progress)
+          this.drawGraphiteStroke(strikeCanvas, 0.0, progress);
         } else {
-          this.drawGraphiteStroke(strikeCanvas, 1.0 - progress * 0.8);
+          // Left -> Right erase: line erases from Left (progress) to Right (1.0)
+          this.drawGraphiteStroke(strikeCanvas, progress, 1.0);
         }
       }
     });
@@ -969,13 +964,13 @@ export class FableFlowApp {
       if (gesture === 'strikethrough') {
         task.isCompleted = !task.isCompleted;
         this.sensory.playPencilStrikethrough(!task.isCompleted);
-        this.drawGraphiteStroke(strikeCanvas, task.isCompleted ? 1.0 : 0.0);
+        this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
         this.saveState();
       } else if (gesture === 'flipCard') {
-        this.drawGraphiteStroke(strikeCanvas, task.isCompleted ? 1.0 : 0.0);
+        this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
         this.triggerCardFlip();
       } else {
-        this.drawGraphiteStroke(strikeCanvas, task.isCompleted ? 1.0 : 0.0);
+        this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
       }
     };
 
@@ -984,7 +979,7 @@ export class FableFlowApp {
   }
 
   /**
-   * Renders Screen 2: 6-Pomodoro 2x3 Grid View (Mockup 03-grid-timer.png + 6 Tomatoes)
+   * Renders Screen 2: 6-Pomodoro 2x3 Grid View
    */
   renderGridScreen() {
     this.state.timers.forEach((slot, qIdx) => {
@@ -1023,7 +1018,8 @@ export class FableFlowApp {
       overlay.className = 'grid-tomato-overlay';
 
       if (isAssigned) {
-        tomatoWrap.title = 'Click lit-up tomato to unassign (return to grey), or click time to open Hero dial';
+        tomatoWrap.title =
+          'Click lit-up tomato to unassign (return to grey), or click time to open Hero dial';
 
         const titleEl = document.createElement('div');
         titleEl.className = 'grid-tomato-title';
@@ -1033,7 +1029,6 @@ export class FableFlowApp {
         timeEl.className = 'grid-tomato-time';
         timeEl.textContent = readoutText;
         timeEl.title = 'Open Single Hero Tomato Dial';
-        // Clicking the digital time readout opens the Single Hero Tomato view
         timeEl.addEventListener('click', (e) => {
           e.stopPropagation();
           this.state.selectedQuadrant = qIdx;
@@ -1076,7 +1071,6 @@ export class FableFlowApp {
 
       quadEl.appendChild(tomatoWrap);
 
-      // Inline Play/Pause + Stop/End Controls below Assigned Tomatoes
       const controlsRow = document.createElement('div');
       controlsRow.className = 'grid-controls-row';
 
@@ -1115,6 +1109,10 @@ export class FableFlowApp {
     });
   }
 
+  /**
+   * Builds the Task Assignment Dropdown on the Set of Timer (Grid) page.
+   * Excludes any task that is already selected and assigned to a tomato!
+   */
   buildTaskDropdownDOM(quadrant) {
     const menu = document.createElement('div');
     menu.className = 'task-assign-dropdown';
@@ -1137,14 +1135,12 @@ export class FableFlowApp {
     const listBody = document.createElement('div');
     listBody.className = 'dropdown-task-list';
 
-    const sortedTasks = [...this.state.tasks].sort((a, b) => {
-      const aFree = a.assignedQuadrant === null ? 0 : 1;
-      const bFree = b.assignedQuadrant === null ? 0 : 1;
-      if (aFree !== bFree) return aFree - bFree;
-      return a.orderIndex - b.orderIndex;
-    });
+    // Filter out any task that is already assigned to a tomato!
+    const availableTasks = this.state.tasks.filter(
+      (t) => t.assignedQuadrant === null || t.assignedQuadrant === undefined
+    );
 
-    sortedTasks.forEach((t) => {
+    availableTasks.forEach((t) => {
       const itemBtn = document.createElement('button');
       itemBtn.type = 'button';
       itemBtn.className = 'dropdown-task-item';
@@ -1176,7 +1172,7 @@ export class FableFlowApp {
         '0'
       );
       const shortTitle = OdometerDialPhysics.formatShortTomatoTitle(
-        slot.customTitle || 'FOCUS SESSION',
+        slot.customTitle || 'EXAMPLE TASK',
         4,
         22
       );

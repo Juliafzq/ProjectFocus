@@ -57,6 +57,12 @@ public final class DailyCardRepository {
             createdAt: referenceDate
         )
         modelContext.insert(freshCard)
+        if allCards.isEmpty {
+            let exampleTask = CardTask(slotIndex: 1, title: "Example Task")
+            exampleTask.card = freshCard
+            freshCard.tasks = [exampleTask]
+            modelContext.insert(exampleTask)
+        }
         try? modelContext.save()
 
         self.todaysCard = freshCard

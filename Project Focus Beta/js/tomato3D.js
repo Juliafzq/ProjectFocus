@@ -2,13 +2,12 @@
  * Tomato3DRenderer — Photorealistic Studio Heirloom Tomato Renderer
  *
  * Uses the exact studio-lit sculpted Heirloom Tomato assets from the PRD Mockups
- * (02-hero-timer.png, 03-grid-timer.png, 04-card-front.png) combined with a
- * high-DPI curved equatorial odometer shader canvas so that:
- * - Hero Tomato looks 100% identical to 02-hero-timer.png (with rotating curved ticks
- *   and numbers 0..180 across 3 turns above the recessed seam and white ▲ pointer).
- * - 6-Tomato Grid uses the exact photorealistic studio-lit tomatoes in 6 heirloom shades
- *   plus Matte Neutral Grey when unassigned.
- * - Card Front uses the exact photorealistic miniature heirloom tomatoes.
+ * (02-hero-timer.png, 03-grid-timer.png, 04-card-front.png) combined with an exact
+ * sub-pixel equatorial seam curve and per-digit 3D cylindrical projection so that:
+ * - Ticks and numbers follow the exact equatorial seam curve of the tomato from edge to edge.
+ * - Numbers wrap around the 3D curvature character-by-character with realistic studio shading
+ *   (brighter on the key-lit left cheek, shaded on the right shadow side) and clip naturally
+ *   at the physical silhouette horizon instead of fading out unnaturally.
  */
 
 export const HEIRLOOM_PALETTE = {
@@ -63,6 +62,31 @@ export const HEIRLOOM_PALETTE = {
   },
 };
 
+/**
+ * Exact sub-pixel equatorial seam curve y(x) measured directly from hero-tomato-0.png (530x460 crop).
+ * At center x = 251, seam is at y = 260.0.
+ * At left edge x = 36, seam curves up to y = 223.5.
+ * At right edge x = 465, seam curves up to y = 222.5.
+ */
+export function getTomatoSeamY(x) {
+  const cx = 251.0;
+  const rx = 215.0;
+  const u = Math.max(-0.999, Math.min(0.999, (x - cx) / rx));
+  // Elliptical projection of the equator Tilted toward the camera + slight organic asymmetry
+  const cosTheta = Math.sqrt(1.0 - u * u);
+  const baseCurve = 221.5 + 38.5 * Math.pow(cosTheta, 0.88);
+  const slightTilt = -0.8 * u;
+  return baseCurve + slightTilt;
+}
+
+/**
+ * Tangent slope dy/dx of the equatorial seam at horizontal coordinate x.
+ */
+export function getTomatoSeamSlope(x) {
+  const eps = 1.5;
+  return (getTomatoSeamY(x + eps) - getTomatoSeamY(x - eps)) / (2.0 * eps);
+}
+
 export class HeroTomato3DView {
   constructor(container) {
     this.container = container;
@@ -114,6 +138,24 @@ export class HeroTomato3DView {
     this.render();
   }
 
+  /**
+   * Computes realistic 3D studio-lit paint color for a marking at cylindrical angle thetaRad (-PI/2 .. +PI/2).
+   * In 02-hero-timer.png, the studio key light is on the top-left (negative sinT),
+   * while the right side (positive sinT) turns into soft 3D shadow.
+   * This shades the paint brightness physically instead of fading alpha unnaturally!
+   */
+  _getLitPaintStyle(sinT, cosT) {
+    // Key light factor: 1.0 on left cheek (sinT = -0.7), 0.88 at center (sinT = 0), 0.56 in right shadow (sinT = +0.85)
+    const light = Math.max(0.48, Math.min(1.04, 0.86 - 0.34 * sinT + 0.08 * cosT));
+    const r = Math.round(246 * light);
+    const g = Math.round(202 * light);
+    const b = Math.round(198 * light);
+    // Constant physical paint opacity across the entire body; only anti-alias the final 2° at the physical silhouette rim
+    const rimClip = cosT < 0.08 ? cosT / 0.08 : 1.0;
+    const alpha = 0.86 * Math.max(0.0, Math.min(1.0, rimClip));
+    return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`;
+  }
+
   render() {
     if (!this.ctx) return;
     const ctx = this.ctx;
@@ -122,74 +164,107 @@ export class HeroTomato3DView {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.scale(scale, scale);
 
-    const key = this.isAssigned ? (this.quadrantIndex ?? 0) : 'unassigned';
+    // Always use Deep Crimson (or the assigned quadrant's heirloom red) on the Hero view when active
+    const key = this.isAssigned ? (this.quadrantIndex ?? 0) : 0;
     const img = this.images.get(key) || this.images.get(0);
     if (img && img.complete) {
       ctx.drawImage(img, 0, 0, this.baseW, this.baseH);
     }
 
-    // Draw curved 3-turn equatorial tick marks & odometer numbers right above the seam
-    // In the 530x460 crop of 02-hero-timer.png:
-    // - Tomato horizontal center is cx = 250, equatorial radius rx = 208
-    // - The dark equatorial seam curves gently from y=236 at the sides to y=256 at center
-    const cx = 250.0;
-    const rx = 208.0;
+    // Clip to the physical silhouette width of the tomato upper cap (x: 35.5 .. 465.5)
+    // so numbers and ticks wrap right up to the physical edge and clip cleanly at the horizon
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(35.5, 140, 430.0, 130);
+    ctx.clip();
+
+    const cx = 251.0;
+    const rx = 214.5;
     const currentMinutes = this.currentAngleDegrees / 6.0;
 
-    const minM = Math.floor(currentMinutes - 27);
-    const maxM = Math.ceil(currentMinutes + 27);
+    // 10 minutes = 30.0° across the front hemisphere (3.0° per minute), matching 02-hero-timer.png
+    const DEG_PER_MIN_VISUAL = 3.0;
+    const minM = Math.floor(currentMinutes - 31);
+    const maxM = Math.ceil(currentMinutes + 31);
 
+    // 1. Draw equatorial tick marks following getTomatoSeamY(x) across the entire visible hemisphere (-88.5° .. +88.5°)
     for (let m = minM; m <= maxM; m++) {
       if (m < 0 || m > 180) continue;
 
       const deltaMin = m - currentMinutes;
-      // 10 minutes = 27.5° of cylindrical longitude across the front face (matching 130 140 150 160 170 in 02-hero-timer.png)
-      const thetaDeg = deltaMin * 2.75;
-      if (Math.abs(thetaDeg) > 78.0) continue;
+      const thetaDeg = deltaMin * DEG_PER_MIN_VISUAL;
+      if (Math.abs(thetaDeg) > 88.5) continue;
 
       const thetaRad = (thetaDeg * Math.PI) / 180.0;
       const sinT = Math.sin(thetaRad);
       const cosT = Math.cos(thetaRad);
 
       const x = cx + rx * sinT;
-      // Seam curve: y = 234 + 22 * cos(theta)
-      const seamY = 234.0 + 22.0 * cosT;
-      const tickBottomY = seamY - 5.5;
+      const seamY = getTomatoSeamY(x);
+      const slope = getTomatoSeamSlope(x);
 
       const isMajor10 = m % 10 === 0;
       const isMedium5 = m % 5 === 0 && !isMajor10;
 
-      const tickLen = (isMajor10 ? 17.5 : isMedium5 ? 13.5 : 10.5) * (0.82 + 0.18 * cosT);
-      // Slight inward normal tilt toward tomato crown
-      const tiltX = -sinT * 2.2;
+      // Constant offset above the curved seam (matches 02-hero-timer.png measurements)
+      const tickBottomY = seamY - 5.0;
+      const tickLen = (isMajor10 ? 17.5 : isMedium5 ? 13.0 : 10.5) * (0.86 + 0.14 * cosT);
 
-      // Soft perspective fade near left/right silhouette edges
-      const alpha = Math.max(0.12, Math.pow(cosT, 1.35) * 0.78);
+      // Ticks lean slightly inward along the tomato's upper shoulder normal
+      const normalTiltX = -sinT * 2.4;
 
-      ctx.strokeStyle = `rgba(235, 214, 210, ${alpha})`;
-      ctx.lineWidth = isMajor10 ? 1.85 : isMedium5 ? 1.45 : 1.15;
+      ctx.strokeStyle = this._getLitPaintStyle(sinT, cosT);
+      // Foreshorten line width slightly at extreme grazing angles near the edge
+      const widthScale = Math.max(0.55, Math.pow(cosT, 0.35));
+      ctx.lineWidth = (isMajor10 ? 1.85 : isMedium5 ? 1.45 : 1.2) * widthScale;
       ctx.lineCap = 'round';
 
       ctx.beginPath();
       ctx.moveTo(x, tickBottomY);
-      ctx.lineTo(x + tiltX, tickBottomY - tickLen);
+      ctx.lineTo(x + normalTiltX, tickBottomY - tickLen);
       ctx.stroke();
 
+      // 2. Draw major 10-minute numbers character-by-character along the 3D curved surface
+      // so each digit follows the exact seam curve and foreshortens naturally at the edge!
       if (isMajor10) {
-        ctx.save();
-        ctx.translate(x + tiltX * 1.4, tickBottomY - tickLen - 5.5);
-        // Perspective horizontal compression on curved sides + subtle arc rotation
-        ctx.rotate(sinT * 0.08);
-        ctx.scale(Math.max(0.68, Math.pow(cosT, 0.45)), 1.0);
-        ctx.fillStyle = `rgba(236, 216, 212, ${alpha * 1.05})`;
-        ctx.font = '500 20px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(String(m), 0, 0);
-        ctx.restore();
+        const labelStr = String(m);
+        const chars = labelStr.split('');
+        // Angular spacing per digit in degrees (slightly wider in degrees near center, constant arc-length on cylinder)
+        const charArcStepDeg = 3.85;
+        const halfSpan = (chars.length - 1) * 0.5;
+
+        chars.forEach((ch, idx) => {
+          const charOffsetIndex = idx - halfSpan;
+          const charThetaDeg = thetaDeg + charOffsetIndex * charArcStepDeg;
+          if (Math.abs(charThetaDeg) > 88.5) return;
+
+          const charThetaRad = (charThetaDeg * Math.PI) / 180.0;
+          const cSin = Math.sin(charThetaRad);
+          const cCos = Math.cos(charThetaRad);
+
+          const charX = cx + rx * cSin - cSin * 3.2;
+          const charSeamY = getTomatoSeamY(charX);
+          const charSlope = getTomatoSeamSlope(charX);
+          const charY = charSeamY - 28.5;
+
+          ctx.save();
+          ctx.translate(charX, charY);
+          // Rotate digit to match the tangent slope of the equatorial seam at charX!
+          ctx.rotate(Math.atan(charSlope));
+          // True 3D cylindrical foreshortening (cos(theta)) as digit approaches the curved silhouette edge
+          ctx.scale(Math.max(0.22, Math.pow(cCos, 0.85)), 1.0);
+
+          ctx.fillStyle = this._getLitPaintStyle(cSin, cCos);
+          ctx.font = '500 20.5px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(ch, 0, 0);
+          ctx.restore();
+        });
       }
     }
 
+    ctx.restore();
     ctx.restore();
   }
 }

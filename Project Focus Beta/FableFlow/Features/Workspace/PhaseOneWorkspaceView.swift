@@ -59,11 +59,15 @@ public struct PhaseOneWorkspaceView: View {
                                 cardRepository.applyLeftToRightPencilGesture(on: task, strokePoints: points)
                             },
                             onTapTaskTomato: { task in
-                                let targetQuadrant = task.assignedQuadrantIndex ?? nextAvailableQuadrant()
-                                timerCoordinator.assignTask(task, toQuadrant: targetQuadrant)
-                                timerCoordinator.selectedHeroQuadrantIndex = targetQuadrant
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
-                                    activeTab = .timer
+                                if let assignedQuadrant = task.assignedQuadrantIndex {
+                                    timerCoordinator.clearQuadrant(assignedQuadrant)
+                                } else {
+                                    let targetQuadrant = nextAvailableQuadrant()
+                                    timerCoordinator.assignTask(task, toQuadrant: targetQuadrant)
+                                    timerCoordinator.selectedHeroQuadrantIndex = targetQuadrant
+                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                                        activeTab = .timer
+                                    }
                                 }
                             },
                             onTapStackIcon: {
@@ -90,7 +94,7 @@ public struct PhaseOneWorkspaceView: View {
                     } else {
                         FourTomatoGridView(
                             timerCoordinator: timerCoordinator,
-                            availableTasks: cardRepository.todaysCard?.sortedTasks ?? [],
+                            availableTasks: (cardRepository.todaysCard?.sortedTasks ?? []).filter { $0.assignedQuadrantIndex == nil },
                             onOpenHeroTomato: { quadrant in
                                 withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
                                     timerCoordinator.selectedHeroQuadrantIndex = quadrant

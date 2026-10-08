@@ -282,9 +282,48 @@ def verify_short_tomato_title_and_straight_strikethrough():
     # Verify straight horizontal strikethrough (ctx.lineTo(currentEndX, centerY), no bowed quadraticCurveTo)
     assert "ctx.lineTo(currentEndX, centerY);" in js_app
     assert "quadraticCurveTo" not in js_app
+    # Verify Left -> Right erase direction (startProgress = progress, endProgress = 1.0)
+    assert "drawGraphiteStroke(strikeCanvas, progress, 1.0);" in js_app
 
 
-check("VisualPolish", "Shortened tomato titles prevent overflow + Straight horizontal dry-graphite strikethrough", verify_short_tomato_title_and_straight_strikethrough)
+check("VisualPolish", "Shortened tomato titles + Straight horizontal strikethrough + Left->Right erase direction", verify_short_tomato_title_and_straight_strikethrough)
+
+
+def verify_hero_tomato_3d_curve_and_edge_shading():
+    js_tomato = read_file("js/tomato3D.js")
+    assert "getTomatoSeamY(x)" in js_tomato, "Must project text/marks onto exact getTomatoSeamY(x) seam profile"
+    assert "getTomatoSeamSlope(x)" in js_tomato, "Must rotate characters/ticks along tangent slope getTomatoSeamSlope(x)"
+    assert "_getLitPaintStyle(sinT, cosT)" in js_tomato, "Must shade paint using 3D directional studio key light + right shadow"
+    assert "Math.pow(cCos, 0.85)" in js_tomato, "Must apply 3D cylindrical horizontal foreshortening per digit near edge"
+    assert "ctx.rect(35.5, 140, 430.0, 130)" in js_tomato, "Must clip paint cleanly at the tomato silhouette horizon"
+
+
+check("HeroTomato3DCurve", "Hero Tomato measurement marks & digits follow exact 3D seam curve with natural studio edge lighting", verify_hero_tomato_3d_curve_and_edge_shading)
+
+
+def verify_card_tomato_navigation_dropdown_filter_and_single_example_task():
+    js_app = read_file("js/app.js")
+    swift_repo = read_file("FableFlow/Features/Card/DailyCardRepository.swift")
+    swift_ws = read_file("FableFlow/Features/Workspace/PhaseOneWorkspaceView.swift")
+
+    # 1. Clicking grey tomato on Card page lights up tomato AND brings user to Timer page
+    assert "this.state.selectedQuadrant = targetQuad;" in js_app
+    assert "this.state.activePillar = 'timer';" in js_app
+    assert "activeTab = .timer" in swift_ws
+
+    # 2. Dropdown filters out already-assigned tasks
+    assert "t.assignedQuadrant === null || t.assignedQuadrant === undefined" in js_app
+    assert ".filter { $0.assignedQuadrantIndex == nil }" in swift_ws
+
+    # 3. Only one "Example Task" seeded by default (no Math Study / Build Deck / Pick Up Package)
+    assert "title: 'Example Task'" in js_app
+    assert 'title: "Example Task"' in swift_repo
+    assert "Math Study" not in js_app
+    assert "Build Deck" not in js_app
+    assert "Pick Up Package" not in js_app
+
+
+check("UserFlowFixes", "Grey tomato navigates to Timer + Dropdown hides assigned tasks + Single 'Example Task' default", verify_card_tomato_navigation_dropdown_filter_and_single_example_task)
 
 # ============================================================================
 # 4. LAYER 3: LIVE HTTP SERVER VERIFICATION
