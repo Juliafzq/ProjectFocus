@@ -11,10 +11,10 @@
  * 7. Default state starts cleanly with a single "Example Task".
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261008_v7';
-import { CardGestureMath } from './cardGestureMath.js?v=20261008_v7';
-import { SensoryEngine } from './sensoryEngine.js?v=20261008_v7';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261008_v7';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261008_v10';
+import { CardGestureMath } from './cardGestureMath.js?v=20261008_v10';
+import { SensoryEngine } from './sensoryEngine.js?v=20261008_v10';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261008_v10';
 
 const STORAGE_KEY = 'fable_flow_phase1_beta_v4';
 const NUM_GRID_SLOTS = 6;
@@ -42,6 +42,7 @@ export class FableFlowApp {
       timerSubMode: 'grid', // 'grid' | 'hero'
       selectedQuadrant: 0,
       openDropdownQuadrant: null,
+      isHeroDropdownOpen: false,
       isCardFlipped: false,
       cardHeaderDate: 'TUESDAY — OCT 06',
       tasks: [
@@ -177,7 +178,7 @@ export class FableFlowApp {
             slot.remainingSeconds = Math.max(0, slot.remainingSeconds - elapsedSec);
             slot.angleDegrees = OdometerDialPhysics.secondsToAngleDegrees(slot.remainingSeconds);
             if (slot.remainingSeconds === 0) {
-              slot.runState = 'idle';
+              slot.runState = 'completed';
               slot.lastTickTimestamp = null;
             } else {
               slot.lastTickTimestamp = now;
@@ -229,6 +230,7 @@ export class FableFlowApp {
       heroTimeUnitBadge: document.getElementById('hero-time-unit-badge'),
       heroTimeSetBtn: document.getElementById('hero-time-set-btn'),
       heroSubtitle: document.getElementById('hero-subtitle'),
+      heroSubtitleDropdownMount: document.getElementById('hero-subtitle-dropdown-mount'),
       heroTomatoStage: document.getElementById('hero-tomato-stage'),
       heroBtnGrid: document.getElementById('hero-btn-grid'),
       heroBtnPlayPause: document.getElementById('hero-btn-playpause'),
@@ -247,6 +249,7 @@ export class FableFlowApp {
       modalOverlay: document.getElementById('modal-overlay'),
       modalTitle: document.getElementById('modal-title'),
       modalInput: document.getElementById('modal-input'),
+      modalDelete: document.getElementById('modal-delete'),
       modalCancel: document.getElementById('modal-cancel'),
       modalConfirm: document.getElementById('modal-confirm'),
 
@@ -305,7 +308,7 @@ export class FableFlowApp {
       this.openAddTaskModal();
     });
 
-    // Close open grid dropdown when clicking outside
+    // Close open grid or hero dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (
         this.state.openDropdownQuadrant !== null &&
@@ -315,6 +318,15 @@ export class FableFlowApp {
         this.state.openDropdownQuadrant = null;
         if (this.state.activePillar === 'timer' && this.state.timerSubMode === 'grid') {
           this.renderGridScreen();
+        }
+      }
+      if (
+        this.state.isHeroDropdownOpen &&
+        !e.target.closest('.hero-subtitle-wrap')
+      ) {
+        this.state.isHeroDropdownOpen = false;
+        if (this.state.activePillar === 'timer' && this.state.timerSubMode === 'hero') {
+          this.renderHeroScreen();
         }
       }
     });
@@ -344,12 +356,13 @@ export class FableFlowApp {
       this.toggleStopwatchMode(this.state.selectedQuadrant);
     });
 
-    this.els.heroSubtitle.addEventListener('click', () => {
+    // PM #4: Clicking the task subtitle on the Hero page opens the reassignment dropdown right on the Hero page
+    this.els.heroSubtitle.addEventListener('click', (e) => {
+      e.stopPropagation();
       this.cancelHeroTimeEditor();
-      this.state.timerSubMode = 'grid';
-      this.state.openDropdownQuadrant = this.state.selectedQuadrant;
+      this.state.isHeroDropdownOpen = !this.state.isHeroDropdownOpen;
       this.saveState();
-      this.renderAll();
+      this.renderHeroScreen();
     });
 
     // 5b. Tap-on-Digits Time Entry on Hero Readout (0–180 min or HH:MM)
@@ -434,6 +447,7 @@ export class FableFlowApp {
   bindHeroDialDragGesture() {
     const stage = this.els.heroTomatoStage;
     let isDragging = false;
+    let hasDragged = false;
     let dragStartX = 0;
     let dragStartAngle = 0;
     let lastNotchIndex = 0;
@@ -444,6 +458,7 @@ export class FableFlowApp {
       if (!slot || slot.mode === 'stopwatch') return;
 
       isDragging = true;
+      hasDragged = false;
       dragStartX = e.clientX;
       dragStartAngle = slot.angleDegrees;
       lastNotchIndex = Math.round(dragStartAngle / OdometerDialPhysics.DEGREES_PER_NOTCH);
@@ -456,6 +471,9 @@ export class FableFlowApp {
       if (!slot || slot.mode === 'stopwatch') return;
 
       const translationX = e.clientX - dragStartX;
+      if (!hasDragged && Math.abs(translationX) <= 3) return;
+      hasDragged = true;
+
       const update = OdometerDialPhysics.computeDragUpdate(
         dragStartAngle,
         translationX,
@@ -475,9 +493,11 @@ export class FableFlowApp {
       slot.configuredMinutes = update.snappedMinutes;
       slot.remainingSeconds = update.snappedMinutes * 60;
 
-      this.els.heroReadout.textContent = OdometerDialPhysics.formatMockupReadout(
+      const readoutStr = OdometerDialPhysics.formatMockupReadout(
         slot.remainingSeconds
       );
+      this.els.heroReadout.textContent = readoutStr;
+      this.els.heroReadout.classList.toggle('has-hours', slot.remainingSeconds > 3600);
       this.hero3D.updateOdometer(
         slot.angleDegrees,
         slot.quadrant,
@@ -493,6 +513,9 @@ export class FableFlowApp {
         stage.releasePointerCapture(e.pointerId);
       } catch (_) {}
 
+      if (!hasDragged) return;
+      hasDragged = false;
+
       const slot = this.state.timers[this.state.selectedQuadrant];
       if (!slot || slot.mode === 'stopwatch') return;
 
@@ -500,6 +523,10 @@ export class FableFlowApp {
       slot.angleDegrees = snapped.snappedAngle;
       slot.configuredMinutes = snapped.minutes;
       slot.remainingSeconds = snapped.minutes * 60;
+
+      if (snapped.minutes > 0) {
+        this.ensureSlotAssignedForActiveTimer(slot.quadrant);
+      }
 
       if (slot.remainingSeconds === 0 && slot.runState === 'running') {
         slot.runState = 'idle';
@@ -661,6 +688,10 @@ export class FableFlowApp {
     slot.remainingSeconds = clampedMins * 60;
     slot.angleDegrees = clampedMins * OdometerDialPhysics.DEGREES_PER_MINUTE;
 
+    if (clampedMins > 0) {
+      this.ensureSlotAssignedForActiveTimer(quadrant);
+    }
+
     this.sensory.playDialRatchetNotch(true);
     this.showTelemetryToast(
       `Timer set to ${clampedMins} min (${OdometerDialPhysics.formatMockupReadout(slot.remainingSeconds)})`
@@ -673,10 +704,33 @@ export class FableFlowApp {
   // TIMER COORDINATOR LOGIC (1-Active-Timer + Stopwatch Turns on Minutes)
   // =========================================================================
 
+  /**
+   * Ensures that if an unassigned (grey) tomato is wound up or started on the Hero page,
+   * it automatically lights up (assigning the first available Card task or a default
+   * 'Focus Session' title) so it never runs as an invisible ghost timer on the 6-Tomato Grid.
+   */
+  ensureSlotAssignedForActiveTimer(quadrant) {
+    const slot = this.state.timers[quadrant];
+    if (!slot || slot.assignedTaskId || slot.customTitle) return;
+
+    const freeTask = this.state.tasks.find(
+      (t) => t.assignedQuadrant === null || t.assignedQuadrant === undefined
+    );
+    if (freeTask) {
+      freeTask.assignedQuadrant = quadrant;
+      slot.assignedTaskId = freeTask.id;
+      slot.assignedTaskOrder = freeTask.orderIndex;
+      slot.customTitle = freeTask.title;
+    } else {
+      slot.customTitle = 'Focus Session';
+    }
+  }
+
   startWallClockTicker() {
     if (this.tickInterval) clearInterval(this.tickInterval);
     this.tickInterval = setInterval(() => {
       let anyUpdated = false;
+      let anyCompletedTransition = false;
       const now = Date.now();
 
       for (const slot of this.state.timers) {
@@ -690,6 +744,7 @@ export class FableFlowApp {
             anyUpdated = true;
 
             if (slot.remainingSeconds === 0) {
+              anyCompletedTransition = true;
               this.endTimerToSilver(slot.quadrant, true);
               this.showNotificationBanner(
                 `Pomodoro completed for "${(slot.customTitle || 'Timer').toUpperCase()}"! Tap Reset (↺) to reset tomato.`
@@ -717,12 +772,33 @@ export class FableFlowApp {
         if (this.state.activePillar === 'timer') {
           if (this.state.timerSubMode === 'hero') {
             this.renderHeroScreen();
-          } else {
+          } else if (anyCompletedTransition) {
             this.renderGridScreen();
+          } else {
+            this.updateGridTimersInPlace();
           }
         }
       }
     }, 1000);
+  }
+
+  /**
+   * Updates running timer readouts on the 6-Tomato Grid in-place without wiping
+   * quadEl.innerHTML, preserving any open task assignment dropdown or hover state (QA #5).
+   */
+  updateGridTimersInPlace() {
+    this.state.timers.forEach((slot, qIdx) => {
+      const quadEl = this.els.gridQuadrants[qIdx];
+      if (!quadEl) return;
+      const timeEl = quadEl.querySelector('.grid-tomato-time');
+      if (timeEl) {
+        const readoutText = OdometerDialPhysics.formatMockupReadout(
+          slot.remainingSeconds
+        );
+        timeEl.textContent = readoutText;
+        timeEl.classList.toggle('has-hours', slot.remainingSeconds > 3600);
+      }
+    });
   }
 
   togglePlayPause(quadrant) {
@@ -741,6 +817,8 @@ export class FableFlowApp {
           other.lastTickTimestamp = null;
         }
       }
+
+      this.ensureSlotAssignedForActiveTimer(quadrant);
 
       if (slot.mode === 'countdown' && slot.remainingSeconds <= 0) {
         slot.configuredMinutes = 25;
@@ -871,6 +949,7 @@ export class FableFlowApp {
     }
 
     this.state.openDropdownQuadrant = null;
+    this.state.isHeroDropdownOpen = false;
     this.sensory.playDialRatchetNotch(true);
     this.saveState();
     this.renderAll();
@@ -896,6 +975,7 @@ export class FableFlowApp {
     }
 
     this.state.openDropdownQuadrant = null;
+    this.state.isHeroDropdownOpen = false;
     this.sensory.playDialRatchetNotch(true);
     this.saveState();
     this.renderAll();
@@ -924,6 +1004,7 @@ export class FableFlowApp {
     slot.lastTickTimestamp = null;
 
     this.state.openDropdownQuadrant = null;
+    this.state.isHeroDropdownOpen = false;
     this.sensory.playDialRatchetNotch(false);
     this.showTelemetryToast('Tomato unassigned (returned to grey)');
     this.saveState();
@@ -934,7 +1015,7 @@ export class FableFlowApp {
    * Clicking a task's right-side tomato icon on Today's Card:
    * - If the tomato is ALREADY LIT UP (assigned), clicking it UNASSIGNS the tomato (returns it to grey)!
    * - If the tomato is GREY (unassigned), clicking it lights up a tomato (assigns the task)
-   *   AND brings the user to the Timer page!
+   *   AND brings the user deterministically to the Hero Timer page for that tomato (PM #2)!
    */
   handleCardTaskTomatoClick(task) {
     if (task.assignedQuadrant !== null && task.assignedQuadrant !== undefined) {
@@ -948,9 +1029,10 @@ export class FableFlowApp {
     const targetQuad = freeSlot ? freeSlot.quadrant : 0;
     this.assignTaskToQuadrant(targetQuad, task);
 
-    // Navigate directly to the Timer page with this tomato selected
+    // Navigate directly and deterministically to the Hero Timer page with this tomato selected (PM #2)
     this.state.selectedQuadrant = targetQuad;
     this.state.activePillar = 'timer';
+    this.state.timerSubMode = 'hero';
     this.saveState();
     this.renderAll();
   }
@@ -1019,8 +1101,7 @@ export class FableFlowApp {
       titleSpan.className = 'task-title';
       titleSpan.textContent = task.title;
       titleSpan.title =
-        'Drag Left → Right to strike through or erase (Left → Right), or double-click to edit';
-      titleSpan.addEventListener('dblclick', () => this.openEditTaskModal(task));
+        'Click once to edit or delete • Drag Left → Right to strike through or erase';
 
       const strikeCanvas = document.createElement('canvas');
       strikeCanvas.className = 'pencil-strike-canvas';
@@ -1141,6 +1222,7 @@ export class FableFlowApp {
 
     rowEl.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.task-tomato-btn')) return;
+      e.stopPropagation(); // QA #1: Prevent bubbling to #daily-card-3d so Right->Left flip doesn't double-toggle
       startX = e.clientX;
       startY = e.clientY;
       isTracking = true;
@@ -1170,6 +1252,7 @@ export class FableFlowApp {
 
     const finishGesture = (e) => {
       if (!isTracking || startX === null) return;
+      e.stopPropagation(); // QA #1: Prevent bubbling to #daily-card-3d
       isTracking = false;
       try {
         rowEl.releasePointerCapture(e.pointerId);
@@ -1179,6 +1262,13 @@ export class FableFlowApp {
       const dy = e.clientY - startY;
       startX = null;
       startY = null;
+
+      // PM #1: Single click on the task row/text opens the Edit / Delete modal
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) {
+        this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
+        this.openEditTaskModal(task);
+        return;
+      }
 
       const gesture = CardGestureMath.classifyGesture(dx, dy, true);
       if (gesture === 'strikethrough') {
@@ -1279,6 +1369,7 @@ export class FableFlowApp {
 
         const timeEl = document.createElement('div');
         timeEl.className = 'grid-tomato-time';
+        timeEl.classList.toggle('has-hours', slot.remainingSeconds > 3600);
         timeEl.textContent = readoutText;
 
         overlay.appendChild(titleEl);
@@ -1406,6 +1497,19 @@ export class FableFlowApp {
       listBody.appendChild(itemBtn);
     });
 
+    const slot = this.state.timers[quadrant];
+    if (slot && (slot.assignedTaskId || slot.customTitle)) {
+      const unassignBtn = document.createElement('button');
+      unassignBtn.type = 'button';
+      unassignBtn.className = 'dropdown-task-item';
+      unassignBtn.style.color = '#8B1E24';
+      unassignBtn.textContent = '✕ Unassign Tomato';
+      unassignBtn.addEventListener('click', () => {
+        this.clearQuadrantAssignment(quadrant);
+      });
+      listBody.appendChild(unassignBtn);
+    }
+
     menu.appendChild(listBody);
     return menu;
   }
@@ -1420,6 +1524,7 @@ export class FableFlowApp {
     this.els.heroReadout.textContent = OdometerDialPhysics.formatMockupReadout(
       slot.remainingSeconds
     );
+    this.els.heroReadout.classList.toggle('has-hours', slot.remainingSeconds > 3600);
 
     if (slot.assignedTaskId || slot.customTitle) {
       const orderStr = String(slot.assignedTaskOrder || slot.quadrant + 1).padStart(
@@ -1435,6 +1540,16 @@ export class FableFlowApp {
     } else {
       const orderStr = String(slot.quadrant + 1).padStart(2, '0');
       this.els.heroSubtitle.textContent = `${orderStr} / TAP TO ASSIGN`;
+    }
+
+    // PM #4: Render task reassignment dropdown right on the Hero page when subtitle is clicked
+    if (this.els.heroSubtitleDropdownMount) {
+      this.els.heroSubtitleDropdownMount.innerHTML = '';
+      if (this.state.isHeroDropdownOpen) {
+        this.els.heroSubtitleDropdownMount.appendChild(
+          this.buildTaskDropdownDOM(slot.quadrant)
+        );
+      }
     }
 
     const isAssigned = Boolean(slot.assignedTaskId || slot.customTitle);
@@ -1499,7 +1614,7 @@ export class FableFlowApp {
 
   openEditTaskModal(task) {
     this.openInputModal(
-      `Edit Task ${String(task.orderIndex).padStart(2, '0')} (Leave empty to delete)`,
+      `Edit Task ${String(task.orderIndex).padStart(2, '0')} (Leave empty or click Delete)`,
       task.title,
       (val) => {
         if (!val.trim()) {
@@ -1514,6 +1629,9 @@ export class FableFlowApp {
         }
         this.saveState();
         this.renderAll();
+      },
+      () => {
+        this.confirmPermanentDeleteTask(task);
       }
     );
   }
@@ -1531,16 +1649,28 @@ export class FableFlowApp {
       this.state.tasks.forEach((t, i) => {
         t.orderIndex = i + 1;
       });
+      // QA #4: When the associated task is deleted, completely reset the tomato
+      // and re-sync assignedTaskOrder for all remaining tasks' tomatoes
       for (const s of this.state.timers) {
         if (s.assignedTaskId === task.id) {
           s.assignedTaskId = null;
           s.assignedTaskOrder = null;
           s.customTitle = null;
+          s.runState = 'idle';
+          s.remainingSeconds = 0;
+          s.configuredMinutes = 0;
+          s.angleDegrees = 0;
+          s.lastTickTimestamp = null;
+        } else if (s.assignedTaskId) {
+          const remainingTask = this.state.tasks.find((t) => t.id === s.assignedTaskId);
+          if (remainingTask) {
+            s.assignedTaskOrder = remainingTask.orderIndex;
+          }
         }
       }
       this.saveState();
       this.renderAll();
-      this.showNotificationBanner('Item permanently deleted');
+      this.showNotificationBanner('Item permanently deleted & associated tomato reset');
     };
     const cleanup = () => {
       this.els.deleteModalCancel.removeEventListener('click', onCancel);
@@ -1558,9 +1688,12 @@ export class FableFlowApp {
     });
   }
 
-  openInputModal(title, initialValue, onSave) {
+  openInputModal(title, initialValue, onSave, onDelete = null) {
     this.els.modalTitle.textContent = title;
     this.els.modalInput.value = initialValue;
+    if (this.els.modalDelete) {
+      this.els.modalDelete.classList.toggle('hidden', !onDelete);
+    }
     this.els.modalOverlay.classList.remove('hidden');
     setTimeout(() => this.els.modalInput.focus(), 30);
 
@@ -1573,6 +1706,10 @@ export class FableFlowApp {
       close();
       onSave(val);
     };
+    const handleDelete = () => {
+      close();
+      if (onDelete) onDelete();
+    };
     const onKey = (e) => {
       if (e.key === 'Enter') confirm();
       if (e.key === 'Escape') close();
@@ -1580,11 +1717,17 @@ export class FableFlowApp {
     const cleanup = () => {
       this.els.modalCancel.removeEventListener('click', close);
       this.els.modalConfirm.removeEventListener('click', confirm);
+      if (this.els.modalDelete) {
+        this.els.modalDelete.removeEventListener('click', handleDelete);
+      }
       this.els.modalInput.removeEventListener('keydown', onKey);
     };
 
     this.els.modalCancel.addEventListener('click', close);
     this.els.modalConfirm.addEventListener('click', confirm);
+    if (this.els.modalDelete && onDelete) {
+      this.els.modalDelete.addEventListener('click', handleDelete);
+    }
     this.els.modalInput.addEventListener('keydown', onKey);
   }
 

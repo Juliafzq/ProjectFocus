@@ -442,6 +442,11 @@ html, body {
   transition: background-color 0.15s ease, color 0.52s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.grid-tomato-time.has-hours {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
 .grid-tomato-wrap.is-silver-completed .grid-tomato-time {
   color: #1A1C20;
   font-weight: 550;
@@ -587,6 +592,11 @@ html, body {
   transition: background-color 0.15s ease, transform 0.12s ease;
 }
 
+.hero-digital-readout.has-hours {
+  font-size: 72px;
+  letter-spacing: -0.04em;
+}
+
 .hero-digital-readout:hover,
 .hero-digital-readout:focus-visible {
   background-color: rgba(0, 0, 0, 0.045);
@@ -715,6 +725,12 @@ html, body {
   letter-spacing: 0.01em;
 }
 
+.hero-subtitle-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
 .hero-task-subtitle {
   margin-top: 10px;
   font-size: 24px;
@@ -731,6 +747,13 @@ html, body {
 
 .hero-task-subtitle:hover {
   opacity: 0.75;
+}
+
+.hero-subtitle-dropdown-mount .task-assign-dropdown {
+  top: 44px;
+  left: 0;
+  transform: none;
+  width: 224px;
 }
 
 .hero-tomato-stage-wrap {
@@ -909,6 +932,17 @@ html, body {
   background: #8B1E24;
   color: #FFFFFF;
   border-color: #8B1E24;
+}
+
+.modal-btn-trash {
+  margin-right: auto;
+  color: #8B1E24;
+  border-color: rgba(139, 30, 36, 0.35);
+  background: rgba(139, 30, 36, 0.06);
+}
+
+.modal-btn-trash:hover {
+  background: rgba(139, 30, 36, 0.14);
 }
 
 /* =========================================================================

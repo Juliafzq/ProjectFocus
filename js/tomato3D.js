@@ -14,58 +14,58 @@ export const HEIRLOOM_PALETTE = {
   0: {
     name: 'Deep Crimson',
     hex: '#8B1E24',
-    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261008_v9',
-    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261008_v9',
-    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261008_v9',
+    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261008_v10',
+    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261008_v10',
+    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261008_v10',
   },
   1: {
     name: 'Warm Terracotta',
     hex: '#C84B31',
-    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261008_v9',
-    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261008_v9',
-    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261008_v9',
+    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261008_v10',
+    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261008_v10',
+    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261008_v10',
   },
   2: {
     name: 'Rich Dark Burgundy',
     hex: '#5E192A',
-    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261008_v9',
-    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261008_v9',
-    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261008_v9',
+    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261008_v10',
+    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261008_v10',
+    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261008_v10',
   },
   3: {
     name: 'Sun-Ripened Coral',
     hex: '#D96B52',
-    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261008_v9',
-    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261008_v9',
-    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261008_v9',
+    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261008_v10',
+    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261008_v10',
+    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261008_v10',
   },
   4: {
     name: 'Golden Persimmon',
     hex: '#C96A2B',
-    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261008_v9',
-    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261008_v9',
-    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261008_v9',
+    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261008_v10',
+    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261008_v10',
+    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261008_v10',
   },
   5: {
     name: 'Spiced Garnet',
     hex: '#9E2A3B',
-    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261008_v9',
-    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261008_v9',
-    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261008_v9',
+    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261008_v10',
+    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261008_v10',
+    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261008_v10',
   },
   completed: {
     name: 'Satin Silver Metallic',
     hex: '#C2C7CE',
-    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261008_v9',
-    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261008_v9',
-    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261008_v9',
+    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261008_v10',
+    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261008_v10',
+    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261008_v10',
   },
   unassigned: {
     name: 'Matte Neutral Grey',
     hex: '#8E8D8A',
-    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261008_v9',
-    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261008_v9',
-    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261008_v9',
+    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261008_v10',
+    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261008_v10',
+    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261008_v10',
   },
 };
 
@@ -375,8 +375,8 @@ export class HeroTomato3DView {
     // Smooth cosine-eased blend factor [0..1] between active heirloom color and Satin Silver Metallic
     const sBlend = 0.5 * (1.0 - Math.cos(Math.PI * Math.max(0.0, Math.min(1.0, this.silverBlend))));
 
-    // Draw base Heirloom Tomato
-    const key = this.isAssigned ? (this.quadrantIndex ?? 0) : 0;
+    // Draw base Heirloom Tomato (or Matte Neutral Grey when unassigned)
+    const key = this.isAssigned ? (this.quadrantIndex ?? 0) : 'unassigned';
     const img = this.images.get(key) || this.images.get(0);
     if (img && img.complete && sBlend < 0.999) {
       ctx.globalAlpha = 1.0;

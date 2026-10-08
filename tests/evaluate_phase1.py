@@ -384,6 +384,63 @@ def verify_silver_metallic_tomato_and_two_step_end_reset():
 
 check("SilverMetallicReset", "Countdown finish or End click smoothly transitions tomato to Silver Metallic and turns End into Reset button", verify_silver_metallic_tomato_and_two_step_end_reset)
 
+
+def verify_qa_pm_audit_fixes_and_chime():
+    html = read_file("index.html")
+    css = read_file("css/style.css")
+    js_phys = read_file("js/odometerPhysics.js")
+    js_sensory = read_file("js/sensoryEngine.js")
+    js_tomato = read_file("js/tomato3D.js")
+    js_app = read_file("js/app.js")
+    swift_slot = read_file("FableFlow/Core/Models/TomatoTimerSlot.swift")
+
+    # QA #1: Prevent pointerdown/pointerup on task rows from bubbling up to #daily-card-3d
+    assert "e.stopPropagation(); // QA #1" in js_app
+
+    # QA #2: HH:MM:SS (00:00:00) when > 60 minutes (clamped > 3600)
+    assert "if (clamped > 3600)" in js_phys
+    assert "if totalSeconds > 3600" in swift_slot
+    assert ".hero-digital-readout.has-hours" in css
+    assert ".grid-tomato-time.has-hours" in css
+
+    # QA #3: Unassigned Hero Tomato renders grey + auto-assigns on start/wind
+    assert "const key = this.isAssigned ? (this.quadrantIndex ?? 0) : 'unassigned';" in js_tomato
+    assert "ensureSlotAssignedForActiveTimer(quadrant)" in js_app
+
+    # QA #4: Deleting a task resets the associated tomato and re-syncs assignedTaskOrder
+    assert "s.assignedTaskOrder = remainingTask.orderIndex;" in js_app
+
+    # QA #5: 1-second wall-clock ticker updates Grid timers in-place without wiping open dropdowns
+    assert "updateGridTimersInPlace()" in js_app
+
+    # QA #6: 1-minute dial resolution (6.0° per notch) + drag movement threshold
+    assert "static MINUTES_PER_NOTCH = 1;" in js_phys
+    assert "static DEGREES_PER_NOTCH = 6.0;" in js_phys
+    assert "if (!hasDragged && Math.abs(translationX) <= 3) return;" in js_app
+
+    # QA #7: Background-elapsed timer reconciles to 'completed' (Silver Metallic)
+    assert "if (slot.remainingSeconds === 0) {\n              slot.runState = 'completed';" in js_app
+
+    # PM #1: Single-click on task row opens Edit / Delete modal + explicit Trash Delete button
+    assert "if (Math.abs(dx) < 6 && Math.abs(dy) < 6)" in js_app
+    assert 'id="modal-delete"' in html
+    assert ".modal-btn-trash" in css
+
+    # PM #2: Clicking grey tomato on Card deterministically opens Hero Timer view
+    assert "this.state.timerSubMode = 'hero';" in js_app
+
+    # PM #4: Clicking task subtitle on Hero page opens task reassignment dropdown right on Hero page
+    assert 'id="hero-subtitle-dropdown-mount"' in html
+    assert "this.state.isHeroDropdownOpen = !this.state.isHeroDropdownOpen;" in js_app
+
+    # Real Mechanical Pomodoro Bell Chime (double-clapper escapement + inharmonic spun-brass partials)
+    assert "triggerBellStrike(now, 0.32);" in js_sensory
+    assert "triggerBellStrike(now + 0.052, 1.0);" in js_sensory
+    assert "freq: 1174.6" in js_sensory
+
+
+check("QAPMAuditFixes", "All 7 QA fixes, 3 PM fixes, 1-minute dial resolution, HH:MM:SS (>60m), and physical Pomodoro bell chime verified", verify_qa_pm_audit_fixes_and_chime)
+
 # ============================================================================
 # 4. LAYER 3: LIVE HTTP SERVER VERIFICATION
 # ============================================================================

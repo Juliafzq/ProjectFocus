@@ -411,20 +411,21 @@ def recolor_tomato_patch(w, h, src_rgb, target_hue_deg, sat_scale=1.0, val_scale
 
 def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
     """
-    Transforms the studio-lit heirloom tomato into a minimalistic, sculptural
-    Satin Silver Metallic tomato (anodized aluminum / brushed platinum-silver finish)
-    for the completed / ended timer state.
-    Uses a 2D silhouette-aware studio smoothing pass on the illumination field so
-    the metallic skin is silky-smooth anodized aluminum with zero JPEG grain.
+    Transforms the studio-lit heirloom tomato into a sleek, minimalistic
+    Liquid / Anodized Silver Metallic tomato for the completed / ended timer state.
+    Combines a wide-smoothed studio illumination field (zero blotches/grain) with
+    analytical 3D metallic reflections:
+    - Focused studio softbox specular highlight on the upper-left dome
+    - Crisp grazing-angle Fresnel metallic rim reflection along the 3D contour
+    - Sleek metallic horizon band & cool silver-chrome chromaticity (R < G < B)
     """
     out = bytearray(src_rgb)
-    cx_norm = w * 0.48
-    cy_norm = h * 0.44
 
-    # 1. Build raw studio illumination field u_raw[y][x] for tomato body pixels
     u_raw = [[None] * w for _ in range(h)]
-    spec_raw = [[0.0] * w for _ in range(h)]
     body_weight = [[0.0] * w for _ in range(h)]
+
+    min_x, max_x = w, 0
+    min_y, max_y = h, 0
 
     for y in range(h):
         for x in range(w):
@@ -434,33 +435,52 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
                 continue
             redness = r - max(g, b)
             if redness > 5:
-                rf, gf = r / 255.0, g / 255.0
-                body_weight[y][x] = min(1.0, (redness - 5.0) / 18.0)
+                rf = r / 255.0
+                bw = min(1.0, (redness - 5.0) / 18.0)
+                body_weight[y][x] = bw
                 u_raw[y][x] = max(0.0, min(1.0, (rf - 0.12) / 0.53))
-                spec_raw[y][x] = min(1.0, max(0.0, gf - 0.10) / 0.24)
+                if bw > 0.5:
+                    if x < min_x:
+                        min_x = x
+                    if x > max_x:
+                        max_x = x
+                    if y < min_y:
+                        min_y = y
+                    if y > max_y:
+                        max_y = y
 
-    # 2. Smooth u_raw with a silhouette-aware 2-pass studio kernel (eliminates JPEG grain & rim streaks
-    #    while preserving the sharp dark equatorial seam groove around y ~ 290..308 on Hero)
+    cx = 0.5 * (min_x + max_x)
+    cy = 0.5 * (min_y + max_y)
+    rx = max(1.0, 0.5 * (max_x - min_x))
+    ry = max(1.0, 0.5 * (max_y - min_y))
+
+    # Multi-pass silhouette-aware smoothing on the cheek/equatorial zone (eliminating inpaint grain)
+    # while keeping the top stem leaves/calyx (y < min_y + 0.26*(max_y-min_y)) and center seam 100% sharp!
+    crown_y_limit = min_y + 0.25 * (max_y - min_y)
     u_smooth = [row[:] for row in u_raw]
-    for _ in range(2):
+    for p_idx in range(4):
         nxt = [row[:] for row in u_smooth]
-        for y in range(2, h - 2):
-            for x in range(2, w - 2):
+        for y in range(3, h - 3):
+            is_crown = y < crown_y_limit
+            if is_crown and p_idx >= 1:
+                continue
+            rad = 1 if is_crown else 3
+            thresh = 0.07 if is_crown else 0.13
+            for x in range(3, w - 3):
                 u0 = u_smooth[y][x]
                 if u0 is None:
                     continue
                 acc = 0.0
                 wsum = 0.0
-                for dy in range(-2, 3):
-                    for dx in range(-2, 3):
+                for dy in range(-rad, rad + 1):
+                    for dx in range(-rad, rad + 1):
                         un = u_smooth[y + dy][x + dx]
                         if un is None:
                             continue
-                        # Edge-stopping bilateral weight so the dark center seam stays razor-sharp
                         diff = abs(un - u0)
-                        if diff > 0.16:
+                        if diff > thresh:
                             continue
-                        wt = (0.18 - diff)
+                        wt = (thresh + 0.02) - diff
                         acc += wt * un
                         wsum += wt
                 if wsum > 0:
@@ -476,15 +496,14 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
             # Center pointer triangle (▲) on Hero tomato: render as crisp dark anthracite to match the silver dial scale
             if is_hero and (314 <= x <= 348) and (298 <= y <= 336):
                 if r > 135 and g > 95:
-                    # Smooth blend based on how white the triangle pixel is
                     whiteness = min(1.0, max(0.0, (g - 85.0) / 135.0))
                     u = u_smooth[y][x] if u_smooth[y][x] is not None else 0.62
-                    silver_bg = (0.24 + 0.60 * (u ** 0.78)) * 255.0
-                    anthracite = 36.0
+                    silver_bg = (0.28 + 0.56 * (u ** 0.82)) * 255.0
+                    anthracite = 26.0
                     val = int(round((1.0 - whiteness) * silver_bg + whiteness * anthracite))
-                    out[i] = max(0, min(255, int(round(val * 0.96))))
-                    out[i + 1] = max(0, min(255, val))
-                    out[i + 2] = max(0, min(255, int(round(val * 1.05))))
+                    out[i] = max(0, min(255, int(round(val * 0.94))))
+                    out[i + 1] = max(0, min(255, int(round(val * 0.98))))
+                    out[i + 2] = max(0, min(255, int(round(val * 1.06))))
                     continue
 
             if r > 172 and g > 168 and b > 162 and (r - g) < 22:
@@ -495,33 +514,56 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
 
             if w_body > 0.0 and u_smooth[y][x] is not None:
                 u = u_smooth[y][x]
-                dx_k = (x - (cx_norm - w * 0.11)) / (w * 0.28)
-                dy_k = (y - (cy_norm - h * 0.10)) / (h * 0.26)
-                key_sheen = 0.14 * math.exp(-0.5 * (dx_k * dx_k + dy_k * dy_k))
 
-                silver_base = 0.23 + 0.61 * (u ** 0.78)
-                spec_lobe = (
-                    0.15 * (max(0.0, (u - 0.38) / 0.62) ** 2.0)
-                    + 0.18 * spec_raw[y][x]
-                    + key_sheen * u
-                )
-                metal_v = max(0.18, min(0.985, silver_base + spec_lobe))
+                # Analytical 3D surface normal on the tomato dome
+                nx = (x - cx) / rx
+                ny = (y - cy) / ry
+                r2 = min(1.0, nx * nx + ny * ny)
+                nz = math.sqrt(max(0.01, 1.0 - r2))
 
-                nr = min(1.0, metal_v * 0.976)
-                ng = min(1.0, metal_v * 0.992)
-                nb = min(1.0, metal_v * 1.024)
+                # 1. Bright metallic silver S-curve reflectance (preserves 3D lobes and deep equatorial seam)
+                s_curve = u * u * (3.0 - 2.0 * u)
+                base_metal = 0.18 + 0.67 * (0.45 * u + 0.55 * s_curve)
+
+                # 2. Focused Tilted Elliptical Studio Softbox Specular Reflection on upper-left cheek
+                dx1 = nx - (-0.30)
+                dy1 = ny - (-0.27)
+                rot_u = 0.78 * dx1 + 0.62 * dy1
+                rot_v = -0.62 * dx1 + 0.78 * dy1
+                spec_softbox = 0.26 * math.exp(-0.5 * ((rot_u / 0.27) ** 2 + (rot_v / 0.14) ** 2)) * min(1.0, u * 1.35)
+                spec_core = 0.14 * math.exp(-0.5 * ((rot_u / 0.13) ** 2 + (rot_v / 0.065) ** 2)) * min(1.0, u * 1.4)
+
+                # 3. Crisp Grazing Fresnel Metallic Rim Reflection (left & top-right contours)
+                fresnel = ((1.0 - nz) ** 2.1) * (0.16 * max(0.0, -nx * 0.7 + 0.35) + 0.11 * max(0.0, nx - 0.10)) * min(1.0, u * 1.6)
+
+                # 4. Metallic Environment Band (sleek horizon contrast + bright lower belly bounce reflection)
+                env_band = -0.10 * math.exp(-((ny - 0.16) / 0.19) ** 2) + 0.11 * math.exp(-((ny - 0.55) / 0.17) ** 2) * min(1.0, u * 1.55)
+
+                # 5. Subtle fine horizontal brushed-anodized micro-sheen
+                micro_brush = 0.004 * math.sin(y * 1.35) * nz
+
+                metal_v = base_metal + spec_softbox + spec_core + fresnel + env_band + micro_brush
+                metal_v = max(0.11, min(0.996, metal_v))
+
+                # Crisp Bright Silver-Chrome Tint (neutral-cool bright silver, never slate blue)
+                hi = max(0.0, min(1.0, (metal_v - 0.74) / 0.25))
+                nr = metal_v * (0.968 + 0.030 * hi)
+                ng = metal_v * (0.986 + 0.013 * hi)
+                nb = min(1.0, metal_v * (1.026 - 0.020 * hi))
 
                 out[i] = int(round((1.0 - w_body) * r + w_body * (nr * 255.0)))
                 out[i + 1] = int(round((1.0 - w_body) * g + w_body * (ng * 255.0)))
                 out[i + 2] = int(round((1.0 - w_body) * b + w_body * (nb * 255.0)))
             elif y < h * 0.48 and (greenness > 2 or (g >= r and r < 145)):
+                # Transform the top stem into matching polished silver-chrome metal
                 stem_w = min(1.0, max(0.0, (g - r + 14.0) / 20.0))
                 lum = 0.35 * rf + 0.50 * gf + 0.15 * bf
-                u_s = max(0.0, min(1.0, (lum - 0.06) / 0.45))
-                pewter_v = min(0.92, 0.24 + 0.64 * (u_s ** 0.80))
-                nr = pewter_v * 0.975
-                ng = pewter_v * 0.992
-                nb = min(1.0, pewter_v * 1.025)
+                u_s = max(0.0, min(1.0, (lum - 0.05) / 0.43))
+                s_stem = u_s * u_s * (3.0 - 2.0 * u_s)
+                chrome_stem = min(0.95, 0.15 + 0.74 * s_stem + 0.10 * (u_s ** 2.6))
+                nr = chrome_stem * 0.938
+                ng = chrome_stem * 0.978
+                nb = min(1.0, chrome_stem * 1.052)
                 out[i] = int(round((1.0 - stem_w) * r + stem_w * (nr * 255.0)))
                 out[i + 1] = int(round((1.0 - stem_w) * g + stem_w * (ng * 255.0)))
                 out[i + 2] = int(round((1.0 - stem_w) * b + stem_w * (nb * 255.0)))

@@ -11,12 +11,12 @@
 
 export class OdometerDialPhysics {
   static DEGREES_PER_MINUTE = 6.0;
-  static MINUTES_PER_NOTCH = 5;
-  static DEGREES_PER_NOTCH = 30.0;
+  static MINUTES_PER_NOTCH = 1;
+  static DEGREES_PER_NOTCH = 6.0;
   static MAX_TURNS = 3;
   static MAX_MINUTES = 180;
   static MAX_ANGLE_DEGREES = 1080.0;
-  static PIXELS_PER_DEGREE = 1.6; // 48px horizontal drag = 30° (1 notch = 5 minutes)
+  static PIXELS_PER_DEGREE = 1.6; // ~9.6px horizontal drag = 6° (1 minute)
 
   /**
    * Convert horizontal drag delta (pixels) from a starting angle into a new clamped angle & notch info.
@@ -111,25 +111,23 @@ export class OdometerDialPhysics {
   }
 
   /**
-   * Format readout to match Mockups 02-hero-timer.png ("02:30" for 150 min) and 03-grid-timer.png ("00:45" for 45 min).
+   * Formats timer readout:
+   * - Longer than 60 minutes (totalSeconds > 3600): HH:MM:SS (e.g., "02:30:00" for 150 min, "01:15:00" for 75 min).
+   * - 60 minutes or less (totalSeconds <= 3600): MM:SS (e.g., "25:00" -> "24:59", "45:00", "00:00").
    */
-  static formatMockupReadout(totalSeconds, mode = 'mockup_hhmm') {
+  static formatMockupReadout(totalSeconds) {
     const clamped = Math.max(0, Math.floor(totalSeconds));
-    const totalMinutes = Math.floor(clamped / 60);
-    const remSeconds = clamped % 60;
 
-    if (mode === 'mockup_hhmm') {
-      if (remSeconds === 0 || totalMinutes >= 60) {
-        const hours = Math.floor(totalMinutes / 60);
-        const mins = totalMinutes % 60;
-        return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-      }
-      return `${String(totalMinutes).padStart(2, '0')}:${String(remSeconds).padStart(2, '0')}`;
+    if (clamped > 3600) {
+      const hours = Math.floor(clamped / 3600);
+      const mins = Math.floor((clamped % 3600) / 60);
+      const secs = clamped % 60;
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(remSeconds).padStart(2, '0')}`;
+    const totalMinutes = Math.floor(clamped / 60);
+    const remSeconds = clamped % 60;
+    return `${String(totalMinutes).padStart(2, '0')}:${String(remSeconds).padStart(2, '0')}`;
   }
 
   /**

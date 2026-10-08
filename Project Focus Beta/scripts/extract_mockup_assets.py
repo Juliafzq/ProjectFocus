@@ -409,6 +409,168 @@ def recolor_tomato_patch(w, h, src_rgb, target_hue_deg, sat_scale=1.0, val_scale
     return out
 
 
+def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
+    """
+    Transforms the studio-lit heirloom tomato into a sleek, minimalistic
+    Liquid / Anodized Silver Metallic tomato for the completed / ended timer state.
+    Combines a wide-smoothed studio illumination field (zero blotches/grain) with
+    analytical 3D metallic reflections:
+    - Focused studio softbox specular highlight on the upper-left dome
+    - Crisp grazing-angle Fresnel metallic rim reflection along the 3D contour
+    - Sleek metallic horizon band & cool silver-chrome chromaticity (R < G < B)
+    """
+    out = bytearray(src_rgb)
+
+    u_raw = [[None] * w for _ in range(h)]
+    body_weight = [[0.0] * w for _ in range(h)]
+
+    min_x, max_x = w, 0
+    min_y, max_y = h, 0
+
+    for y in range(h):
+        for x in range(w):
+            i = (y * w + x) * 3
+            r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
+            if r > 172 and g > 168 and b > 162 and (r - g) < 22:
+                continue
+            redness = r - max(g, b)
+            if redness > 5:
+                rf = r / 255.0
+                bw = min(1.0, (redness - 5.0) / 18.0)
+                body_weight[y][x] = bw
+                u_raw[y][x] = max(0.0, min(1.0, (rf - 0.12) / 0.53))
+                if bw > 0.5:
+                    if x < min_x:
+                        min_x = x
+                    if x > max_x:
+                        max_x = x
+                    if y < min_y:
+                        min_y = y
+                    if y > max_y:
+                        max_y = y
+
+    cx = 0.5 * (min_x + max_x)
+    cy = 0.5 * (min_y + max_y)
+    rx = max(1.0, 0.5 * (max_x - min_x))
+    ry = max(1.0, 0.5 * (max_y - min_y))
+
+    # Multi-pass silhouette-aware smoothing on the cheek/equatorial zone (eliminating inpaint grain)
+    # while keeping the top stem leaves/calyx (y < min_y + 0.26*(max_y-min_y)) and center seam 100% sharp!
+    crown_y_limit = min_y + 0.25 * (max_y - min_y)
+    u_smooth = [row[:] for row in u_raw]
+    for p_idx in range(4):
+        nxt = [row[:] for row in u_smooth]
+        for y in range(3, h - 3):
+            is_crown = y < crown_y_limit
+            if is_crown and p_idx >= 1:
+                continue
+            rad = 1 if is_crown else 3
+            thresh = 0.07 if is_crown else 0.13
+            for x in range(3, w - 3):
+                u0 = u_smooth[y][x]
+                if u0 is None:
+                    continue
+                acc = 0.0
+                wsum = 0.0
+                for dy in range(-rad, rad + 1):
+                    for dx in range(-rad, rad + 1):
+                        un = u_smooth[y + dy][x + dx]
+                        if un is None:
+                            continue
+                        diff = abs(un - u0)
+                        if diff > thresh:
+                            continue
+                        wt = (thresh + 0.02) - diff
+                        acc += wt * un
+                        wsum += wt
+                if wsum > 0:
+                    nxt[y][x] = acc / wsum
+        u_smooth = nxt
+
+    for y in range(h):
+        for x in range(w):
+            i = (y * w + x) * 3
+            r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
+            rf, gf, bf = r / 255.0, g / 255.0, b / 255.0
+
+            # Center pointer triangle (▲) on Hero tomato: render as crisp dark anthracite to match the silver dial scale
+            if is_hero and (314 <= x <= 348) and (298 <= y <= 336):
+                if r > 135 and g > 95:
+                    whiteness = min(1.0, max(0.0, (g - 85.0) / 135.0))
+                    u = u_smooth[y][x] if u_smooth[y][x] is not None else 0.62
+                    silver_bg = (0.28 + 0.56 * (u ** 0.82)) * 255.0
+                    anthracite = 26.0
+                    val = int(round((1.0 - whiteness) * silver_bg + whiteness * anthracite))
+                    out[i] = max(0, min(255, int(round(val * 0.94))))
+                    out[i + 1] = max(0, min(255, int(round(val * 0.98))))
+                    out[i + 2] = max(0, min(255, int(round(val * 1.06))))
+                    continue
+
+            if r > 172 and g > 168 and b > 162 and (r - g) < 22:
+                continue
+
+            w_body = body_weight[y][x]
+            greenness = g - max(r, b)
+
+            if w_body > 0.0 and u_smooth[y][x] is not None:
+                u = u_smooth[y][x]
+
+                # Analytical 3D surface normal on the tomato dome
+                nx = (x - cx) / rx
+                ny = (y - cy) / ry
+                r2 = min(1.0, nx * nx + ny * ny)
+                nz = math.sqrt(max(0.01, 1.0 - r2))
+
+                # 1. Bright metallic silver S-curve reflectance (preserves 3D lobes and deep equatorial seam)
+                s_curve = u * u * (3.0 - 2.0 * u)
+                base_metal = 0.18 + 0.67 * (0.45 * u + 0.55 * s_curve)
+
+                # 2. Focused Tilted Elliptical Studio Softbox Specular Reflection on upper-left cheek
+                dx1 = nx - (-0.30)
+                dy1 = ny - (-0.27)
+                rot_u = 0.78 * dx1 + 0.62 * dy1
+                rot_v = -0.62 * dx1 + 0.78 * dy1
+                spec_softbox = 0.26 * math.exp(-0.5 * ((rot_u / 0.27) ** 2 + (rot_v / 0.14) ** 2)) * min(1.0, u * 1.35)
+                spec_core = 0.14 * math.exp(-0.5 * ((rot_u / 0.13) ** 2 + (rot_v / 0.065) ** 2)) * min(1.0, u * 1.4)
+
+                # 3. Crisp Grazing Fresnel Metallic Rim Reflection (left & top-right contours)
+                fresnel = ((1.0 - nz) ** 2.1) * (0.16 * max(0.0, -nx * 0.7 + 0.35) + 0.11 * max(0.0, nx - 0.10)) * min(1.0, u * 1.6)
+
+                # 4. Metallic Environment Band (sleek horizon contrast + bright lower belly bounce reflection)
+                env_band = -0.10 * math.exp(-((ny - 0.16) / 0.19) ** 2) + 0.11 * math.exp(-((ny - 0.55) / 0.17) ** 2) * min(1.0, u * 1.55)
+
+                # 5. Subtle fine horizontal brushed-anodized micro-sheen
+                micro_brush = 0.004 * math.sin(y * 1.35) * nz
+
+                metal_v = base_metal + spec_softbox + spec_core + fresnel + env_band + micro_brush
+                metal_v = max(0.11, min(0.996, metal_v))
+
+                # Crisp Bright Silver-Chrome Tint (neutral-cool bright silver, never slate blue)
+                hi = max(0.0, min(1.0, (metal_v - 0.74) / 0.25))
+                nr = metal_v * (0.968 + 0.030 * hi)
+                ng = metal_v * (0.986 + 0.013 * hi)
+                nb = min(1.0, metal_v * (1.026 - 0.020 * hi))
+
+                out[i] = int(round((1.0 - w_body) * r + w_body * (nr * 255.0)))
+                out[i + 1] = int(round((1.0 - w_body) * g + w_body * (ng * 255.0)))
+                out[i + 2] = int(round((1.0 - w_body) * b + w_body * (nb * 255.0)))
+            elif y < h * 0.48 and (greenness > 2 or (g >= r and r < 145)):
+                # Transform the top stem into matching polished silver-chrome metal
+                stem_w = min(1.0, max(0.0, (g - r + 14.0) / 20.0))
+                lum = 0.35 * rf + 0.50 * gf + 0.15 * bf
+                u_s = max(0.0, min(1.0, (lum - 0.05) / 0.43))
+                s_stem = u_s * u_s * (3.0 - 2.0 * u_s)
+                chrome_stem = min(0.95, 0.15 + 0.74 * s_stem + 0.10 * (u_s ** 2.6))
+                nr = chrome_stem * 0.938
+                ng = chrome_stem * 0.978
+                nb = min(1.0, chrome_stem * 1.052)
+                out[i] = int(round((1.0 - stem_w) * r + stem_w * (nr * 255.0)))
+                out[i + 1] = int(round((1.0 - stem_w) * g + stem_w * (ng * 255.0)))
+                out[i + 2] = int(round((1.0 - stem_w) * b + stem_w * (nb * 255.0)))
+
+    return out
+
+
 # ============================================================================
 # 1. EXTRACT & CLEAN HERO TOMATO FROM 02-hero-timer.png
 # ============================================================================
@@ -429,6 +591,7 @@ if __name__ == "__main__":
     write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "hero-tomato-4.png"))
     write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "hero-tomato-5.png"))
     write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 0.0, 0.0, 1.05, grey_mode=True), os.path.join(OUT_DIR, "hero-tomato-grey.png"))
+    write_png(hw, hh, recolor_silver_metallic(hw, hh, hero_crimson, is_hero=True), os.path.join(OUT_DIR, "hero-tomato-silver.png"))
 
     # ============================================================================
     # 2. EXTRACT & CLEAN GRID TOMATOES FROM 03-grid-timer.png
@@ -467,6 +630,7 @@ if __name__ == "__main__":
     write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "grid-tomato-3.png"))
     write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "grid-tomato-4.png"))
     write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "grid-tomato-5.png"))
+    write_png(gw0, gh0, recolor_silver_metallic(gw0, gh0, grid_crimson), os.path.join(OUT_DIR, "grid-tomato-silver.png"))
 
     # ============================================================================
     # 3. EXTRACT MINI CARD TOMATOES FROM 04-card-front.png
@@ -488,5 +652,6 @@ if __name__ == "__main__":
     write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "mini-tomato-3.png"))
     write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "mini-tomato-4.png"))
     write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "mini-tomato-5.png"))
+    write_png(mw, mh, recolor_silver_metallic(mw, mh, mini_0), os.path.join(OUT_DIR, "mini-tomato-silver.png"))
 
     print("Done!")

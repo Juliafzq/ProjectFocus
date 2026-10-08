@@ -8,9 +8,10 @@ import CoreGraphics
 /// - Dragging Left -> Right (`deltaX > 0`) unwinds/decrements the countdown DOWN in 5-minute (30°) steps.
 /// - In Count-Up Stopwatch Mode, advances angle forward by +6° (1 minute notch) per elapsed minute.
 public enum OdometerDialPhysics {
+    public static let degreesPerMinuteNotch: Double = 6.0
     public static let degreesPerFiveMinuteNotch: Double = 30.0
-    public static let minutesPerNotch: Int = 5
-    public static let secondsPerNotch: Int = 300
+    public static let minutesPerNotch: Int = 1
+    public static let secondsPerNotch: Int = 60
     public static let degreesPerFullTurn: Double = 360.0
     public static let minutesPerFullTurn: Int = 60
     public static let maxTurns: Int = 3

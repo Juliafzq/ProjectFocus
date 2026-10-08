@@ -95,16 +95,18 @@ public final class TomatoTimerSlot {
         }
     }
 
-    /// Formats readout matching Mockup p. 11 & p. 12 (`02:30` for 2h 30m / 150m when >= 60m at exact minute mark, or `MM:SS` under 60m).
+    /// Formats readout as `HH:MM:SS` (`00:00:00`) when longer than 60 minutes (`totalSeconds > 3600`),
+    /// and `MM:SS` (`00:00`) when 60 minutes or less (`totalSeconds <= 3600`).
     public func formattedReadout(at referenceDate: Date = .now) -> String {
-        let totalSeconds = Int(ceil(currentSeconds(at: referenceDate)))
+        let totalSeconds = max(0, Int(ceil(currentSeconds(at: referenceDate))))
+        if totalSeconds > 3600 {
+            let hours = totalSeconds / 3600
+            let mins = (totalSeconds % 3600) / 60
+            let secs = totalSeconds % 60
+            return String(format: "%02d:%02d:%02d", hours, mins, secs)
+        }
         let totalMinutes = totalSeconds / 60
         let remSeconds = totalSeconds % 60
-        if mode == .countdown && totalMinutes >= 60 && remSeconds == 0 {
-            let hours = totalMinutes / 60
-            let mins = totalMinutes % 60
-            return String(format: "%02d:%02d", hours, mins)
-        }
         return String(format: "%02d:%02d", totalMinutes, remSeconds)
     }
 }
