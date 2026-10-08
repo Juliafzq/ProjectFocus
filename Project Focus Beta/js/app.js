@@ -11,10 +11,10 @@
  * 7. Default state starts cleanly with a single "Example Task".
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261008_v4';
-import { CardGestureMath } from './cardGestureMath.js?v=20261008_v4';
-import { SensoryEngine } from './sensoryEngine.js?v=20261008_v4';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261008_v4';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261008_v5';
+import { CardGestureMath } from './cardGestureMath.js?v=20261008_v5';
+import { SensoryEngine } from './sensoryEngine.js?v=20261008_v5';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261008_v5';
 
 const STORAGE_KEY = 'fable_flow_phase1_beta_v4';
 const NUM_GRID_SLOTS = 6;
@@ -1022,8 +1022,7 @@ export class FableFlowApp {
       overlay.className = 'grid-tomato-overlay';
 
       if (isAssigned) {
-        tomatoWrap.title =
-          'Click lit-up tomato to unassign (return to grey), or click time to open Hero dial';
+        tomatoWrap.title = 'Click tomato to open Single Hero Tomato Timer page';
 
         const titleEl = document.createElement('div');
         titleEl.className = 'grid-tomato-title';
@@ -1032,22 +1031,17 @@ export class FableFlowApp {
         const timeEl = document.createElement('div');
         timeEl.className = 'grid-tomato-time';
         timeEl.textContent = readoutText;
-        timeEl.title = 'Open Single Hero Tomato Dial';
-        timeEl.addEventListener('click', (e) => {
+
+        overlay.appendChild(titleEl);
+        overlay.appendChild(timeEl);
+
+        // On the Tomato Grid page, clicking an assigned tomato brings the user to the Hero Tomato page (does NOT unassign)
+        tomatoWrap.addEventListener('click', (e) => {
           e.stopPropagation();
           this.state.selectedQuadrant = qIdx;
           this.state.timerSubMode = 'hero';
           this.saveState();
           this.renderAll();
-        });
-
-        overlay.appendChild(titleEl);
-        overlay.appendChild(timeEl);
-
-        // Clicking a lit-up tomato body unassigns the tomato (returns to grey)!
-        tomatoWrap.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.clearQuadrantAssignment(qIdx);
         });
       } else {
         tomatoWrap.title = 'Tap to assign a task to this tomato';

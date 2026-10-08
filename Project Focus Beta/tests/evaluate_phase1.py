@@ -253,7 +253,7 @@ def verify_stopwatch_turns_on_minutes_not_seconds():
 check("StopwatchMinutes", "Stopwatch Mode turns the tomato ONLY on whole minutes, never on seconds", verify_stopwatch_turns_on_minutes_not_seconds)
 
 
-def verify_six_tomatoes_and_unassign_on_click():
+def verify_six_tomatoes_and_grid_click_behavior():
     html = read_file("index.html")
     js_app = read_file("js/app.js")
     css = read_file("css/style.css")
@@ -264,12 +264,13 @@ def verify_six_tomatoes_and_unassign_on_click():
     assert "NUM_GRID_SLOTS = 6" in js_app
     assert "repeat(3, 1fr)" in css
 
-    # Verify clicking a lit-up tomato unassigns it (returns to grey) on both Card and Grid
+    # Verify clicking a lit-up tomato on Front Card unassigns it (returns to grey),
+    # whereas clicking a tomato on the Grid opens the Hero Tomato page!
     assert "this.clearQuadrantAssignment(task.assignedQuadrant)" in js_app
-    assert "this.clearQuadrantAssignment(qIdx)" in js_app
+    assert "this.state.timerSubMode = 'hero';" in js_app
 
 
-check("SixTomatoGrid", "6 Tomatoes on 2x3 Grid + Clicking any lit-up tomato unassigns it back to grey", verify_six_tomatoes_and_unassign_on_click)
+check("SixTomatoGrid", "6 Tomatoes on 2x3 Grid + Grid click opens Hero Tomato + Card click unassigns lit tomato", verify_six_tomatoes_and_grid_click_behavior)
 
 
 def verify_short_tomato_title_and_straight_strikethrough():
@@ -295,13 +296,12 @@ check("VisualPolish", "Shortened tomato titles + Straight horizontal strikethrou
 def verify_hero_tomato_3d_curve_and_edge_shading():
     js_tomato = read_file("js/tomato3D.js")
     assert "getTomatoSeamY(x)" in js_tomato, "Must project text/marks onto exact getTomatoSeamY(x) seam profile"
-    assert "getTomatoSeamSlope(x)" in js_tomato, "Must rotate characters/ticks along tangent slope getTomatoSeamSlope(x)"
-    assert "_getLitPaintStyle(sinT, cosT)" in js_tomato, "Must shade paint using 3D directional studio key light + right shadow"
-    assert "Math.pow(cCos, 0.85)" in js_tomato, "Must apply 3D cylindrical horizontal foreshortening per digit near edge"
-    assert "ctx.rect(35.5, 140, 430.0, 130)" in js_tomato, "Must clip paint cleanly at the tomato silhouette horizon"
+    assert "_getLitPaintStyle(sinT, cosT" in js_tomato, "Must shade paint using 3D directional studio key light + right shadow"
+    assert "ctx.lineTo(x, tickBottomY - tickLen);" in js_tomato, "Ticks must be vertical without tilting backwards at the edge"
+    assert "ctx.rect(40.0, 140, 422.0, 130)" in js_tomato, "Must clip paint cleanly inside the tomato silhouette"
 
 
-check("HeroTomato3DCurve", "Hero Tomato measurement marks & digits follow exact 3D seam curve with natural studio edge lighting", verify_hero_tomato_3d_curve_and_edge_shading)
+check("HeroTomato3DCurve", "Hero Tomato measurement marks & digits follow smooth seam curve without backward edge tilt", verify_hero_tomato_3d_curve_and_edge_shading)
 
 
 def verify_card_tomato_navigation_dropdown_filter_and_single_example_task():
