@@ -6,6 +6,7 @@ so that the web/mobile app renders the exact mockup tomatoes rather than synthet
 """
 
 import colorsys
+import math
 import os
 import random
 import subprocess
@@ -107,6 +108,186 @@ def clean_hero_equatorial_numbers(w, h, rgb):
         iterations=200,
         forbid_bg=True
     )
+
+    # Smooth & straighten the center seam opening (dy in -28..+5.5) and left/right silhouette edges
+    smooth_hero_center_opening_and_edges(w, h, rgb)
+
+
+def fit_seam_y(x):
+    u = (x - 385.0) / 215.0
+    return 834.8 + 0.5 * u - 18.2 * (u ** 2) - 15.2 * (u ** 4)
+
+
+def sample_bilinear(w, h, buf, fx, fy):
+    x0 = max(0, min(w - 2, int(math.floor(fx))))
+    y0 = max(0, min(h - 2, int(math.floor(fy))))
+    tx = fx - x0
+    ty = fy - y0
+    out = [0.0, 0.0, 0.0]
+    for c in range(3):
+        v00 = buf[(y0 * w + x0) * 3 + c]
+        v10 = buf[(y0 * w + (x0 + 1)) * 3 + c]
+        v01 = buf[((y0 + 1) * w + x0) * 3 + c]
+        v11 = buf[((y0 + 1) * w + (x0 + 1)) * 3 + c]
+        out[c] = (
+            (1.0 - tx) * (1.0 - ty) * v00
+            + tx * (1.0 - ty) * v10
+            + (1.0 - tx) * ty * v01
+            + tx * ty * v11
+        )
+    return out
+
+
+def smooth_hero_center_opening_and_edges(w, h, rgb):
+    """
+    Eliminates all periodic tick-root bumps along the center seam opening and straightens
+    the left/right outer silhouette edges where the center opening meets the edge of the tomato.
+    """
+    left_edge = {}
+    right_edge = {}
+    for y in range(650, 980):
+        for x in range(140, 385):
+            i = (y * w + x) * 3
+            if rgb[i] - max(rgb[i + 1], rgb[i + 2]) >= 22:
+                left_edge[y] = x
+                break
+        for x in range(630, 385, -1):
+            i = (y * w + x) * 3
+            if rgb[i] - max(rgb[i + 1], rgb[i + 2]) >= 22:
+                right_edge[y] = x
+                break
+
+    src = bytearray(rgb)
+    pass1 = bytearray(rgb)
+    for y in range(765, 845):
+        lx = left_edge.get(y, 170)
+        rx = right_edge.get(y, 598)
+        for x in range(lx + 1, rx):
+            sy = fit_seam_y(x)
+            dy = y - sy
+            if -28.0 <= dy <= 5.5:
+                samples = []
+                for dx in range(-18, 19, 2):
+                    nx = max(lx + 4, min(rx - 4, x + dx))
+                    ny = fit_seam_y(nx) + dy
+                    s_rgb = sample_bilinear(w, h, src, nx, ny)
+                    if s_rgb[0] - s_rgb[1] > 35:
+                        samples.append(s_rgb)
+                if samples:
+                    samples.sort(key=lambda t: t[1] + 0.5 * t[0])
+                    lo = max(0, int(len(samples) * 0.15))
+                    hi = max(lo + 1, int(len(samples) * 0.45))
+                    sub = samples[lo:hi]
+                    i = (y * w + x) * 3
+                    for c in range(3):
+                        pass1[i + c] = int(round(sum(p[c] for p in sub) / len(sub)))
+
+    for y in range(765, 845):
+        lx = left_edge.get(y, 170)
+        rx = right_edge.get(y, 598)
+        for x in range(lx + 1, rx):
+            sy = fit_seam_y(x)
+            dy = y - sy
+            if -28.0 <= dy <= 5.5:
+                if dy < -14.0:
+                    blend = 0.5 * (1.0 - math.cos(math.pi * (dy - (-28.0)) / 14.0))
+                elif dy > 3.0:
+                    blend = 0.5 * (1.0 + math.cos(math.pi * (dy - 3.0) / 2.5))
+                else:
+                    blend = 1.0
+                acc = [0.0, 0.0, 0.0]
+                wsum = 0.0
+                for dx in range(-14, 15, 2):
+                    nx = max(lx + 4, min(rx - 4, x + dx))
+                    ny = fit_seam_y(nx) + dy
+                    wt = math.exp(-(dx * dx) / (2.0 * 8.0 * 8.0))
+                    s_rgb = sample_bilinear(w, h, pass1, nx, ny)
+                    for c in range(3):
+                        acc[c] += wt * s_rgb[c]
+                    wsum += wt
+                i = (y * w + x) * 3
+                for c in range(3):
+                    smoothed = acc[c] / wsum
+                    rgb[i + c] = int(round((1.0 - blend) * src[i + c] + blend * smoothed))
+
+    # Remove JPEG ringing line just inside left/right silhouette rim (within 11px of edge)
+    rim_src = bytearray(rgb)
+    for y in range(700, 865):
+        lx = left_edge.get(y)
+        if lx:
+            i_in = (y * w + (lx + 12)) * 3
+            i_out = (y * w + (lx + 1)) * 3
+            for dx in range(2, 12):
+                t = (dx - 1) / 11.0
+                i = (y * w + (lx + dx)) * 3
+                for c in range(3):
+                    lin = rim_src[i_out + c] * (1.0 - t) + rim_src[i_in + c] * t
+                    rgb[i + c] = int(round(0.65 * lin + 0.35 * rim_src[i + c]))
+        rx = right_edge.get(y)
+        if rx:
+            i_in = (y * w + (rx - 12)) * 3
+            i_out = (y * w + (rx - 1)) * 3
+            for dx in range(2, 12):
+                t = (dx - 1) / 11.0
+                i = (y * w + (rx - dx)) * 3
+                for c in range(3):
+                    lin = rim_src[i_out + c] * (1.0 - t) + rim_src[i_in + c] * t
+                    rgb[i + c] = int(round(0.65 * lin + 0.35 * rim_src[i + c]))
+
+    # Straighten the outer silhouette columns at the left (x=166..170) and right (x=597..601) ends of the center opening
+    for x_cols, x_ref in [([166, 167, 168, 169, 170], 171), ([601, 600, 599, 598, 597], 596)]:
+        y_top, y_bot = 785, 809
+        for idx_col, x in enumerate(x_cols):
+            i_top = (y_top * w + x) * 3
+            i_bot = (y_bot * w + x) * 3
+            for y in range(y_top + 1, y_bot):
+                t = (y - y_top) / (y_bot - y_top)
+                i = (y * w + x) * 3
+                i_in = (y * w + x_ref) * 3
+                i_in_top = (y_top * w + x_ref) * 3
+                i_in_bot = (y_bot * w + x_ref) * 3
+                for c in range(3):
+                    base = rgb[i_top + c] * (1.0 - t) + rgb[i_bot + c] * t
+                    in_base = rgb[i_in_top + c] * (1.0 - t) + rgb[i_in_bot + c] * t
+                    delta = rgb[i_in + c] - in_base
+                    tomato_weight = 0.85 if idx_col >= 2 else (0.35 if idx_col == 1 else 0.0)
+                    val = int(round(base + tomato_weight * delta))
+                    rgb[i + c] = max(0, min(255, val))
+
+
+def feather_background_to_canvas_bg(w, h, rgb, target_bg=(231, 232, 226), margin=54):
+    """
+    Smoothly blends the outer margin of the sprite (and any un-shadowed studio background)
+    into the exact page background color target_bg = (231, 232, 226) (#E7E8E2) so that
+    no square border or shading boundary edge line is ever visible around the tomato.
+    """
+    cx, cy = w * 0.48, h * 0.46
+    for y in range(h):
+        for x in range(w):
+            i = (y * w + x) * 3
+            r, g, b = rgb[i], rgb[i + 1], rgb[i + 2]
+            # Never feather actual colored tomato skin
+            if (r - max(g, b)) > 18:
+                continue
+            # Never feather grey tomato body (grey tomato body has r < 216 everywhere outside the bottom-right shadow)
+            if r < 216 and g < 216 and (x < w * 0.82 and y < h * 0.86):
+                continue
+
+            # Normalize bright un-shadowed studio background noise to exact target_bg
+            if r >= 227 and g >= 227 and b >= 221:
+                r = int(round(0.75 * target_bg[0] + 0.25 * r))
+                g = int(round(0.75 * target_bg[1] + 0.25 * g))
+                b = int(round(0.75 * target_bg[2] + 0.25 * b))
+
+            dist = min(x, w - 1 - x, y, h - 1 - y)
+            if dist < margin:
+                t = dist / float(margin)
+                smooth_t = 0.5 * (1.0 - math.cos(math.pi * t))
+                r = int(round(target_bg[0] * (1.0 - smooth_t) + r * smooth_t))
+                g = int(round(target_bg[1] * (1.0 - smooth_t) + g * smooth_t))
+                b = int(round(target_bg[2] * (1.0 - smooth_t) + b * smooth_t))
+
+            rgb[i], rgb[i + 1], rgb[i + 2] = r, g, b
 
 
 def inpaint_laplace_box(w, h, rgb, x0, y0, x1, y1, mask_fn, iterations=140, forbid_bg=False):
@@ -231,74 +412,81 @@ def recolor_tomato_patch(w, h, src_rgb, target_hue_deg, sat_scale=1.0, val_scale
 # ============================================================================
 # 1. EXTRACT & CLEAN HERO TOMATO FROM 02-hero-timer.png
 # ============================================================================
-print("Extracting photorealistic Hero Tomato from 02-hero-timer.png...")
-w2, h2, rgb2 = read_ppm(os.path.join(ROOT, "docs/mockup-images/02-hero-timer.png"))
-clean_hero_equatorial_numbers(w2, h2, rgb2)
+if __name__ == "__main__":
+    print("Extracting photorealistic Hero Tomato from 02-hero-timer.png...")
+    w2, h2, rgb2 = read_ppm(os.path.join(ROOT, "docs/mockup-images/02-hero-timer.png"))
+    clean_hero_equatorial_numbers(w2, h2, rgb2)
 
-HERO_X0, HERO_Y0, HERO_X1, HERO_Y1 = 134, 576, 664, 1036
-hw, hh, hero_crimson = crop_rgb(w2, h2, rgb2, HERO_X0, HERO_Y0, HERO_X1, HERO_Y1)
-write_png(hw, hh, hero_crimson, os.path.join(OUT_DIR, "hero-tomato-0.png"))
-write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 16.0, 0.80, 1.24), os.path.join(OUT_DIR, "hero-tomato-1.png"))
-write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 346.0, 0.88, 0.92), os.path.join(OUT_DIR, "hero-tomato-2.png"))
-write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "hero-tomato-3.png"))
-write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "hero-tomato-4.png"))
-write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "hero-tomato-5.png"))
-write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 0.0, 0.0, 1.05, grey_mode=True), os.path.join(OUT_DIR, "hero-tomato-grey.png"))
+    # Expanded 700x600 crop (x=54..754, y=536..1136) so the entire soft cast shadow is preserved and feathered to #E7E8E2
+    HERO_X0, HERO_Y0, HERO_X1, HERO_Y1 = 54, 536, 754, 1136
+    hw, hh, hero_crimson = crop_rgb(w2, h2, rgb2, HERO_X0, HERO_Y0, HERO_X1, HERO_Y1)
+    feather_background_to_canvas_bg(hw, hh, hero_crimson, target_bg=(231, 232, 226), margin=58)
 
-# ============================================================================
-# 2. EXTRACT & CLEAN GRID TOMATOES FROM 03-grid-timer.png
-# ============================================================================
-print("Extracting photorealistic Grid Tomatoes from 03-grid-timer.png...")
-w3, h3, rgb3 = read_ppm(os.path.join(ROOT, "docs/mockup-images/03-grid-timer.png"))
+    write_png(hw, hh, hero_crimson, os.path.join(OUT_DIR, "hero-tomato-0.png"))
+    write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 16.0, 0.80, 1.24), os.path.join(OUT_DIR, "hero-tomato-1.png"))
+    write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 346.0, 0.88, 0.92), os.path.join(OUT_DIR, "hero-tomato-2.png"))
+    write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "hero-tomato-3.png"))
+    write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "hero-tomato-4.png"))
+    write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "hero-tomato-5.png"))
+    write_png(hw, hh, recolor_tomato_patch(hw, hh, hero_crimson, 0.0, 0.0, 1.05, grey_mode=True), os.path.join(OUT_DIR, "hero-tomato-grey.png"))
 
-inpaint_laplace_box(
-    w3, h3, rgb3, 80, 312, 300, 432,
-    lambda x, y, r, g, b: g > 48 or (r - g) < 55,
-    iterations=180
-)
-gw0, gh0, grid_crimson = crop_rgb(w3, h3, rgb3, 32, 216, 356, 516)
-write_png(gw0, gh0, grid_crimson, os.path.join(OUT_DIR, "grid-tomato-0.png"))
+    # ============================================================================
+    # 2. EXTRACT & CLEAN GRID TOMATOES FROM 03-grid-timer.png
+    # ============================================================================
+    print("Extracting photorealistic Grid Tomatoes from 03-grid-timer.png...")
+    w3, h3, rgb3 = read_ppm(os.path.join(ROOT, "docs/mockup-images/03-grid-timer.png"))
 
-inpaint_laplace_box(
-    w3, h3, rgb3, 468, 312, 688, 432,
-    lambda x, y, r, g, b: g > 92 or b > 65,
-    iterations=180
-)
-gw1, gh1, grid_terracotta = crop_rgb(w3, h3, rgb3, 420, 216, 744, 516)
-write_png(gw1, gh1, grid_terracotta, os.path.join(OUT_DIR, "grid-tomato-1.png"))
+    inpaint_laplace_box(
+        w3, h3, rgb3, 80, 312, 300, 432,
+        lambda x, y, r, g, b: g > 48 or (r - g) < 55,
+        iterations=180
+    )
+    gw0, gh0, grid_crimson = crop_rgb(w3, h3, rgb3, 32, 216, 356, 516)
+    feather_background_to_canvas_bg(gw0, gh0, grid_crimson, target_bg=(231, 232, 226), margin=26)
+    write_png(gw0, gh0, grid_crimson, os.path.join(OUT_DIR, "grid-tomato-0.png"))
 
-inpaint_laplace_box(
-    w3, h3, rgb3, 475, 935, 675, 988,
-    lambda x, y, r, g, b: r > 164,
-    iterations=180
-)
-gwg, ghg, grid_grey = crop_rgb(w3, h3, rgb3, 420, 785, 744, 1085)
-write_png(gwg, ghg, grid_grey, os.path.join(OUT_DIR, "grid-tomato-grey.png"))
+    inpaint_laplace_box(
+        w3, h3, rgb3, 468, 312, 688, 432,
+        lambda x, y, r, g, b: g > 92 or b > 65,
+        iterations=180
+    )
+    gw1, gh1, grid_terracotta = crop_rgb(w3, h3, rgb3, 420, 216, 744, 516)
+    feather_background_to_canvas_bg(gw1, gh1, grid_terracotta, target_bg=(231, 232, 226), margin=26)
+    write_png(gw1, gh1, grid_terracotta, os.path.join(OUT_DIR, "grid-tomato-1.png"))
 
-write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 346.0, 0.88, 0.92), os.path.join(OUT_DIR, "grid-tomato-2.png"))
-write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "grid-tomato-3.png"))
-write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "grid-tomato-4.png"))
-write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "grid-tomato-5.png"))
+    inpaint_laplace_box(
+        w3, h3, rgb3, 475, 935, 675, 988,
+        lambda x, y, r, g, b: r > 164,
+        iterations=180
+    )
+    gwg, ghg, grid_grey = crop_rgb(w3, h3, rgb3, 420, 785, 744, 1085)
+    feather_background_to_canvas_bg(gwg, ghg, grid_grey, target_bg=(231, 232, 226), margin=26)
+    write_png(gwg, ghg, grid_grey, os.path.join(OUT_DIR, "grid-tomato-grey.png"))
 
-# ============================================================================
-# 3. EXTRACT MINI CARD TOMATOES FROM 04-card-front.png
-# ============================================================================
-print("Extracting photorealistic Card Mini-Tomatoes from 04-card-front.png...")
-w4, h4, rgb4 = read_ppm(os.path.join(ROOT, "docs/mockup-images/04-card-front.png"))
+    write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 346.0, 0.88, 0.92), os.path.join(OUT_DIR, "grid-tomato-2.png"))
+    write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "grid-tomato-3.png"))
+    write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "grid-tomato-4.png"))
+    write_png(gw0, gh0, recolor_tomato_patch(gw0, gh0, grid_crimson, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "grid-tomato-5.png"))
 
-# Exact 58x58 crops centered on Row 01 (y=372..430), Row 02 (y=493..551), Row 03 (y=614..672)
-mw, mh, mini_0 = crop_rgb(w4, h4, rgb4, 605, 372, 663, 430)
-write_png(mw, mh, mini_0, os.path.join(OUT_DIR, "mini-tomato-0.png"))
+    # ============================================================================
+    # 3. EXTRACT MINI CARD TOMATOES FROM 04-card-front.png
+    # ============================================================================
+    print("Extracting photorealistic Card Mini-Tomatoes from 04-card-front.png...")
+    w4, h4, rgb4 = read_ppm(os.path.join(ROOT, "docs/mockup-images/04-card-front.png"))
 
-_, _, mini_1 = crop_rgb(w4, h4, rgb4, 605, 493, 663, 551)
-write_png(mw, mh, mini_1, os.path.join(OUT_DIR, "mini-tomato-1.png"))
+    # Exact 58x58 crops centered on Row 01 (y=372..430), Row 02 (y=493..551), Row 03 (y=614..672)
+    mw, mh, mini_0 = crop_rgb(w4, h4, rgb4, 605, 372, 663, 430)
+    write_png(mw, mh, mini_0, os.path.join(OUT_DIR, "mini-tomato-0.png"))
 
-_, _, mini_grey = crop_rgb(w4, h4, rgb4, 605, 614, 663, 672)
-write_png(mw, mh, mini_grey, os.path.join(OUT_DIR, "mini-tomato-grey.png"))
+    _, _, mini_1 = crop_rgb(w4, h4, rgb4, 605, 493, 663, 551)
+    write_png(mw, mh, mini_1, os.path.join(OUT_DIR, "mini-tomato-1.png"))
 
-write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 346.0, 0.88, 0.92), os.path.join(OUT_DIR, "mini-tomato-2.png"))
-write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "mini-tomato-3.png"))
-write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "mini-tomato-4.png"))
-write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "mini-tomato-5.png"))
+    _, _, mini_grey = crop_rgb(w4, h4, rgb4, 605, 614, 663, 672)
+    write_png(mw, mh, mini_grey, os.path.join(OUT_DIR, "mini-tomato-grey.png"))
 
-print("Done!")
+    write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 346.0, 0.88, 0.92), os.path.join(OUT_DIR, "mini-tomato-2.png"))
+    write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 9.0, 0.78, 1.32), os.path.join(OUT_DIR, "mini-tomato-3.png"))
+    write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 24.0, 0.84, 1.30), os.path.join(OUT_DIR, "mini-tomato-4.png"))
+    write_png(mw, mh, recolor_tomato_patch(mw, mh, mini_0, 354.0, 0.85, 1.10), os.path.join(OUT_DIR, "mini-tomato-5.png"))
+
+    print("Done!")

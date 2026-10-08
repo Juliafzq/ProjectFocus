@@ -11,10 +11,10 @@
  * 7. Default state starts cleanly with a single "Example Task".
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261008_v5';
-import { CardGestureMath } from './cardGestureMath.js?v=20261008_v5';
-import { SensoryEngine } from './sensoryEngine.js?v=20261008_v5';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261008_v5';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261008_v6';
+import { CardGestureMath } from './cardGestureMath.js?v=20261008_v6';
+import { SensoryEngine } from './sensoryEngine.js?v=20261008_v6';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261008_v6';
 
 const STORAGE_KEY = 'fable_flow_phase1_beta_v4';
 const NUM_GRID_SLOTS = 6;

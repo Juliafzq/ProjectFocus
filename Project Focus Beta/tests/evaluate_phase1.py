@@ -298,7 +298,7 @@ def verify_hero_tomato_3d_curve_and_edge_shading():
     assert "getTomatoSeamY(x)" in js_tomato, "Must project text/marks onto exact getTomatoSeamY(x) seam profile"
     assert "_getLitPaintStyle(sinT, cosT" in js_tomato, "Must shade paint using 3D directional studio key light + right shadow"
     assert "ctx.lineTo(x, tickBottomY - tickLen);" in js_tomato, "Ticks must be vertical without tilting backwards at the edge"
-    assert "ctx.rect(40.0, 140, 422.0, 130)" in js_tomato, "Must clip paint cleanly inside the tomato silhouette"
+    assert "ctx.rect(36.0, 140, 428.0, 130)" in js_tomato, "Must clip paint cleanly inside the tomato silhouette"
 
 
 check("HeroTomato3DCurve", "Hero Tomato measurement marks & digits follow smooth seam curve without backward edge tilt", verify_hero_tomato_3d_curve_and_edge_shading)
