@@ -144,4 +144,65 @@ export class OdometerDialPhysics {
       return Math.max(0, Math.min(180, val));
     });
   }
+
+  /**
+   * Parses a user-typed time string (when tapping on the digital readout) into minutes [0..180].
+   * Supports:
+   * - Plain minutes: "25" -> 25, "90" -> 90, "150" -> 150, "180" -> 180
+   * - HH:MM readout format: "02:30" or "2:30" -> 150, "01:15" -> 75, "00:45" -> 45
+   * - MM:SS format: "25:00" -> 25, "90:00" -> 90
+   * - Shorthand units: "2h", "2.5h", "1h30m", "120m"
+   * Returns null if input is empty or contains no valid digits.
+   */
+  static parseTypedTimeInput(rawInput) {
+    if (rawInput === null || rawInput === undefined) return null;
+    const cleaned = String(rawInput).trim().toLowerCase();
+    if (!cleaned) return null;
+
+    // 1. Check for "Xh Ym" or "Xh" or "Ym" unit format
+    const hmMatch = cleaned.match(/^(?:(\d+(?:\.\d+)?)\s*h(?:ours?|r|rs?)?)?\s*(?:(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?)?$/);
+    if (hmMatch && (hmMatch[1] !== undefined || hmMatch[2] !== undefined)) {
+      const hours = hmMatch[1] ? parseFloat(hmMatch[1]) : 0;
+      const mins = hmMatch[2] ? parseFloat(hmMatch[2]) : 0;
+      const totalMins = Math.round(hours * 60 + mins);
+      return Math.max(0, Math.min(OdometerDialPhysics.MAX_MINUTES, totalMins));
+    }
+
+    // 2. Check for colon-separated format "A:B" or "A:B:C"
+    if (cleaned.includes(':')) {
+      const parts = cleaned.split(':').map((p) => p.trim());
+      if (parts.some((p) => p === '' || isNaN(Number(p)))) return null;
+      const nums = parts.map((p) => Number(p));
+
+      if (nums.length === 2) {
+        const [a, b] = nums;
+        if (a < 0 || b < 0) return null;
+        // If user typed "25:00" or "120:00" (MM:00 where A >= 4 and B === 0)
+        if (a >= 4 && b === 0) {
+          return Math.max(0, Math.min(OdometerDialPhysics.MAX_MINUTES, Math.round(a)));
+        }
+        // If A <= 3 and B < 60 (e.g. "02:30", "2:30", "01:15", "00:45", "03:00"), interpret as HH:MM
+        if (a <= 3 && b < 60) {
+          const totalMins = Math.round(a * 60 + b);
+          return Math.max(0, Math.min(OdometerDialPhysics.MAX_MINUTES, totalMins));
+        }
+        // Otherwise interpret A as minutes and B as seconds
+        const totalMins = Math.round(a + b / 60);
+        return Math.max(0, Math.min(OdometerDialPhysics.MAX_MINUTES, totalMins));
+      }
+
+      if (nums.length === 3) {
+        const [h, m, s] = nums;
+        if (h < 0 || m < 0 || s < 0) return null;
+        const totalMins = Math.round(h * 60 + m + s / 60);
+        return Math.max(0, Math.min(OdometerDialPhysics.MAX_MINUTES, totalMins));
+      }
+      return null;
+    }
+
+    // 3. Plain numeric value -> minutes (0..180)
+    const numeric = Number(cleaned);
+    if (!Number.isFinite(numeric) || numeric < 0) return null;
+    return Math.max(0, Math.min(OdometerDialPhysics.MAX_MINUTES, Math.round(numeric)));
+  }
 }

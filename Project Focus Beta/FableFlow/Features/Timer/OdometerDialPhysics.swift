@@ -103,4 +103,38 @@ public enum OdometerDialPhysics {
             min(max(roundedTen + offset, 0), maxDurationMinutes)
         }
     }
+
+    /// Parses a user-typed time string (when tapping on the digital readout) into minutes [0..180].
+    /// Supports plain minutes ("25", "150") or colon-separated ("02:30" -> 150, "25:00" -> 25).
+    public static func parseTypedTimeInput(_ rawInput: String) -> Int? {
+        let cleaned = rawInput.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !cleaned.isEmpty else { return nil }
+
+        if cleaned.contains(":") {
+            let parts = cleaned.split(separator: ":", omittingEmptySubsequences: false).map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+            let nums = parts.compactMap { Double($0) }
+            guard nums.count == parts.count else { return nil }
+            if nums.count == 2 {
+                let a = nums[0], b = nums[1]
+                guard a >= 0, b >= 0 else { return nil }
+                if a >= 4 && b == 0 {
+                    return min(max(Int(round(a)), 0), maxDurationMinutes)
+                }
+                if a <= 3 && b < 60 {
+                    return min(max(Int(round(a * 60.0 + b)), 0), maxDurationMinutes)
+                }
+                return min(max(Int(round(a + b / 60.0)), 0), maxDurationMinutes)
+            } else if nums.count == 3 {
+                let h = nums[0], m = nums[1], s = nums[2]
+                guard h >= 0, m >= 0, s >= 0 else { return nil }
+                return min(max(Int(round(h * 60.0 + m + s / 60.0)), 0), maxDurationMinutes)
+            }
+            return nil
+        }
+
+        guard let numeric = Double(cleaned), numeric >= 0 else { return nil }
+        return min(max(Int(round(numeric)), 0), maxDurationMinutes)
+    }
 }

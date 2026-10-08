@@ -7,7 +7,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="css/style.css?v=20261008_v7" />
+  <link rel="stylesheet" href="css/style.css?v=20261008_v8" />
 </head>
 <body>
 
@@ -121,9 +121,48 @@
          SCREEN 3: SINGLE BIG HERO TOMATO VIEW (Mockup 02-hero-timer.png)
          =================================================================== -->
     <section id="screen-hero" class="screen-container hero-timer-screen hidden">
-      <!-- Upper-Left Digital Readout & Task Subtitle -->
+      <!-- Upper-Left Digital Readout & Task Subtitle (Tap digits to type time directly) -->
       <div class="hero-readout-block">
-        <div id="hero-readout" class="hero-digital-readout">25:00</div>
+        <div class="hero-readout-wrap">
+          <div
+            id="hero-readout"
+            class="hero-digital-readout"
+            role="button"
+            tabindex="0"
+            aria-label="Timer readout. Tap to type duration in minutes or HH:MM"
+            title="Tap digits to type time (0–180 min or HH:MM)"
+          >25:00</div>
+
+          <!-- Inline Tap-to-Type Time Editor (Opens in-place when user taps the digits) -->
+          <div id="hero-time-editor" class="hero-time-editor hidden" role="group" aria-label="Type timer duration">
+            <div class="hero-time-input-bar">
+              <input
+                id="hero-time-input"
+                type="text"
+                inputmode="text"
+                class="hero-time-input"
+                maxlength="8"
+                placeholder="0–180m"
+                aria-label="Type minutes (0 to 180) or HH:MM"
+              />
+              <span class="hero-time-unit-badge" id="hero-time-unit-badge">MIN</span>
+              <button type="button" id="hero-time-set-btn" class="hero-time-set-btn">Set</button>
+            </div>
+            <div class="hero-time-popover">
+              <div class="hero-time-presets" aria-label="Quick duration presets">
+                <button type="button" class="hero-preset-pill" data-mins="15">15m</button>
+                <button type="button" class="hero-preset-pill" data-mins="25">25m</button>
+                <button type="button" class="hero-preset-pill" data-mins="45">45m</button>
+                <button type="button" class="hero-preset-pill" data-mins="60">60m</button>
+                <button type="button" class="hero-preset-pill" data-mins="90">90m</button>
+                <button type="button" class="hero-preset-pill" data-mins="120">120m</button>
+                <button type="button" class="hero-preset-pill" data-mins="150">150m</button>
+                <button type="button" class="hero-preset-pill" data-mins="180">180m</button>
+              </div>
+              <div class="hero-time-hint">Type minutes (0–180) or HH:MM (e.g. 02:30) · Enter to set</div>
+            </div>
+          </div>
+        </div>
         <div id="hero-subtitle" class="hero-task-subtitle" title="Tap to change task assignment">01 / EXAMPLE TASK</div>
       </div>
 
@@ -210,6 +249,6 @@
     <button type="button" id="demo-reset-state" class="beta-eval-btn">↺ Reset Mockup State</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=20261008_v7"></script>
+  <script type="module" src="js/app.js?v=20261008_v8"></script>
 </body>
 </html>

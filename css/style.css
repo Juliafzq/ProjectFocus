@@ -540,6 +540,14 @@ html, body {
 
 .hero-readout-block {
   padding-top: 4px;
+  position: relative;
+}
+
+.hero-readout-wrap {
+  position: relative;
+  min-height: 103px;
+  display: flex;
+  align-items: center;
 }
 
 .hero-digital-readout {
@@ -549,6 +557,139 @@ html, body {
   line-height: 0.95;
   color: #080808;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 0 4px;
+  margin-left: -4px;
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+
+.hero-digital-readout:hover,
+.hero-digital-readout:focus-visible {
+  background-color: rgba(0, 0, 0, 0.045);
+  outline: none;
+}
+
+.hero-digital-readout:active {
+  transform: scale(0.985);
+}
+
+/* Inline Tap-on-Digits Time Editor */
+.hero-time-editor {
+  position: relative;
+  width: 100%;
+  min-height: 103px;
+  display: flex;
+  align-items: center;
+  z-index: 48;
+}
+
+.hero-time-editor.hidden {
+  display: none !important;
+}
+
+.hero-time-input-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  background: rgba(250, 249, 245, 0.96);
+  border: 2px solid #111111;
+  border-radius: 14px;
+  padding: 6px 12px 8px 12px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+}
+
+.hero-time-input {
+  width: 100%;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 74px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #080808;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+}
+
+.hero-time-unit-badge {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #6E6D68;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.hero-time-set-btn {
+  align-self: center;
+  background: #111111;
+  color: #FAF9F5;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.hero-time-set-btn:hover {
+  background: #292929;
+  transform: scale(1.03);
+}
+
+.hero-time-popover {
+  position: absolute;
+  top: 104px;
+  left: 0;
+  right: 0;
+  background: rgba(250, 249, 245, 0.98);
+  border: 1.5px solid #141414;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+  z-index: 50;
+}
+
+.hero-time-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.hero-preset-pill {
+  flex: 1 1 calc(25% - 6px);
+  min-width: 58px;
+  background: #FFFFFF;
+  color: #111111;
+  border: 1px solid #C8C6BE;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s ease;
+}
+
+.hero-preset-pill:hover {
+  background: #111111;
+  color: #FFFFFF;
+  border-color: #111111;
+}
+
+.hero-time-hint {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #5E5D59;
+  letter-spacing: 0.01em;
 }
 
 .hero-task-subtitle {

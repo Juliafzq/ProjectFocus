@@ -13,6 +13,8 @@ public struct SingleHeroTomatoView: View {
     @State private var dragStartAngleDegrees: Double? = nil
     @State private var liveDragAngleDegrees: Double? = nil
     @State private var lastNotchCountTriggered: Int = 0
+    @State private var isShowingTimeInputAlert: Bool = false
+    @State private var typedTimeString: String = ""
 
     public init(
         quadrantIndex: Int,
@@ -44,13 +46,34 @@ public struct SingleHeroTomatoView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top-Left Digital Readout & Task Label (Mockup p. 11 Bottom)
+            // Top-Left Digital Readout & Task Label (Tap digits to type duration directly)
             VStack(alignment: .leading, spacing: 2) {
-                Text(slot.formattedReadout())
-                    .font(.system(size: 92, weight: .bold))
-                    .tracking(-2.5)
-                    .monospacedDigit()
-                    .foregroundStyle(ThemeTokens.inkPrimary)
+                Button {
+                    let currentMins = Int(round(slot.currentSeconds() / 60.0))
+                    typedTimeString = "\(currentMins)"
+                    isShowingTimeInputAlert = true
+                } label: {
+                    Text(slot.formattedReadout())
+                        .font(.system(size: 92, weight: .bold))
+                        .tracking(-2.5)
+                        .monospacedDigit()
+                        .foregroundStyle(ThemeTokens.inkPrimary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Timer duration \(slot.formattedReadout()). Tap to type time in minutes.")
+                .alert("Set Timer Duration", isPresented: $isShowingTimeInputAlert) {
+                    TextField("Minutes (0–180) or HH:MM", text: $typedTimeString)
+                    Button("Cancel", role: .cancel) {}
+                    Button("Set") {
+                        if let mins = OdometerDialPhysics.parseTypedTimeInput(typedTimeString) {
+                            let turnIdx = OdometerDialPhysics.turnIndex(forMinutes: mins)
+                            sensoryEngine.playTomatoNotchClick(turnIndex: turnIdx, isWindingUp: true)
+                            timerCoordinator.setCountdownDuration(seconds: mins * 60, forQuadrant: quadrantIndex)
+                        }
+                    }
+                } message: {
+                    Text("Enter minutes (0–180) or HH:MM (e.g. 02:30).")
+                }
 
                 Text(slot.heroSubtitleLabel)
                     .font(.system(size: 22, weight: .semibold))

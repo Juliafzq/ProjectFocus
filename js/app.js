@@ -224,6 +224,10 @@ export class FableFlowApp {
       ],
 
       heroReadout: document.getElementById('hero-readout'),
+      heroTimeEditor: document.getElementById('hero-time-editor'),
+      heroTimeInput: document.getElementById('hero-time-input'),
+      heroTimeUnitBadge: document.getElementById('hero-time-unit-badge'),
+      heroTimeSetBtn: document.getElementById('hero-time-set-btn'),
       heroSubtitle: document.getElementById('hero-subtitle'),
       heroTomatoStage: document.getElementById('hero-tomato-stage'),
       heroBtnGrid: document.getElementById('hero-btn-grid'),
@@ -341,11 +345,15 @@ export class FableFlowApp {
     });
 
     this.els.heroSubtitle.addEventListener('click', () => {
+      this.cancelHeroTimeEditor();
       this.state.timerSubMode = 'grid';
       this.state.openDropdownQuadrant = this.state.selectedQuadrant;
       this.saveState();
       this.renderAll();
     });
+
+    // 5b. Tap-on-Digits Time Entry on Hero Readout (0–180 min or HH:MM)
+    this.bindHeroReadoutTimeEntry();
 
     // 6. Demo / Evaluation Toolbar Buttons
     if (this.els.demoBtnCard) {
@@ -431,6 +439,7 @@ export class FableFlowApp {
     let lastNotchIndex = 0;
 
     stage.addEventListener('pointerdown', (e) => {
+      this.closeHeroTimeEditorDOM();
       const slot = this.state.timers[this.state.selectedQuadrant];
       if (!slot || slot.mode === 'stopwatch') return;
 
@@ -501,6 +510,160 @@ export class FableFlowApp {
     stage.addEventListener('pointercancel', endDrag);
   }
 
+  /**
+   * Allows users to tap directly on the Hero digital readout (#hero-readout)
+   * to type a custom duration in minutes (0–180) or HH:MM (e.g. 02:30) or pick a preset,
+   * rotating the 3D tomato odometer directly without needing to twist the dial manually.
+   */
+  bindHeroReadoutTimeEntry() {
+    if (!this.els.heroReadout || !this.els.heroTimeEditor || !this.els.heroTimeInput) return;
+
+    this.els.heroReadout.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openHeroTimeEditor();
+    });
+
+    this.els.heroReadout.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this.openHeroTimeEditor();
+      }
+    });
+
+    this.els.heroTimeEditor.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    // Live-preview the 3D tomato rotation as the user types digits
+    this.els.heroTimeInput.addEventListener('input', () => {
+      const rawVal = this.els.heroTimeInput.value;
+      if (this.els.heroTimeUnitBadge) {
+        this.els.heroTimeUnitBadge.textContent = rawVal.includes(':') ? 'HH:MM' : 'MIN';
+      }
+      const parsedMins = OdometerDialPhysics.parseTypedTimeInput(rawVal);
+      if (parsedMins !== null && this.hero3D) {
+        const slot = this.state.timers[this.state.selectedQuadrant] || this.state.timers[0];
+        const isAssigned = Boolean(slot.assignedTaskId || slot.customTitle);
+        this.hero3D.updateOdometer(
+          parsedMins * OdometerDialPhysics.DEGREES_PER_MINUTE,
+          slot.quadrant,
+          isAssigned
+        );
+      }
+    });
+
+    this.els.heroTimeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.commitHeroTimeEditor();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        this.cancelHeroTimeEditor();
+      }
+    });
+
+    if (this.els.heroTimeSetBtn) {
+      this.els.heroTimeSetBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.commitHeroTimeEditor();
+      });
+    }
+
+    const presetButtons = this.els.heroTimeEditor.querySelectorAll('.hero-preset-pill');
+    presetButtons.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mins = Number(btn.dataset.mins);
+        if (Number.isFinite(mins)) {
+          this.closeHeroTimeEditorDOM();
+          this.setCustomTimerMinutes(this.state.selectedQuadrant, mins);
+        }
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (
+        this.els.heroTimeEditor &&
+        !this.els.heroTimeEditor.classList.contains('hidden') &&
+        !e.target.closest('#hero-time-editor') &&
+        !e.target.closest('#hero-readout')
+      ) {
+        this.commitHeroTimeEditor();
+      }
+    });
+  }
+
+  openHeroTimeEditor() {
+    const slot = this.state.timers[this.state.selectedQuadrant] || this.state.timers[0];
+    if (!slot || !this.els.heroTimeEditor || !this.els.heroTimeInput) return;
+
+    const currentMinutes = Math.round(slot.remainingSeconds / 60);
+    this.els.heroReadout.classList.add('hidden');
+    this.els.heroTimeEditor.classList.remove('hidden');
+    this.els.heroTimeInput.value = String(currentMinutes);
+    if (this.els.heroTimeUnitBadge) {
+      this.els.heroTimeUnitBadge.textContent = 'MIN';
+    }
+
+    setTimeout(() => {
+      this.els.heroTimeInput.focus();
+      this.els.heroTimeInput.select();
+    }, 20);
+  }
+
+  closeHeroTimeEditorDOM() {
+    if (!this.els.heroTimeEditor || !this.els.heroReadout) return;
+    this.els.heroTimeEditor.classList.add('hidden');
+    this.els.heroReadout.classList.remove('hidden');
+  }
+
+  commitHeroTimeEditor() {
+    if (!this.els.heroTimeEditor || this.els.heroTimeEditor.classList.contains('hidden')) return;
+    const rawVal = this.els.heroTimeInput ? this.els.heroTimeInput.value : '';
+    const parsedMins = OdometerDialPhysics.parseTypedTimeInput(rawVal);
+    this.closeHeroTimeEditorDOM();
+
+    if (parsedMins !== null) {
+      this.setCustomTimerMinutes(this.state.selectedQuadrant, parsedMins);
+    } else {
+      this.renderHeroScreen();
+    }
+  }
+
+  cancelHeroTimeEditor() {
+    if (!this.els.heroTimeEditor || this.els.heroTimeEditor.classList.contains('hidden')) return;
+    this.closeHeroTimeEditorDOM();
+    this.renderHeroScreen();
+  }
+
+  /**
+   * Sets a tomato timer directly to a typed minute duration [0..180],
+   * updating the digital readout and rotating the 3D tomato odometer dial.
+   */
+  setCustomTimerMinutes(quadrant, minutes) {
+    const slot = this.state.timers[quadrant];
+    if (!slot) return;
+
+    const clampedMins = Math.max(
+      0,
+      Math.min(OdometerDialPhysics.MAX_MINUTES, Math.round(Number(minutes) || 0))
+    );
+
+    slot.mode = 'countdown';
+    slot.runState = 'idle';
+    slot.lastTickTimestamp = null;
+    slot.configuredMinutes = clampedMins;
+    slot.remainingSeconds = clampedMins * 60;
+    slot.angleDegrees = clampedMins * OdometerDialPhysics.DEGREES_PER_MINUTE;
+
+    this.sensory.playDialRatchetNotch(true);
+    this.showTelemetryToast(
+      `Timer set to ${clampedMins} min (${OdometerDialPhysics.formatMockupReadout(slot.remainingSeconds)})`
+    );
+    this.saveState();
+    this.renderAll();
+  }
+
   // =========================================================================
   // TIMER COORDINATOR LOGIC (1-Active-Timer + Stopwatch Turns on Minutes)
   // =========================================================================
@@ -558,6 +721,7 @@ export class FableFlowApp {
   }
 
   togglePlayPause(quadrant) {
+    this.closeHeroTimeEditorDOM();
     const slot = this.state.timers[quadrant];
     if (!slot) return;
 
@@ -589,6 +753,7 @@ export class FableFlowApp {
   }
 
   endAndResetTimer(quadrant, completedNaturally = false) {
+    this.closeHeroTimeEditorDOM();
     const slot = this.state.timers[quadrant];
     if (!slot) return;
 
@@ -608,6 +773,7 @@ export class FableFlowApp {
   }
 
   toggleStopwatchMode(quadrant) {
+    this.closeHeroTimeEditorDOM();
     const slot = this.state.timers[quadrant];
     if (!slot) return;
 

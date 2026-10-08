@@ -328,6 +328,28 @@ def verify_card_tomato_navigation_dropdown_filter_and_single_example_task():
 
 check("UserFlowFixes", "Grey tomato navigates to Timer + Dropdown hides assigned tasks + Single 'Example Task' default", verify_card_tomato_navigation_dropdown_filter_and_single_example_task)
 
+
+def verify_tap_on_digits_time_entry():
+    html = read_file("index.html")
+    css = read_file("css/style.css")
+    js_phys = read_file("js/odometerPhysics.js")
+    js_app = read_file("js/app.js")
+    swift_phys = read_file("FableFlow/Features/Timer/OdometerDialPhysics.swift")
+    swift_hero = read_file("FableFlow/Features/Timer/SingleHeroTomatoView.swift")
+
+    assert 'id="hero-time-editor"' in html
+    assert 'id="hero-time-input"' in html
+    assert "hero-preset-pill" in html
+    assert ".hero-time-input" in css
+    assert "parseTypedTimeInput(rawInput)" in js_phys
+    assert "bindHeroReadoutTimeEntry()" in js_app
+    assert "setCustomTimerMinutes(quadrant, minutes)" in js_app
+    assert "parseTypedTimeInput(_ rawInput: String)" in swift_phys
+    assert 'alert("Set Timer Duration"' in swift_hero
+
+
+check("TapDigitsTimeEntry", "Tapping Hero digits (#hero-readout) opens inline time input (0–180m / HH:MM + presets) and rotates 3D tomato", verify_tap_on_digits_time_entry)
+
 # ============================================================================
 # 4. LAYER 3: LIVE HTTP SERVER VERIFICATION
 # ============================================================================
