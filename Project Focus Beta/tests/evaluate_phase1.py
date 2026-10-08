@@ -296,12 +296,12 @@ check("VisualPolish", "Shortened tomato titles + Straight horizontal strikethrou
 def verify_hero_tomato_3d_curve_and_edge_shading():
     js_tomato = read_file("js/tomato3D.js")
     assert "getTomatoSeamY(x)" in js_tomato, "Must project text/marks onto exact getTomatoSeamY(x) seam profile"
-    assert "_getLitPaintStyle(sinT, cosT" in js_tomato, "Must shade paint using 3D directional studio key light + right shadow"
-    assert "ctx.lineTo(x, tickBottomY - tickLen);" in js_tomato, "Ticks must be vertical without tilting backwards at the edge"
-    assert "ctx.rect(36.0, 140, 428.0, 130)" in js_tomato, "Must clip paint cleanly inside the tomato silhouette"
+    assert "_buildOdometerTextureStrip()" in js_tomato, "Must build unrolled 2D odometer texture ribbon"
+    assert "_buildTomato3DMesh()" in js_tomato, "Must build true 3D surface mesh of the tomato equatorial dome"
+    assert "meshThetaDeg" in js_tomato and "meshSV" in js_tomato, "Must UV-project texture ribbon onto 3D surface mesh"
 
 
-check("HeroTomato3DCurve", "Hero Tomato measurement marks & digits follow smooth seam curve without backward edge tilt", verify_hero_tomato_3d_curve_and_edge_shading)
+check("HeroTomato3DCurve", "Hero Tomato measurement marks & digits UV-project onto a true 3D surface mesh with 4x supersampling", verify_hero_tomato_3d_curve_and_edge_shading)
 
 
 def verify_card_tomato_navigation_dropdown_filter_and_single_example_task():

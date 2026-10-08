@@ -108,7 +108,157 @@ export class HeroTomato3DView {
     this.container.innerHTML = '';
     this.container.appendChild(this.canvas);
 
+    // Build the 2x Retina 2D Odometer Texture Ribbon (0..180 min) and the 3D Tomato Equatorial Surface Mesh
+    this._buildOdometerTextureStrip();
+    this._buildTomato3DMesh();
     this._preloadImages();
+  }
+
+  /**
+   * Renders the unrolled flat 2D Odometer Texture Ribbon (0..180 minutes + ticks) at 2x Retina resolution
+   * so it can be UV-projected onto the 3D curved surface mesh of the tomato.
+   */
+  _buildOdometerTextureStrip() {
+    this.pxPerMin = 24; // 24 Retina pixels per minute on the unrolled cylinder ribbon
+    this.stripW = 190 * this.pxPerMin; // Covers -5..185 minutes
+    this.stripH = 160; // 2x Retina height of the equatorial odometer band
+
+    const stripCanvas = document.createElement('canvas');
+    stripCanvas.width = this.stripW;
+    stripCanvas.height = this.stripH;
+    const sctx = stripCanvas.getContext('2d');
+
+    sctx.clearRect(0, 0, this.stripW, this.stripH);
+    sctx.strokeStyle = '#FFFFFF';
+    sctx.fillStyle = '#FFFFFF';
+    sctx.lineCap = 'round';
+    sctx.textAlign = 'center';
+    sctx.textBaseline = 'bottom';
+    sctx.font = '500 41px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif';
+
+    const yBot = this.stripH - 10; // 5.0px above the equatorial seam in 1x coordinates
+
+    for (let m = 0; m <= 180; m++) {
+      const ux = (m + 5) * this.pxPerMin;
+      const isMajor10 = m % 10 === 0;
+      const isMedium5 = m % 5 === 0 && !isMajor10;
+
+      const tickLen = isMajor10 ? 35.0 : isMedium5 ? 26.0 : 21.0;
+      sctx.lineWidth = isMajor10 ? 3.7 : isMedium5 ? 2.9 : 2.4;
+
+      sctx.beginPath();
+      sctx.moveTo(ux, yBot);
+      sctx.lineTo(ux, yBot - tickLen);
+      sctx.stroke();
+
+      if (isMajor10) {
+        sctx.fillText(String(m), ux, this.stripH - 53);
+      }
+    }
+
+    const imgData = sctx.getImageData(0, 0, this.stripW, this.stripH).data;
+    this.stripAlpha = new Uint8Array(this.stripW * this.stripH);
+    for (let i = 0; i < this.stripAlpha.length; i++) {
+      this.stripAlpha[i] = imgData[i * 4 + 3];
+    }
+  }
+
+  /**
+   * Builds the 3D Surface Mesh of the Tomato's Equatorial Band (x: 35..467, y: 140..266 in local 1x coords).
+   * Each vertex/pixel on the 3D mesh stores its 3D cylindrical azimuth angle thetaDeg, meridian height sv,
+   * horizontal perspective derivative du_dsx, and 3D directional studio key-light shading (pr, pg, pb).
+   */
+  _buildTomato3DMesh() {
+    this.bandX0 = 35;
+    this.bandY0 = 140;
+    this.bandW1x = 432;
+    this.bandH1x = 126;
+    this.bandW = this.bandW1x * 2; // 864 Retina px
+    this.bandH = this.bandH1x * 2; // 252 Retina px
+
+    this.bandCanvas = document.createElement('canvas');
+    this.bandCanvas.width = this.bandW;
+    this.bandCanvas.height = this.bandH;
+    this.bandCtx = this.bandCanvas.getContext('2d');
+    this.bandImageData = this.bandCtx.createImageData(this.bandW, this.bandH);
+
+    const cx = 251.0;
+    const degPerMin = 3.0;
+
+    const pixelIndices = [];
+    const thetaDegs = [];
+    const svs = [];
+    const duDsxs = [];
+    const prs = [];
+    const pgs = [];
+    const pbs = [];
+    const baseAlphas = [];
+
+    for (let by = 0; by < this.bandH; by++) {
+      const ly = this.bandY0 + by * 0.5;
+      for (let bx = 0; bx < this.bandW; bx++) {
+        const lx = this.bandX0 + bx * 0.5;
+        const seamYApprox = getTomatoSeamY(lx);
+        const vRaw = seamYApprox - ly;
+        if (vRaw < 0 || vRaw >= 78.0) continue;
+
+        // 3D tomato upper dome radius R(v) tapers inward as height v increases toward the top stem
+        const Rv = 213.0 - 0.14 * vRaw - 0.0012 * vRaw * vRaw;
+        const uNorm = (lx - cx) / Rv;
+        if (Math.abs(uNorm) >= 0.992) continue;
+
+        const thetaRad = Math.asin(uNorm);
+        const thetaDeg = (thetaRad * 180.0) / Math.PI;
+        const absDeg = Math.abs(thetaDeg);
+        if (absDeg > 85.0) continue;
+
+        const cosT = Math.cos(thetaRad);
+        const sinT = uNorm;
+
+        // Project along the 3D meridian to the true equatorial seam anchor at azimuth thetaRad
+        const xSeamLocal = cx + 213.0 * sinT;
+        const trueSeamY = getTomatoSeamY(xSeamLocal);
+        const v = (trueSeamY - ly) / (0.86 + 0.14 * cosT);
+        if (v < 0 || v >= 78.5) continue;
+
+        const sv = (this.stripH - 1) - v * 2.0;
+        if (sv < 0 || sv >= this.stripH - 1) continue;
+
+        // Horizontal UV derivative du/dbx for 4x supersampled anti-aliasing on foreshortened side numbers
+        const duDsx =
+          (((180.0 / Math.PI) / Math.max(25.0, Rv * cosT)) / degPerMin) *
+          this.pxPerMin *
+          0.5;
+
+        // 3D studio key-light shading on the tomato surface normal N = (sinT, 0.18, cosT)
+        const light = Math.max(0.48, Math.min(1.02, 0.86 - 0.34 * sinT + 0.08 * cosT));
+        const pr = Math.round(246 * light);
+        const pg = Math.round(202 * light);
+        const pb = Math.round(198 * light);
+
+        const rimFade = absDeg > 81.0 ? (85.0 - absDeg) / 4.0 : 1.0;
+        const baseAlpha = 0.86 * Math.max(0.0, Math.min(1.0, rimFade));
+
+        pixelIndices.push((by * this.bandW + bx) * 4);
+        thetaDegs.push(thetaDeg);
+        svs.push(sv);
+        duDsxs.push(duDsx);
+        prs.push(pr);
+        pgs.push(pg);
+        pbs.push(pb);
+        baseAlphas.push(baseAlpha);
+      }
+    }
+
+    this.meshCount = pixelIndices.length;
+    this.meshPixelIdx = new Int32Array(pixelIndices);
+    this.meshThetaDeg = new Float32Array(thetaDegs);
+    this.meshSV = new Float32Array(svs);
+    this.meshDuDsx = new Float32Array(duDsxs);
+    this.meshPR = new Uint8Array(prs);
+    this.meshPG = new Uint8Array(pgs);
+    this.meshPB = new Uint8Array(pbs);
+    this.meshBaseAlpha = new Float32Array(baseAlphas);
   }
 
   _preloadImages() {
@@ -166,82 +316,67 @@ export class HeroTomato3DView {
     if (img && img.complete) {
       ctx.drawImage(img, 0, 0, this.baseW, this.baseH);
     }
+    ctx.restore();
 
-    // Translate into local tomato coordinate frame (530x460 frame offset by +80, +40 inside the 700x600 shadow-padded canvas)
-    ctx.save();
-    ctx.translate(this.offsetX, this.offsetY);
-
-    // Clip to the physical silhouette width of the tomato upper cap (x: 36.0 .. 464.0)
-    ctx.beginPath();
-    ctx.rect(36.0, 140, 428.0, 130);
-    ctx.clip();
-
-    const cx = 251.0;
-    const rx = 213.0;
+    // Project the 2D Odometer Texture Strip onto the 3D Tomato Surface Mesh with 4x horizontal supersampling
     const currentMinutes = this.currentAngleDegrees / 6.0;
+    const degPerMin = 3.0;
+    const pxPerMin = this.pxPerMin;
+    const stripW = this.stripW;
+    const stripAlpha = this.stripAlpha;
+    const data = this.bandImageData.data;
 
-    // 10 minutes = 30.0° across the front hemisphere (3.0° per minute), matching 02-hero-timer.png
-    const DEG_PER_MIN_VISUAL = 3.0;
-    const minM = Math.floor(currentMinutes - 30);
-    const maxM = Math.ceil(currentMinutes + 30);
-
-    // 1. Draw straight vertical equatorial tick marks & numbers all the way to the tomato edge (up to ±86°)
-    for (let m = minM; m <= maxM; m++) {
-      if (m < 0 || m > 180) continue;
-
-      const deltaMin = m - currentMinutes;
-      const thetaDeg = deltaMin * DEG_PER_MIN_VISUAL;
-      const absDeg = Math.abs(thetaDeg);
-      if (absDeg > 86.0) continue;
-
-      const thetaRad = (thetaDeg * Math.PI) / 180.0;
-      const sinT = Math.sin(thetaRad);
-      const cosT = Math.cos(thetaRad);
-
-      const x = cx + rx * sinT;
-      const seamY = getTomatoSeamY(x);
-
-      const isMajor10 = m % 10 === 0;
-      const isMedium5 = m % 5 === 0 && !isMajor10;
-
-      // Constant offset above the curved seam (matches 02-hero-timer.png measurements)
-      const tickBottomY = seamY - 5.0;
-      const tickLen = (isMajor10 ? 17.5 : isMedium5 ? 13.0 : 10.5) * (0.88 + 0.12 * cosT);
-      // Keep full paint opacity right up to 82° near the physical edge so ticks/numbers never fade out early!
-      const edgeAlpha = absDeg > 82.0 ? (86.0 - absDeg) / 4.0 : 1.0;
-
-      ctx.strokeStyle = this._getLitPaintStyle(sinT, cosT, edgeAlpha);
-      const widthScale = Math.max(0.68, Math.pow(cosT, 0.25));
-      ctx.lineWidth = (isMajor10 ? 1.85 : isMedium5 ? 1.45 : 1.2) * widthScale;
-      ctx.lineCap = 'round';
-
-      // Ticks are strictly vertical (no backward tilt at edges)
-      ctx.beginPath();
-      ctx.moveTo(x, tickBottomY);
-      ctx.lineTo(x, tickBottomY - tickLen);
-      ctx.stroke();
-
-      // 2. Draw major 10-minute numbers upright above each major tick all the way to the edge (up to ±84°)
-      if (isMajor10 && absDeg <= 84.0) {
-        const labelEdgeAlpha = absDeg > 80.0 ? (84.0 - absDeg) / 4.0 : 1.0;
-        const labelY = seamY - 26.5;
-        const scaleX = 0.74 + 0.26 * cosT;
-
-        ctx.save();
-        ctx.translate(x, labelY);
-        ctx.scale(scaleX, 1.0);
-
-        ctx.fillStyle = this._getLitPaintStyle(sinT, cosT, labelEdgeAlpha);
-        ctx.font = '500 20.5px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(String(m), 0, 0);
-        ctx.restore();
-      }
+    // Clear previous frame's alpha channel in the band buffer
+    for (let i = 3; i < data.length; i += 4) {
+      data[i] = 0;
     }
 
-    ctx.restore();
-    ctx.restore();
+    const count = this.meshCount;
+    for (let n = 0; n < count; n++) {
+      const thetaDeg = this.meshThetaDeg[n];
+      const mVal = currentMinutes + thetaDeg / degPerMin;
+      const uCenter = (mVal + 5.0) * pxPerMin;
+      if (uCenter < 1.0 || uCenter >= stripW - 2.0) continue;
+
+      const sv = this.meshSV[n];
+      const iy = sv | 0;
+      const fy = sv - iy;
+      const row0 = iy * stripW;
+      const row1 = row0 + stripW;
+      const du = this.meshDuDsx[n];
+
+      // 4x horizontal supersampling across (-0.375, -0.125, +0.125, +0.375)
+      let alphaSum = 0.0;
+      for (let s = -0.375; s <= 0.375; s += 0.25) {
+        const uS = uCenter + s * du;
+        const ix = uS | 0;
+        const fx = uS - ix;
+        const a00 = stripAlpha[row0 + ix];
+        const a10 = stripAlpha[row0 + ix + 1];
+        const a01 = stripAlpha[row1 + ix];
+        const a11 = stripAlpha[row1 + ix + 1];
+        alphaSum +=
+          (1.0 - fx) * (1.0 - fy) * a00 +
+          fx * (1.0 - fy) * a10 +
+          (1.0 - fx) * fy * a01 +
+          fx * fy * a11;
+      }
+
+      if (alphaSum <= 2.0) continue;
+      const alphaTex = alphaSum * (0.25 / 255.0);
+      const outIdx = this.meshPixelIdx[n];
+      data[outIdx] = this.meshPR[n];
+      data[outIdx + 1] = this.meshPG[n];
+      data[outIdx + 2] = this.meshPB[n];
+      data[outIdx + 3] = Math.round(alphaTex * this.meshBaseAlpha[n] * 255.0);
+    }
+
+    this.bandCtx.putImageData(this.bandImageData, 0, 0);
+    ctx.drawImage(
+      this.bandCanvas,
+      (this.offsetX + this.bandX0) * scale,
+      (this.offsetY + this.bandY0) * scale
+    );
   }
 }
 
