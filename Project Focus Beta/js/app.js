@@ -20,12 +20,12 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v18';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v18';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v18';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v18';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v19';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v19';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v19';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v19';
 
-const STORAGE_KEY = 'fable_flow_phase2_mvp_v3';
+const STORAGE_KEY = 'fable_flow_phase2_mvp_v4';
 const NUM_GRID_SLOTS = 6;
 
 const MAX_TASK_WORDS = 18;
@@ -187,6 +187,7 @@ export class FableFlowApp {
         'fable_flow_phase1_beta_v4',
         'fable_flow_phase2_mvp_v1',
         'fable_flow_phase2_mvp_v2',
+        'fable_flow_phase2_mvp_v3',
       ].forEach((k) => localStorage.removeItem(k));
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -381,6 +382,7 @@ export class FableFlowApp {
 
       profileModalOverlay: document.getElementById('profile-modal-overlay'),
       profileOpenHomeBtn: document.getElementById('profile-open-home-btn'),
+      profileGuidedTourBtn: document.getElementById('profile-guided-tour-btn'),
       profileResetTimeSelect: document.getElementById('profile-reset-time-select'),
       profileToggleAudioBtn: document.getElementById('profile-toggle-audio-btn'),
       profileAudioStateLabel: document.getElementById('profile-audio-state-label'),
@@ -389,6 +391,12 @@ export class FableFlowApp {
 
       onboardingOverlay: document.getElementById('onboarding-overlay'),
       onboardingDismissBtn: document.getElementById('onboarding-dismiss-btn'),
+      tourStepBadge: document.getElementById('tour-step-badge'),
+      tourStepTitle: document.getElementById('tour-step-title'),
+      tourStepDesc: document.getElementById('tour-step-desc'),
+      tourDots: document.getElementById('tour-dots'),
+      tourPrevBtn: document.getElementById('tour-prev-btn'),
+      tourNextBtn: document.getElementById('tour-next-btn'),
     };
   }
 
@@ -490,6 +498,12 @@ export class FableFlowApp {
         this.state.activePillar = 'home';
         this.saveState();
         this.renderAll();
+      });
+    }
+    if (this.els.profileGuidedTourBtn) {
+      this.els.profileGuidedTourBtn.addEventListener('click', () => {
+        this.els.profileModalOverlay.classList.add('hidden');
+        this.startGuidedTour(0);
       });
     }
     if (this.els.profileResetTimeSelect) {
@@ -3609,31 +3623,177 @@ export class FableFlowApp {
     this.els.modalInput.addEventListener('input', onInput);
   }
 
+  getGuidedTourSteps() {
+    return [
+      {
+        title: 'Home Desk',
+        desc: 'Tap the miniature card to open Today’s Card, or tap the 3D tomato to jump straight into your Pomodoro timers.',
+        getSpotlightEl: () => this.els.homeMiniCard,
+        applyPage: () => {
+          this.state.activePillar = 'home';
+        },
+      },
+      {
+        title: 'Today’s Card (Front)',
+        desc: 'Add up to 6 daily tasks. Swipe left-to-right across text to cross out (or erase) an item. Tap a grey mini-tomato to start a timer.',
+        getSpotlightEl: () => this.els.card3DWrapper,
+        applyPage: () => {
+          this.state.activePillar = 'card';
+          this.state.isCardFlipped = false;
+          this._todayFlipDeg = 0;
+        },
+      },
+      {
+        title: 'Evening Journal (Back)',
+        desc: 'Swipe the card edge left or right (or tap Flip) to turn the card over. Write your evening reflection and attach up to 2 photos.',
+        getSpotlightEl: () => this.els.card3DWrapper,
+        applyPage: () => {
+          this.state.activePillar = 'card';
+          this.state.isCardFlipped = true;
+          this._todayFlipDeg = -180;
+        },
+      },
+      {
+        title: '6-Tomato Pomodoro Grid',
+        desc: 'Each tomato pairs with one of your 6 tasks. Tap any grey tomato to assign a task, tap an assigned tomato body to open the big timer, or tap its title to edit.',
+        getSpotlightEl: () => this.els.gridQuadrants && this.els.gridQuadrants[0],
+        applyPage: () => {
+          this.state.activePillar = 'timer';
+          this.state.timerSubMode = 'grid';
+          this.state.openDropdownQuadrant = null;
+        },
+      },
+      {
+        title: 'Hero Tomato Timer',
+        desc: 'Drag horizontally across the tomato to wind the dial in 1-minute steps (up to 180m), or tap the digits to type a custom duration.',
+        getSpotlightEl: () => this.els.heroReadout,
+        applyPage: () => {
+          this.state.activePillar = 'timer';
+          this.state.timerSubMode = 'hero';
+          this.state.isHeroDropdownOpen = false;
+        },
+      },
+      {
+        title: 'Daily Stack & Calendar',
+        desc: 'At your Daily Reset time, Today’s Card archives here automatically. Drag left or right to scroll past days, or tap the magnifying glass for the Calendar.',
+        getSpotlightEl: () => this.els.stackCard3D,
+        applyPage: () => {
+          this.state.activePillar = 'stack';
+          this.state.isStackCardFlipped = false;
+          this._stackFlipDeg = 0;
+        },
+      },
+    ];
+  }
+
+  clearTourSpotlight() {
+    document
+      .querySelectorAll('.tour-spotlight-target')
+      .forEach((el) => el.classList.remove('tour-spotlight-target'));
+  }
+
+  startGuidedTour(startStep = 0) {
+    if (!this.els.onboardingOverlay) return;
+    this._isGuidedTourActive = true;
+    this._guidedTourStep = 0;
+    this.els.onboardingOverlay.classList.remove('hidden');
+    this.goToGuidedTourStep(startStep);
+  }
+
+  goToGuidedTourStep(stepIndex) {
+    const steps = this.getGuidedTourSteps();
+    const clampedIdx = Math.max(0, Math.min(steps.length - 1, stepIndex));
+    this._guidedTourStep = clampedIdx;
+    const step = steps[clampedIdx];
+
+    this.clearTourSpotlight();
+    step.applyPage();
+    this.renderAll();
+
+    const targetEl = step.getSpotlightEl ? step.getSpotlightEl() : null;
+    if (targetEl) {
+      targetEl.classList.add('tour-spotlight-target');
+    }
+
+    const numStr = String(clampedIdx + 1).padStart(2, '0');
+    const totalStr = String(steps.length).padStart(2, '0');
+    if (this.els.tourStepBadge) {
+      this.els.tourStepBadge.textContent = `GUIDED TOUR · ${numStr} / ${totalStr}`;
+    }
+    if (this.els.tourStepTitle) {
+      this.els.tourStepTitle.textContent = step.title;
+    }
+    if (this.els.tourStepDesc) {
+      this.els.tourStepDesc.textContent = step.desc;
+    }
+    if (this.els.tourPrevBtn) {
+      this.els.tourPrevBtn.classList.toggle('hidden', clampedIdx === 0);
+    }
+    if (this.els.tourNextBtn) {
+      this.els.tourNextBtn.textContent =
+        clampedIdx === steps.length - 1 ? 'Done' : 'Next →';
+    }
+    if (this.els.tourDots) {
+      this.els.tourDots.innerHTML = '';
+      steps.forEach((s, idx) => {
+        const dot = document.createElement('button');
+        dot.type = 'button';
+        dot.className = 'guided-tour-dot' + (idx === clampedIdx ? ' active' : '');
+        dot.setAttribute('aria-label', `Step ${idx + 1}: ${s.title}`);
+        dot.title = `${idx + 1}. ${s.title}`;
+        dot.addEventListener('click', () => {
+          this.goToGuidedTourStep(idx);
+        });
+        this.els.tourDots.appendChild(dot);
+      });
+    }
+  }
+
+  finishGuidedTour() {
+    this.clearTourSpotlight();
+    if (this.els.onboardingOverlay) {
+      this.els.onboardingOverlay.classList.add('hidden');
+    }
+    this._isGuidedTourActive = false;
+    this.state.hasCompletedOnboarding = true;
+    this.state.activePillar = 'card';
+    this.state.isCardFlipped = false;
+    this._todayFlipDeg = 0;
+    this.saveState();
+    this.renderAll();
+  }
+
   initFirstTimeOnboarding() {
     if (!this.els.onboardingOverlay) return;
-    const dismiss = () => {
-      this.els.onboardingOverlay.classList.add('hidden');
-      this.state.hasCompletedOnboarding = true;
-      this.saveState();
-      this.checkFirstTimePageHint();
-    };
     if (this.els.onboardingDismissBtn) {
-      this.els.onboardingDismissBtn.addEventListener('click', dismiss);
+      this.els.onboardingDismissBtn.addEventListener('click', () => {
+        this.finishGuidedTour();
+      });
     }
-    this.els.onboardingOverlay.addEventListener('click', (e) => {
-      if (e.target === this.els.onboardingOverlay) {
-        dismiss();
-      }
-    });
+    if (this.els.tourPrevBtn) {
+      this.els.tourPrevBtn.addEventListener('click', () => {
+        this.goToGuidedTourStep((this._guidedTourStep || 0) - 1);
+      });
+    }
+    if (this.els.tourNextBtn) {
+      this.els.tourNextBtn.addEventListener('click', () => {
+        const steps = this.getGuidedTourSteps();
+        if ((this._guidedTourStep || 0) >= steps.length - 1) {
+          this.finishGuidedTour();
+        } else {
+          this.goToGuidedTourStep((this._guidedTourStep || 0) + 1);
+        }
+      });
+    }
     if (!this.state.hasCompletedOnboarding) {
-      this.els.onboardingOverlay.classList.remove('hidden');
+      this.startGuidedTour(0);
     } else {
       this.checkFirstTimePageHint();
     }
   }
 
   checkFirstTimePageHint() {
-    if (!this.state.hasCompletedOnboarding) return;
+    if (!this.state.hasCompletedOnboarding || this._isGuidedTourActive) return;
     if (!this.state.seenPageHints || typeof this.state.seenPageHints !== 'object') {
       this.state.seenPageHints = {};
     }

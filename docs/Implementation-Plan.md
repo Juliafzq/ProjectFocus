@@ -179,6 +179,6 @@ All 21 automated checks in `tests/evaluate_phase1.py` pass (`21/21 PASS`), cover
    - `recolor_silver_metallic` in `scripts/extract_mockup_assets.py` computes Green-channel absorption alpha ($\alpha_G = \operatorname{clamp}((G_{\text{bg}} - G)/142, 0, 1)$) around all $360^\circ$ of the silhouette with radial rim protection ($r_{\text{norm}} > 0.72$) and blends $38\%$ of the studio photo's organic diffuse shading (`photo_mod`) with 3D directional lighting.
    - Expanded Hero odometer texture (`texH = 92 * K`, `meshHalfH = 44`, `numCenterY = 47.0 * K`, `padX = 16 * K`) so every character (`0`–`180`) is 100% shown without clipping.
    - Split Grid tap targets (tapping tomato body opens Hero timer; tapping title text opens edit/reassign dropdown) and added Stopwatch duration guard toast (`"Switch to Countdown to set duration"`).
-8. **Minimalist Profile Popover, Onboarding & Contextual Hints:**
-   - Top-right Profile popover (`#profile-modal-overlay`) with `Home`, `Daily Reset` (`12:00 AM – 11:00 PM`, enforced live by `startWallClockTicker()`), and `Sound` (`On / Off`).
-   - 3-step first-time onboarding modal (`#onboarding-overlay`) and one-time contextual page hint toasts (`seenPageHints`).
+8. **Minimalist Profile Popover, Interactive 6-Step Guided Tour & Contextual Hints:**
+   - Top-right Profile popover (`#profile-modal-overlay`) with `Home`, `Guided Tour` (`#profile-guided-tour-btn`), `Daily Reset` (`12:00 AM – 11:00 PM`, enforced live by `startWallClockTicker()`), and `Sound` (`On / Off`).
+   - 6-step interactive page-by-page Guided Tour (`startGuidedTour` / `goToGuidedTourStep` / `finishGuidedTour`) that walks users live through each page on first launch and can be replayed anytime from Profile, plus one-time contextual page hint toasts (`seenPageHints`).

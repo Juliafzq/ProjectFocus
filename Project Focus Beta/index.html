@@ -14,7 +14,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="css/style.css?v=20261009_v18" />
+  <link rel="stylesheet" href="css/style.css?v=20261009_v19" />
 </head>
 <body>
 
@@ -389,11 +389,15 @@
       </div>
     </div>
 
-    <!-- Minimal Profile Popover: Home, Daily Reset, Sound On/Off -->
+    <!-- Minimal Profile Popover: Home, Guided Tour, Daily Reset, Sound On/Off -->
     <div id="profile-modal-overlay" class="profile-popover-overlay hidden" role="dialog" aria-modal="true" aria-label="Profile Menu">
       <div class="profile-popover-card">
         <button type="button" id="profile-open-home-btn" class="profile-menu-row">
           <span>Home</span>
+          <span class="profile-menu-val">↗</span>
+        </button>
+        <button type="button" id="profile-guided-tour-btn" class="profile-menu-row">
+          <span>Guided Tour</span>
           <span class="profile-menu-val">↗</span>
         </button>
         <label class="profile-menu-row" for="profile-reset-time-select">
@@ -432,39 +436,29 @@
       </div>
     </div>
 
-    <!-- Minimalist First-Time Onboarding Tutorial Modal -->
-    <div id="onboarding-overlay" class="modal-overlay onboarding-overlay hidden" role="dialog" aria-modal="true" aria-label="Welcome to Fable / Flow">
-      <div class="onboarding-card">
-        <div class="onboarding-brand">FABLE / FLOW</div>
-        <div class="onboarding-steps">
-          <div class="onboarding-step">
-            <span class="onboarding-step-num">01</span>
-            <div class="onboarding-step-body">
-              <div class="onboarding-step-title">Today’s Card</div>
-              <div class="onboarding-step-desc">Swipe across text to cross out an item. Swipe the card edge to flip to your journal page.</div>
-            </div>
-          </div>
-          <div class="onboarding-step">
-            <span class="onboarding-step-num">02</span>
-            <div class="onboarding-step-body">
-              <div class="onboarding-step-title">Pomodoro Tomato</div>
-              <div class="onboarding-step-desc">Click on a tomato to start a timer. Drag the dial or tap the digits to set duration.</div>
-            </div>
-          </div>
-          <div class="onboarding-step">
-            <span class="onboarding-step-num">03</span>
-            <div class="onboarding-step-body">
-              <div class="onboarding-step-title">Daily Stack</div>
-              <div class="onboarding-step-desc">Cards archive automatically at your Daily Reset time. Drag left or right to scroll the stack.</div>
-            </div>
+    <!-- Interactive Page-by-Page Guided Tour Overlay (First-Time Launch & Accessible via Profile) -->
+    <div id="onboarding-overlay" class="guided-tour-overlay hidden" role="dialog" aria-modal="false" aria-label="Fable / Flow Guided Tour">
+      <div class="guided-tour-card">
+        <div class="guided-tour-header">
+          <span id="tour-step-badge" class="guided-tour-badge">GUIDED TOUR · 01 / 06</span>
+          <button type="button" id="onboarding-dismiss-btn" class="guided-tour-skip-btn" aria-label="Skip Guided Tour">Skip</button>
+        </div>
+        <div class="guided-tour-body">
+          <div id="tour-step-title" class="guided-tour-title">Home Desk</div>
+          <div id="tour-step-desc" class="guided-tour-desc">Tap the miniature card to open Today’s Card, or tap the 3D tomato to jump straight into your Pomodoro timers.</div>
+        </div>
+        <div class="guided-tour-footer">
+          <div id="tour-dots" class="guided-tour-dots" role="tablist" aria-label="Tour Steps"></div>
+          <div class="guided-tour-actions">
+            <button type="button" id="tour-prev-btn" class="guided-tour-btn guided-tour-btn-secondary">Back</button>
+            <button type="button" id="tour-next-btn" class="guided-tour-btn guided-tour-btn-primary">Next →</button>
           </div>
         </div>
-        <button type="button" id="onboarding-dismiss-btn" class="onboarding-begin-btn">Begin</button>
       </div>
     </div>
 
   </main>
 
-  <script type="module" src="js/app.js?v=20261009_v18"></script>
+  <script type="module" src="js/app.js?v=20261009_v19"></script>
 </body>
 </html>
