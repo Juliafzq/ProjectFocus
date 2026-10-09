@@ -535,6 +535,7 @@ check("Phase2CalendarRollover", "Monthly Calendar Zoom-Out (07-calendar-view.png
 def verify_phase2_ux_refinements():
     css = read_file("css/style.css")
     js_app = read_file("js/app.js")
+    js_tomato = read_file("js/tomato3D.js")
     js_gesture = read_file("js/cardGestureMath.js")
     swift_gesture = read_file("FableFlow/Features/Card/CardGestureMath.swift")
 
@@ -549,11 +550,12 @@ def verify_phase2_ux_refinements():
     assert "this._lastStackWheelTime" in js_app
     assert "this.stepStackCard(dominantDelta > 0 ? 1 : -1);" in js_app
 
-    # 3. Two-way finger motion to flip the card (both Left -> Right and Right -> Left)
+    # 3. Two-way finger motion to flip the card (both Left -> Right and Right -> Left) with window-level pointer tracking
     assert "FLIP_MIN_POSITIVE_DELTA_X = 40.0" in js_gesture
     assert "minimumPositiveCardFlipDeltaXPixels: CGFloat = 40.0" in swift_gesture
     assert "--card-flip-deg" in css
-    assert "this.triggerCardFlip(dir);" in js_app
+    assert "bindTwoWayCardFlipOnWrapper(wrapper, isStackCard = false)" in js_app
+    assert "window.addEventListener('pointerup', endCardSwipe);" in js_app
 
     # 4. Multi-line dry-graphite strikethrough crossing out ALL wrapped lines + safe right edge margin
     assert "getTaskRowLineSegments(canvas)" in js_app
@@ -562,9 +564,12 @@ def verify_phase2_ux_refinements():
     assert "maxSafeRightX = rowW - 30;" in js_app
     assert ".task-title-wrap" in css
 
-    # 5. Adaptive font size floor + word/character limits
-    assert "MAX_TASK_WORDS = 6;" in js_app and "MAX_TASK_CHARS = 36;" in js_app
-    assert "MAX_REFLECTION_WORDS = 65;" in js_app and "MAX_REFLECTION_CHARS = 360;" in js_app
+    # 5. Unified card font size (only decreases when the whole card page is filled) & whole-character 3D tomato odometer visibility
+    assert "fitUnifiedCardTaskTypography(containerEl, addItemEl)" in js_app
+    assert "bodyEl.scrollHeight > bodyEl.clientHeight + 2" in js_app
+    assert "wholeCharVisibility" in js_tomato and "labelCenterTheta" in js_tomato
+    assert "MAX_TASK_WORDS = 18;" in js_app and "MAX_TASK_CHARS = 110;" in js_app
+    assert "MAX_REFLECTION_WORDS = 95;" in js_app and "MAX_REFLECTION_CHARS = 520;" in js_app
     assert "clampTaskInputText(rawText)" in js_app
     assert "computeTaskFontSizePx(title, totalTasksCount = 1)" in js_app
     assert "clampReflectionInputText(rawText)" in js_app

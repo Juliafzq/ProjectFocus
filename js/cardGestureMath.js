@@ -36,15 +36,14 @@ export class CardGestureMath {
     }
 
     // 2. Check Card Flip:
-    // - Right -> Left (deltaX < -40 px) always flips the card (even if started on a task row).
-    // - Left -> Right (deltaX > +40 px) ALSO flips the card when not striking through a task row
-    //   (e.g. on card header, whitespace, or anywhere on the Back of the Card), allowing two-way card flipping!
-    const isRightToLeftFlip = deltaX < CardGestureMath.FLIP_MAX_DELTA_X;
-    const isLeftToRightFlip = !isOnTaskRow && deltaX > Math.abs(CardGestureMath.FLIP_MAX_DELTA_X);
+    // - Right -> Left (deltaX < -24 px) always flips the card (even if started on a task row).
+    // - Left -> Right (deltaX > +24 px) ALSO flips the card when not striking through a task row
+    //   (e.g. on card header, whitespace, or anywhere on the Back of the Card), allowing effortless two-way card flipping!
+    const effectiveFlipThreshold = 24.0;
+    const isRightToLeftFlip = deltaX <= -effectiveFlipThreshold;
+    const isLeftToRightFlip = !isOnTaskRow && deltaX >= effectiveFlipThreshold;
     if (isRightToLeftFlip || isLeftToRightFlip) {
-      const maxAllowedY =
-        Math.abs(deltaX) *
-        Math.tan((CardGestureMath.FLIP_MAX_ANGLE_DEGREES * Math.PI) / 180.0);
+      const maxAllowedY = Math.abs(deltaX) * 1.05; // ~46° natural thumb/finger arc cone
       if (Math.abs(deltaY) <= maxAllowedY) {
         return 'flipCard';
       }

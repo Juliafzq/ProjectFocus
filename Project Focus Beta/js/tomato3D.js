@@ -14,58 +14,58 @@ export const HEIRLOOM_PALETTE = {
   0: {
     name: 'Deep Crimson',
     hex: '#8B1E24',
-    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261009_v12',
-    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261009_v12',
-    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261009_v12',
+    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261009_v14',
+    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261009_v14',
+    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261009_v14',
   },
   1: {
     name: 'Warm Terracotta',
     hex: '#C84B31',
-    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261009_v12',
-    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261009_v12',
-    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261009_v12',
+    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261009_v14',
+    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261009_v14',
+    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261009_v14',
   },
   2: {
     name: 'Rich Dark Burgundy',
     hex: '#5E192A',
-    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261009_v12',
-    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261009_v12',
-    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261009_v12',
+    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261009_v14',
+    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261009_v14',
+    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261009_v14',
   },
   3: {
     name: 'Sun-Ripened Coral',
     hex: '#D96B52',
-    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261009_v12',
-    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261009_v12',
-    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261009_v12',
+    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261009_v14',
+    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261009_v14',
+    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261009_v14',
   },
   4: {
     name: 'Golden Persimmon',
     hex: '#C96A2B',
-    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261009_v12',
-    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261009_v12',
-    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261009_v12',
+    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261009_v14',
+    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261009_v14',
+    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261009_v14',
   },
   5: {
     name: 'Spiced Garnet',
     hex: '#9E2A3B',
-    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261009_v12',
-    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261009_v12',
-    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261009_v12',
+    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261009_v14',
+    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261009_v14',
+    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261009_v14',
   },
   completed: {
     name: 'Satin Silver Metallic',
     hex: '#C2C7CE',
-    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261009_v12',
-    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261009_v12',
-    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261009_v12',
+    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261009_v14',
+    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261009_v14',
+    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261009_v14',
   },
   unassigned: {
     name: 'Matte Neutral Grey',
     hex: '#8E8D8A',
-    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261009_v12',
-    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261009_v12',
-    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261009_v12',
+    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261009_v14',
+    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261009_v14',
+    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261009_v14',
   },
 };
 
@@ -222,10 +222,11 @@ export class HeroTomato3DView {
         const vRaw = seamY - ly;
         if (vRaw < 0 || vRaw >= 78.0) continue;
 
-        // Perspective-camera horizon mapping (camera at finite distance D ~ 4R so visual edge u=+-1 maps to sinPersp=+-0.968)
-        const sinPersp = 0.968 * u;
-        const cosPersp = Math.sqrt(Math.max(0.06, 1.0 - sinPersp * sinPersp));
-        const thetaBaseDeg = ((Math.asin(sinPersp) * 180.0) / Math.PI) * 1.0805;
+        // Perspective-camera horizon mapping so +-25 min (+-75 deg, including full 2-digit numbers up to +-78.5 deg)
+        // sits completely inside the full-opacity tomato surface (absU <= 0.968) with zero cut-off digits
+        const sinPersp = 0.978 * u;
+        const cosPersp = Math.sqrt(Math.max(0.055, 1.0 - sinPersp * sinPersp));
+        const thetaBaseDeg = ((Math.asin(sinPersp) * 180.0) / Math.PI) * 1.118;
 
         // Smoothly relax the sharp u^4 cut-lip term as height rises from the seam ticks into the upper-dome numbers
         const tLat = Math.max(0.0, Math.min(1.0, (vRaw - 15.0) / 28.0));
@@ -241,11 +242,11 @@ export class HeroTomato3DView {
         if (sv < 0 || sv >= this.stripH - 1) continue;
 
         // Bounded inward meridian tilt outside asin() so digits at the visual curve edge never shear or clip at the top
-        const meridianTiltDeg = -1.45 * u * ((v - 5.0) / 35.0);
+        const meridianTiltDeg = -0.62 * u * ((v - 5.0) / 35.0);
         const thetaDeg = thetaBaseDeg + meridianTiltDeg;
 
         // Horizontal UV derivative du/dbx for 4x supersampled anti-aliasing on perspective-foreshortened side numbers
-        const dThetaDu = ((0.968 * 1.0805 * 180.0) / Math.PI) / cosPersp;
+        const dThetaDu = ((0.978 * 1.118 * 180.0) / Math.PI) / cosPersp;
         const duDsx = ((dThetaDu / R_eq) / degPerMin) * this.pxPerMin * 0.5;
 
         // 3D studio key-light shading on the tomato surface normal N = (sinPersp, 0.18, cosPersp)
@@ -260,7 +261,7 @@ export class HeroTomato3DView {
         const spg = Math.round(34 * sLight);
         const spb = Math.round(38 * sLight);
 
-        const rimFade = absU > 0.968 ? (0.996 - absU) / (0.996 - 0.968) : 1.0;
+        const rimFade = absU > 0.974 ? (0.996 - absU) / (0.996 - 0.974) : 1.0;
         const baseAlpha = 0.88 * Math.max(0.0, Math.min(1.0, rimFade));
 
         pixelIndices.push((by * this.bandW + bx) * 4);
@@ -410,6 +411,7 @@ export class HeroTomato3DView {
     }
 
     const invBlend = 1.0 - sBlend;
+    const numberZoneBottomSV = this.stripH - 38;
     const count = this.meshCount;
     for (let n = 0; n < count; n++) {
       const thetaDeg = this.meshThetaDeg[n];
@@ -418,6 +420,19 @@ export class HeroTomato3DView {
       if (uCenter < 1.0 || uCenter >= stripW - 2.0) continue;
 
       const sv = this.meshSV[n];
+
+      // Ensure every number label (0, 10, 20, ..., 180) is ALWAYS shown as a complete whole number
+      // and never sliced in half at the tomato edge (e.g. '10' must never have its '1' clipped into '0')
+      let wholeCharVisibility = 1.0;
+      if (sv < numberZoneBottomSV) {
+        const nearestLabelMin = Math.round(mVal * 0.1) * 10.0;
+        const labelCenterTheta = Math.abs((nearestLabelMin - currentMinutes) * degPerMin);
+        if (labelCenterTheta > 78.2) continue;
+        if (labelCenterTheta > 75.8) {
+          wholeCharVisibility = (78.2 - labelCenterTheta) / (78.2 - 75.8);
+        }
+      }
+
       const iy = sv | 0;
       const fy = sv - iy;
       const row0 = iy * stripW;
@@ -442,7 +457,7 @@ export class HeroTomato3DView {
       }
 
       if (alphaSum <= 2.0) continue;
-      const alphaTex = alphaSum * (0.25 / 255.0);
+      const alphaTex = alphaSum * (0.25 / 255.0) * wholeCharVisibility;
       const outIdx = this.meshPixelIdx[n];
       data[outIdx] = (this.meshPR[n] * invBlend + this.meshSilverPR[n] * sBlend) | 0;
       data[outIdx + 1] = (this.meshPG[n] * invBlend + this.meshSilverPG[n] * sBlend) | 0;

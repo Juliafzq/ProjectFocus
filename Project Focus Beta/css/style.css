@@ -264,8 +264,10 @@ html, body {
   height: 586px;
   position: relative;
   transform-style: preserve-3d;
-  transition: transform 0.58s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.52s cubic-bezier(0.22, 1, 0.36, 1);
   touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .daily-card-3d.is-flipped {
@@ -340,6 +342,7 @@ html, body {
   line-height: 1.32;
   letter-spacing: -0.01em;
   overflow-y: hidden;
+  touch-action: pan-y;
 }
 
 .card-back-reflection-editor::placeholder {
@@ -460,14 +463,16 @@ html, body {
   font-size: 24px;
   font-weight: 450;
   color: #0F0F0F;
-  line-height: 1.24;
+  line-height: 1.28;
   font-variant-numeric: tabular-nums;
 }
 
 .task-title-wrap {
   min-width: 0;
-  padding-right: 16px;
-  line-height: 1.24;
+  padding-right: 14px;
+  padding-bottom: 2px;
+  line-height: 1.28;
+  overflow: visible;
 }
 
 .task-title {
@@ -475,8 +480,9 @@ html, body {
   font-size: 24px;
   font-weight: 450;
   color: #0F0F0F;
-  line-height: 1.24;
+  line-height: 1.28;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /*

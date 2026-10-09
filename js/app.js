@@ -20,18 +20,18 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v13';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v13';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v13';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v13';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v14';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v14';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v14';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v14';
 
 const STORAGE_KEY = 'fable_flow_phase2_mvp_v2';
 const NUM_GRID_SLOTS = 6;
 
-const MAX_TASK_WORDS = 6;
-const MAX_TASK_CHARS = 36;
-const MAX_REFLECTION_WORDS = 65;
-const MAX_REFLECTION_CHARS = 360;
+const MAX_TASK_WORDS = 18;
+const MAX_TASK_CHARS = 110;
+const MAX_REFLECTION_WORDS = 95;
+const MAX_REFLECTION_CHARS = 520;
 
 const DEFAULT_REFLECTION_OCT_06 =
   'Today felt steady and surprisingly productive. I wrapped up the Q3 report ahead of schedule and finally cleared out my inbox. Taking a walk at sunset helped me reset before the evening. Grateful for quiet moments and good coffee.';
@@ -938,8 +938,8 @@ export class FableFlowApp {
   // =========================================================================
 
   /**
-   * Limits task input to at most MAX_TASK_WORDS (6 words) and MAX_TASK_CHARS (36 chars)
-   * so task items never crowd the card edges or overflow past 2 clean lines.
+   * Limits task input to at most MAX_TASK_WORDS (18 words) and MAX_TASK_CHARS (110 chars)
+   * so users can enter full task descriptions while keeping card margins clean.
    */
   clampTaskInputText(rawText) {
     let text = String(rawText || '').replace(/\s+/g, ' ');
@@ -957,23 +957,73 @@ export class FableFlowApp {
   }
 
   /**
-   * Decreases task font size from 24px down to a minimum floor of 18px (17.5px when 5-6 tasks)
-   * and stops decreasing so long items remain crisp and well-spaced inside the card margins.
+   * Returns the unified baseline task font size (24px).
+   * Individual tasks NEVER shrink independently; `fitUnifiedCardTaskTypography()`
+   * keeps all items on a card at the exact same unified font size (24px) and only
+   * steps down uniformly if the whole vertical card page is filled.
    */
   computeTaskFontSizePx(title, totalTasksCount = 1) {
-    const len = String(title || '').trim().length;
-    const crowdedOffset = totalTasksCount >= 5 ? 1.5 : 0.0;
-    if (len > 28) {
-      return Math.max(17.5, 18.5 - crowdedOffset * 0.5);
-    }
-    if (len > 20) {
-      return 21.5 - crowdedOffset;
-    }
-    return 24.5 - crowdedOffset;
+    return 24;
   }
 
   /**
-   * Limits Evening Reflection text to MAX_REFLECTION_WORDS (65 words) and MAX_REFLECTION_CHARS (360 chars)
+   * Unifies the text size of EVERY item on a card (`.task-index`, `.task-title`, and `.add-item-row`)
+   * to the exact same font size (`24px` default).
+   * Does NOT decrease the font size unless the whole card page is vertically filled
+   * (`bodyEl.scrollHeight > bodyEl.clientHeight + 2`). When the whole page is filled,
+   * decreases the unified font size uniformly for all items on that card together down to a 16.5px floor.
+   */
+  fitUnifiedCardTaskTypography(containerEl, addItemEl) {
+    if (!containerEl) return 24;
+    const bodyEl = containerEl.closest('.card-body-tasks') || containerEl;
+    const indexNodes = Array.from(containerEl.querySelectorAll('.task-index'));
+    const titleNodes = Array.from(containerEl.querySelectorAll('.task-title'));
+    const rowNodes = Array.from(containerEl.querySelectorAll('.task-row'));
+
+    const applyUnifiedSize = (sizePx, padY) => {
+      const sizeStr = `${sizePx}px`;
+      indexNodes.forEach((el) => {
+        el.style.fontSize = sizeStr;
+      });
+      titleNodes.forEach((el) => {
+        el.style.fontSize = sizeStr;
+      });
+      if (addItemEl) {
+        addItemEl.style.fontSize = sizeStr;
+      }
+      rowNodes.forEach((row) => {
+        row.style.paddingTop = `${padY}px`;
+        row.style.paddingBottom = `${padY}px`;
+      });
+    };
+
+    let unifiedSize = 24.0;
+    let unifiedPadY = 9;
+    applyUnifiedSize(unifiedSize, unifiedPadY);
+
+    // Only decrease the unified font size if the whole card page is actually filled
+    if (bodyEl && bodyEl.clientHeight > 0) {
+      while (bodyEl.scrollHeight > bodyEl.clientHeight + 2 && unifiedSize > 16.5) {
+        unifiedSize = Math.max(16.5, Number((unifiedSize - 0.5).toFixed(1)));
+        unifiedPadY = unifiedSize < 21.5 ? 6 : unifiedSize < 23.0 ? 7 : 8;
+        applyUnifiedSize(unifiedSize, unifiedPadY);
+      }
+    }
+
+    // Re-render every multi-line graphite strikethrough canvas to match the unified layout rects
+    rowNodes.forEach((row) => {
+      const canvas = row.querySelector('.pencil-strike-canvas');
+      const isDone = row.dataset.completed === 'true';
+      if (canvas) {
+        this.drawGraphiteStroke(canvas, 0.0, isDone ? 1.0 : 0.0);
+      }
+    });
+
+    return unifiedSize;
+  }
+
+  /**
+   * Limits Evening Reflection text to MAX_REFLECTION_WORDS and MAX_REFLECTION_CHARS
    * so the reflection stops once the minimum font size floor is reached.
    */
   clampReflectionInputText(rawText) {
@@ -989,24 +1039,26 @@ export class FableFlowApp {
   }
 
   /**
-   * Dynamically scales the Evening Reflection font size between 21px and a 13px minimum floor
-   * and stops decreasing once the floor is reached.
+   * Keeps the Evening Reflection font size at a unified 21px unless the whole reflection
+   * area is filled (`textareaEl.scrollHeight > textareaEl.clientHeight + 2`), then steps
+   * down uniformly to a 13px minimum floor.
    */
   adjustReflectionTypography(textareaEl) {
     if (!textareaEl) return;
     const textLen = (textareaEl.value || '').length;
     let targetSize = 21;
-    if (textLen > 315) {
-      targetSize = 13;
-    } else if (textLen > 265) {
-      targetSize = 15;
-    } else if (textLen > 210) {
-      targetSize = 17;
-    } else if (textLen > 155) {
-      targetSize = 19;
-    }
-    textareaEl.style.fontSize = `${targetSize}px`;
     textareaEl.style.overflowY = 'hidden';
+    textareaEl.style.fontSize = `${targetSize}px`;
+
+    if (textareaEl.clientHeight > 0) {
+      while (textareaEl.scrollHeight > textareaEl.clientHeight + 2 && targetSize > 13) {
+        targetSize = Math.max(13, targetSize - 1);
+        textareaEl.style.fontSize = `${targetSize}px`;
+      }
+    } else if (textLen > 315) {
+      targetSize = 13;
+      textareaEl.style.fontSize = `${targetSize}px`;
+    }
   }
 
   triggerPhotoAttachment(target = 'today') {
@@ -1049,85 +1101,114 @@ export class FableFlowApp {
   }
 
   /**
-   * Bidirectional finger motion to flip Today's Card over both ways:
-   * - Swiping Right -> Left (dx < -36px) flips the card leftwards (-180°).
-   * - Swiping Left -> Right (dx > +36px) flips the card rightwards (+180°).
-   * Works whether started on the Front of the Card or anywhere on the Back of the Card
-   * (including across the reflection textarea or photo frames), with live 3D drag preview!
+   * Bidirectional finger motion to flip BOTH Today's Card (`#daily-card-3d`) and
+   * the Stack Card (`#stack-card-3d`) over both ways:
+   * - Swiping Right -> Left (dx < -22px) flips the card leftwards (-180°).
+   * - Swiping Left -> Right (dx > +22px) flips the card rightwards (+180°).
+   * Uses `window`-level pointermove/pointerup/pointercancel listeners so the card
+   * NEVER gets stuck mid-rotation even if the pointer leaves the narrowing 3D card!
    */
   bindCardSurfaceFlipGesture() {
-    const wrapper = this.els.card3DWrapper;
+    this.bindTwoWayCardFlipOnWrapper(this.els.card3DWrapper, false);
+    this.bindTwoWayCardFlipOnWrapper(this.els.stackCard3D, true);
+  }
+
+  bindTwoWayCardFlipOnWrapper(wrapper, isStackCard = false) {
     if (!wrapper) return;
 
     let startX = null;
     let startY = null;
-    let pointerId = null;
+    let activePointerId = null;
     let isDraggingFlip = false;
 
+    const getBaseDeg = () => (isStackCard ? this._stackFlipDeg : this._todayFlipDeg);
+    const getIsFlipped = () =>
+      isStackCard ? this.state.isStackCardFlipped : this.state.isCardFlipped;
+
     wrapper.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.task-tomato-btn')) return;
+      if (
+        e.target.closest('.task-tomato-btn') ||
+        e.target.closest('.journal-photo-remove-btn')
+      ) {
+        return;
+      }
       startX = e.clientX;
       startY = e.clientY;
-      pointerId = e.pointerId;
+      activePointerId = e.pointerId;
       isDraggingFlip = false;
     });
 
-    wrapper.addEventListener('pointermove', (e) => {
+    const onWindowPointerMove = (e) => {
       if (startX === null || startY === null) return;
+      if (activePointerId !== null && e.pointerId !== activePointerId) return;
+
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
 
-      if (!isDraggingFlip && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+      if (!isDraggingFlip && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.15) {
         isDraggingFlip = true;
         if (document.activeElement && document.activeElement.blur) {
           document.activeElement.blur();
         }
-        try {
-          wrapper.setPointerCapture(pointerId);
-        } catch (_) {}
       }
 
       if (isDraggingFlip) {
         if (e.cancelable) e.preventDefault();
-        const tiltOffset = Math.max(-55, Math.min(55, (dx / 240) * 55));
-        const liveDeg = this._todayFlipDeg + tiltOffset;
+        const tiltOffset = Math.max(-65, Math.min(65, (dx / 180) * 65));
+        const liveDeg = getBaseDeg() + tiltOffset;
         wrapper.style.transition = 'none';
         wrapper.style.transform = `rotateY(${liveDeg.toFixed(1)}deg)`;
       }
-    });
+    };
 
     const endCardSwipe = (e) => {
       if (startX === null || startY === null) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
+      if (
+        activePointerId !== null &&
+        e.pointerId !== undefined &&
+        e.pointerId !== activePointerId
+      ) {
+        return;
+      }
+
+      const dx = (e.clientX !== undefined ? e.clientX : startX) - startX;
+      const dy = (e.clientY !== undefined ? e.clientY : startY) - startY;
       startX = null;
       startY = null;
+      activePointerId = null;
 
-      if (isDraggingFlip) {
+      const wasDragging = isDraggingFlip;
+      isDraggingFlip = false;
+      wrapper.style.transition = '';
+      wrapper.style.transform = '';
+
+      if (wasDragging) {
         this._justFinishedCardSwipe = true;
         clearTimeout(this._swipeGuardTimer);
         this._swipeGuardTimer = setTimeout(() => {
           this._justFinishedCardSwipe = false;
         }, 220);
-        try {
-          wrapper.releasePointerCapture(pointerId);
-        } catch (_) {}
       }
-      isDraggingFlip = false;
-      wrapper.style.transition = '';
-      wrapper.style.transform = '';
 
       const classification = CardGestureMath.classifyGesture(dx, dy, false);
-      if (classification === 'flipCard' || (Math.abs(dx) >= 34 && Math.abs(dx) > Math.abs(dy) * 1.35)) {
+      if (
+        classification === 'flipCard' ||
+        (Math.abs(dx) >= 22 && Math.abs(dx) > Math.abs(dy) * 1.15)
+      ) {
         const dir = dx >= 0 ? 1 : -1;
-        this.triggerCardFlip(dir);
+        if (isStackCard) {
+          this.triggerStackCardFlip(dir);
+        } else {
+          this.triggerCardFlip(dir);
+        }
       } else {
-        this.applyCard3DRotation(wrapper, this.state.isCardFlipped, this._todayFlipDeg);
+        this.applyCard3DRotation(wrapper, getIsFlipped(), getBaseDeg());
       }
     };
 
-    wrapper.addEventListener('pointerup', endCardSwipe);
-    wrapper.addEventListener('pointercancel', endCardSwipe);
+    window.addEventListener('pointermove', onWindowPointerMove, { passive: false });
+    window.addEventListener('pointerup', endCardSwipe);
+    window.addEventListener('pointercancel', endCardSwipe);
   }
 
   applyCard3DRotation(wrapperEl, isFlipped, degValue) {
@@ -1291,46 +1372,31 @@ export class FableFlowApp {
       });
     }
 
-    // 2. Interactive Horizontal Drag / Swipe on #stack-carousel-stage to scroll through the Stack
-    //    OR flip the card (if swiped on the center of the card body)
+    // 2. Interactive Horizontal Drag on peeking side cards or outer carousel stage to scroll through the Stack
+    //    (Swiping on #stack-card-3d itself is handled by bindTwoWayCardFlipOnWrapper so it flips effortlessly!)
     if (this.els.stackCarouselStage) {
       let startX = null;
       let startY = null;
       let isDraggingCarousel = false;
-      let dragMode = 'scrollStack'; // 'scrollStack' | 'flipCard'
       const centerPerspective = this.els.stackCarouselStage.querySelector(
         '.stack-center-perspective'
       );
 
       this.els.stackCarouselStage.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.journal-photo-remove-btn')) return;
+        // If pointerdown is inside #stack-card-3d, let the card flip/pencil gesture handle it
+        if (e.target.closest('#stack-card-3d')) return;
         startX = e.clientX;
         startY = e.clientY;
         isDraggingCarousel = false;
-
-        // Dragging on the peeking side cards, header bar, or outer 22% edges scrolls the stack;
-        // dragging across the center card body when on Back (or Front whitespace) can also scroll or flip:
-        const stageRect = this.els.stackCarouselStage.getBoundingClientRect();
-        const relX = e.clientX - stageRect.left;
-        const isNearEdgeOrPeek =
-          Boolean(e.target.closest('.stack-peek-card')) ||
-          Boolean(e.target.closest('.card-header-bar')) ||
-          relX < stageRect.width * 0.24 ||
-          relX > stageRect.width * 0.76;
-
-        dragMode = isNearEdgeOrPeek ? 'scrollStack' : 'scrollStackOrFlip';
       });
 
-      this.els.stackCarouselStage.addEventListener('pointermove', (e) => {
+      window.addEventListener('pointermove', (e) => {
         if (startX === null || startY === null) return;
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
 
-        if (!isDraggingCarousel && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+        if (!isDraggingCarousel && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15) {
           isDraggingCarousel = true;
-          if (document.activeElement && document.activeElement.blur) {
-            document.activeElement.blur();
-          }
         }
 
         if (isDraggingCarousel && centerPerspective) {
@@ -1342,8 +1408,8 @@ export class FableFlowApp {
 
       const endCarouselDrag = (e) => {
         if (startX === null || startY === null) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
+        const dx = (e.clientX !== undefined ? e.clientX : startX) - startX;
+        const dy = (e.clientY !== undefined ? e.clientY : startY) - startY;
         startX = null;
         startY = null;
 
@@ -1360,9 +1426,7 @@ export class FableFlowApp {
           this._justFinishedCardSwipe = false;
         }, 220);
 
-        if (Math.abs(dx) >= 32 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-          // Dragging right (dx > 0) brings in the left (previous) card;
-          // Dragging left (dx < 0) brings in the right (next) card!
+        if (Math.abs(dx) >= 24 && Math.abs(dx) > Math.abs(dy) * 1.15) {
           if (dx > 0) {
             this.stepStackCard(-1);
           } else {
@@ -1371,8 +1435,8 @@ export class FableFlowApp {
         }
       };
 
-      this.els.stackCarouselStage.addEventListener('pointerup', endCarouselDrag);
-      this.els.stackCarouselStage.addEventListener('pointercancel', endCarouselDrag);
+      window.addEventListener('pointerup', endCarouselDrag);
+      window.addEventListener('pointercancel', endCarouselDrag);
     }
 
     // 3. Mouse Wheel / Trackpad Scrolling through the Stack + Pinch-to-Zoom Out to Calendar
@@ -2168,13 +2232,14 @@ export class FableFlowApp {
     container.innerHTML = '';
 
     const totalTasks = this.state.tasks.length;
-    const rowVertPad = totalTasks >= 5 ? 6 : 9;
+    const rowVertPad = 9;
 
     this.state.tasks.forEach((task, idx) => {
       task.orderIndex = idx + 1;
       const row = document.createElement('div');
       row.className = 'task-row';
       row.dataset.taskId = task.id;
+      row.dataset.completed = task.isCompleted ? 'true' : 'false';
       row.style.paddingTop = `${rowVertPad}px`;
       row.style.paddingBottom = `${rowVertPad}px`;
 
@@ -2192,8 +2257,6 @@ export class FableFlowApp {
       titleSpan.className = 'task-title';
       titleSpan.style.fontSize = `${fontSizePx}px`;
       titleSpan.textContent = task.title;
-      titleSpan.title =
-        'Click once to edit or delete • Drag Left → Right to strike through or erase';
       titleWrap.appendChild(titleSpan);
 
       const strikeCanvas = document.createElement('canvas');
@@ -2234,10 +2297,6 @@ export class FableFlowApp {
 
       container.appendChild(row);
 
-      requestAnimationFrame(() => {
-        this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
-      });
-
       this.bindTaskRowPencilGesture(row, task, strikeCanvas, false);
     });
 
@@ -2247,11 +2306,20 @@ export class FableFlowApp {
       this.els.addItemRow.classList.add('hidden');
     }
 
+    // Unify font size across all items on Today's Card; only shrink if the whole card page is filled
+    this.fitUnifiedCardTaskTypography(container, this.els.addItemRow);
+    requestAnimationFrame(() => {
+      this.fitUnifiedCardTaskTypography(container, this.els.addItemRow);
+    });
+
     if (this.els.cardBackReflection) {
       if (this.els.cardBackReflection.value !== (this.state.reflectionText || '')) {
         this.els.cardBackReflection.value = this.state.reflectionText || '';
       }
       this.adjustReflectionTypography(this.els.cardBackReflection);
+      requestAnimationFrame(() => {
+        this.adjustReflectionTypography(this.els.cardBackReflection);
+      });
     }
 
     this.renderPhotoSlotsDOM(
@@ -2445,13 +2513,14 @@ export class FableFlowApp {
 
     const stackTasks = selectedCard.tasks || [];
     const totalTasks = stackTasks.length;
-    const rowVertPad = totalTasks >= 5 ? 6 : 9;
+    const rowVertPad = 9;
 
     stackTasks.forEach((task, idx) => {
       task.orderIndex = idx + 1;
       const row = document.createElement('div');
       row.className = 'task-row';
       row.dataset.taskId = task.id;
+      row.dataset.completed = task.isCompleted ? 'true' : 'false';
       row.style.paddingTop = `${rowVertPad}px`;
       row.style.paddingBottom = `${rowVertPad}px`;
 
@@ -2469,8 +2538,6 @@ export class FableFlowApp {
       titleSpan.className = 'task-title';
       titleSpan.style.fontSize = `${fontSizePx}px`;
       titleSpan.textContent = task.title;
-      titleSpan.title =
-        'Retroactive Edit: Click once to edit/delete • Drag Left → Right to strike through or erase';
       titleWrap.appendChild(titleSpan);
 
       const strikeCanvas = document.createElement('canvas');
@@ -2488,10 +2555,6 @@ export class FableFlowApp {
 
       listEl.appendChild(row);
 
-      requestAnimationFrame(() => {
-        this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
-      });
-
       this.bindTaskRowPencilGesture(row, task, strikeCanvas, true);
     });
 
@@ -2502,6 +2565,12 @@ export class FableFlowApp {
       );
     }
 
+    // Unify font size across all items on the Stack Card; only shrink if the whole card page is filled
+    this.fitUnifiedCardTaskTypography(listEl, this.els.stackAddItemRow);
+    requestAnimationFrame(() => {
+      this.fitUnifiedCardTaskTypography(listEl, this.els.stackAddItemRow);
+    });
+
     if (this.els.stackCardBackReflection) {
       if (
         this.els.stackCardBackReflection.value !==
@@ -2510,6 +2579,9 @@ export class FableFlowApp {
         this.els.stackCardBackReflection.value = selectedCard.reflectionText || '';
       }
       this.adjustReflectionTypography(this.els.stackCardBackReflection);
+      requestAnimationFrame(() => {
+        this.adjustReflectionTypography(this.els.stackCardBackReflection);
+      });
     }
 
     this.renderPhotoSlotsDOM(
@@ -2765,13 +2837,27 @@ export class FableFlowApp {
 
     rowEl.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.task-tomato-btn')) return;
-      e.stopPropagation(); // QA #1: Prevent bubbling to #daily-card-3d so Right->Left flip doesn't double-toggle
+      e.stopPropagation(); // QA #1: Prevent bubbling to #daily-card-3d / #stack-card-3d so flip doesn't double-toggle
       startX = e.clientX;
       startY = e.clientY;
       const rowRect = rowEl.getBoundingClientRect();
-      startedAtLeftEdgeBezel = e.clientX - rowRect.left < 22;
+      const relX = e.clientX - rowRect.left;
+
+      // Determine where the actual task text ends so swiping on empty white space to the right flips the card!
+      let maxTextRightX = rowRect.width - 52;
+      const titleSpan = rowEl.querySelector('.task-title');
+      if (titleSpan) {
+        const rects = Array.from(titleSpan.getClientRects()).filter((r) => r.width > 2);
+        if (rects.length > 0) {
+          maxTextRightX = Math.max(...rects.map((r) => r.right - rowRect.left));
+        }
+      }
+
+      startedAtLeftEdgeBezel = relX < 24 || relX > maxTextRightX + 18;
       isTracking = true;
-      rowEl.setPointerCapture(e.pointerId);
+      try {
+        rowEl.setPointerCapture(e.pointerId);
+      } catch (_) {}
     });
 
     rowEl.addEventListener('pointermove', (e) => {
@@ -2779,12 +2865,15 @@ export class FableFlowApp {
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
 
-      if (startedAtLeftEdgeBezel || dx < -12) {
-        if (!isStackCard && this.els.card3DWrapper && Math.abs(dx) > Math.abs(dy) * 1.3) {
-          const tiltOffset = Math.max(-55, Math.min(55, (dx / 240) * 55));
-          const liveDeg = this._todayFlipDeg + tiltOffset;
-          this.els.card3DWrapper.style.transition = 'none';
-          this.els.card3DWrapper.style.transform = `rotateY(${liveDeg.toFixed(1)}deg)`;
+      const activeWrapper = isStackCard ? this.els.stackCard3D : this.els.card3DWrapper;
+      const baseDeg = isStackCard ? this._stackFlipDeg : this._todayFlipDeg;
+
+      if (startedAtLeftEdgeBezel || dx < -10) {
+        if (activeWrapper && Math.abs(dx) > Math.abs(dy) * 1.15) {
+          const tiltOffset = Math.max(-65, Math.min(65, (dx / 180) * 65));
+          const liveDeg = baseDeg + tiltOffset;
+          activeWrapper.style.transition = 'none';
+          activeWrapper.style.transform = `rotateY(${liveDeg.toFixed(1)}deg)`;
         }
         return;
       }
@@ -2811,9 +2900,10 @@ export class FableFlowApp {
         rowEl.releasePointerCapture(e.pointerId);
       } catch (_) {}
 
-      if (this.els.card3DWrapper) {
-        this.els.card3DWrapper.style.transition = '';
-        this.els.card3DWrapper.style.transform = '';
+      const activeWrapper = isStackCard ? this.els.stackCard3D : this.els.card3DWrapper;
+      if (activeWrapper) {
+        activeWrapper.style.transition = '';
+        activeWrapper.style.transform = '';
       }
 
       const dx = e.clientX - startX;
@@ -2834,16 +2924,22 @@ export class FableFlowApp {
       const gesture = CardGestureMath.classifyGesture(dx, dy, !startedAtLeftEdgeBezel);
       if (gesture === 'strikethrough') {
         task.isCompleted = !task.isCompleted;
+        rowEl.dataset.completed = task.isCompleted ? 'true' : 'false';
         this.sensory.playPencilStrikethrough(!task.isCompleted);
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
         this.saveState();
-      } else if (gesture === 'flipCard') {
+      } else if (
+        gesture === 'flipCard' ||
+        ((startedAtLeftEdgeBezel || dx < -10) &&
+          Math.abs(dx) >= 22 &&
+          Math.abs(dx) > Math.abs(dy) * 1.15)
+      ) {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
+        const dir = dx >= 0 ? 1 : -1;
         if (isStackCard) {
-          // On Stack View, dragging horizontally scrolls to the previous/next card in the stack!
-          this.stepStackCard(dx > 0 ? -1 : 1);
+          this.triggerStackCardFlip(dir);
         } else {
-          this.triggerCardFlip(dx >= 0 ? 1 : -1);
+          this.triggerCardFlip(dir);
         }
       } else {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
@@ -3155,7 +3251,7 @@ export class FableFlowApp {
       return;
     }
     this.openInputModal(
-      'Add Task (Max 6 words / 36 chars)',
+      'Add Task',
       '',
       (val) => {
         const cleanVal = this.clampTaskInputText(val).trim();
@@ -3186,7 +3282,7 @@ export class FableFlowApp {
       return;
     }
     this.openInputModal(
-      `Add Task to ${card.shortDate} (Max 6 words / 36 chars)`,
+      `Add Task to ${card.shortDate}`,
       '',
       (val) => {
         const cleanVal = this.clampTaskInputText(val).trim();
@@ -3210,7 +3306,7 @@ export class FableFlowApp {
     const card = this.getSelectedStackCard();
     if (!card) return;
     this.openInputModal(
-      `Edit ${card.shortDate} Task ${String(task.orderIndex).padStart(2, '0')} (Max 6 words)`,
+      `Edit ${card.shortDate} Task ${String(task.orderIndex).padStart(2, '0')}`,
       task.title,
       (val) => {
         const cleanVal = this.clampTaskInputText(val).trim();
@@ -3243,7 +3339,7 @@ export class FableFlowApp {
 
   openEditTaskModal(task) {
     this.openInputModal(
-      `Edit Task ${String(task.orderIndex).padStart(2, '0')} (Max 6 words / 36 chars)`,
+      `Edit Task ${String(task.orderIndex).padStart(2, '0')}`,
       task.title,
       (val) => {
         const cleanVal = this.clampTaskInputText(val).trim();
