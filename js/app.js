@@ -39,13 +39,16 @@ const DEFAULT_REFLECTION_OCT_06 =
 export class FableFlowApp {
   constructor() {
     this.sensory = new SensoryEngine();
-    this.sensory.onHapticPulse = (msg) => this.showTelemetryToast(msg);
+    // User #2: Keep hardware haptics active without showing debug "Haptic: ..." telemetry toasts
+    this.sensory.onHapticPulse = null;
 
     this.state = this.loadInitialState();
+    this.sensory.isSilentMode = Boolean(this.state.isSilentMode);
     this.hero3D = null;
     this.gridRenderer = null;
     this.tickInterval = null;
     this._photoUploadTarget = 'today'; // 'today' | 'stack'
+    this._photoReplaceIndex = null;
     this._todayFlipDeg = this.state.isCardFlipped ? -180 : 0;
     this._stackFlipDeg = this.state.isStackCardFlipped ? -180 : 0;
     this._lastStackWheelTime = 0;
@@ -55,6 +58,15 @@ export class FableFlowApp {
     this.bindGlobalEvents();
     this.startWallClockTicker();
     this.renderAll();
+  }
+
+  getCurrentLogicalDateString(resetHour = 5) {
+    const hr = typeof resetHour === 'number' ? resetHour : 5;
+    const shifted = new Date(Date.now() - hr * 3600 * 1000);
+    const y = shifted.getFullYear();
+    const m = String(shifted.getMonth() + 1).padStart(2, '0');
+    const d = String(shifted.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   getDefaultArchiveCards() {
@@ -239,6 +251,8 @@ export class FableFlowApp {
       cardHeaderDate: 'TUESDAY — OCT 06',
       cardShortDate: '06 OCT',
       dailyResetHour: 5,
+      isSilentMode: false,
+      lastRolloverLogicalDate: this.getCurrentLogicalDateString(5),
       reflectionText: DEFAULT_REFLECTION_OCT_06,
       reflectionPhotos: [
         'assets/photos/sample-poodle.jpg?v=20261009_v13',
@@ -372,6 +386,12 @@ export class FableFlowApp {
           }
           if (typeof parsed.dailyResetHour !== 'number') {
             parsed.dailyResetHour = 5;
+          }
+          parsed.isSilentMode = Boolean(parsed.isSilentMode);
+          if (!parsed.lastRolloverLogicalDate) {
+            parsed.lastRolloverLogicalDate = this.getCurrentLogicalDateString(
+              parsed.dailyResetHour
+            );
           }
           this.reconcileElapsedTimers(parsed);
           return parsed;
@@ -539,6 +559,16 @@ export class FableFlowApp {
     this.hero3D = new HeroTomato3DView(this.els.heroTomatoStage);
     window.addEventListener('resize', () => {
       if (this.hero3D) this.hero3D.resize();
+      if (this.state.activePillar === 'card') {
+        this.fitUnifiedCardTaskTypography(this.els.taskListContainer, this.els.addItemRow);
+        this.adjustReflectionTypography(this.els.cardBackReflection);
+      } else if (this.state.activePillar === 'stack') {
+        this.fitUnifiedCardTaskTypography(
+          this.els.stackTaskListContainer,
+          this.els.stackAddItemRow
+        );
+        this.adjustReflectionTypography(this.els.stackCardBackReflection);
+      }
     });
   }
 
@@ -628,6 +658,7 @@ export class FableFlowApp {
       this.els.profileResetTimeSelect.addEventListener('change', (e) => {
         const hourVal = Math.max(0, Math.min(23, parseInt(e.target.value, 10) || 0));
         this.state.dailyResetHour = hourVal;
+        this.state.lastRolloverLogicalDate = this.getCurrentLogicalDateString(hourVal);
         this.saveState();
         const padded = String(hourVal).padStart(2, '0') + ':00';
         this.showTelemetryToast(`Daily reset time: ${padded}`);
@@ -695,31 +726,46 @@ export class FableFlowApp {
         if (!file) return;
         try {
           const compressedDataUrl = await this.compressImageFileToDataURL(file, 1600);
+          const repIdx = this._photoReplaceIndex;
+          this._photoReplaceIndex = null;
+
           if (this._photoUploadTarget === 'stack') {
             const card = this.getSelectedStackCard();
             if (card) {
               if (!Array.isArray(card.reflectionPhotos)) card.reflectionPhotos = [];
-              if (card.reflectionPhotos.length < 2) {
+              if (
+                typeof repIdx === 'number' &&
+                repIdx >= 0 &&
+                repIdx < card.reflectionPhotos.length
+              ) {
+                card.reflectionPhotos[repIdx] = compressedDataUrl;
+              } else if (card.reflectionPhotos.length < 2) {
                 card.reflectionPhotos.push(compressedDataUrl);
               } else {
                 card.reflectionPhotos[1] = compressedDataUrl;
               }
               this.saveState();
               this.renderStackScreen();
-              this.showTelemetryToast('Photo attached to archived card (≤ 1600px)');
+              this.showTelemetryToast('Photo updated on archived card');
             }
           } else {
             if (!Array.isArray(this.state.reflectionPhotos)) {
               this.state.reflectionPhotos = [];
             }
-            if (this.state.reflectionPhotos.length < 2) {
+            if (
+              typeof repIdx === 'number' &&
+              repIdx >= 0 &&
+              repIdx < this.state.reflectionPhotos.length
+            ) {
+              this.state.reflectionPhotos[repIdx] = compressedDataUrl;
+            } else if (this.state.reflectionPhotos.length < 2) {
               this.state.reflectionPhotos.push(compressedDataUrl);
             } else {
               this.state.reflectionPhotos[1] = compressedDataUrl;
             }
             this.saveState();
             this.renderCardScreen();
-            this.showTelemetryToast('Photo attached to Evening Journal (≤ 1600px)');
+            this.showTelemetryToast('Photo updated in Evening Journal');
           }
         } catch (_) {
           this.showNotificationBanner('Could not process selected image file.');
@@ -867,6 +913,8 @@ export class FableFlowApp {
 
   toggleSilentAudioMode() {
     this.sensory.isSilentMode = !this.sensory.isSilentMode;
+    this.state.isSilentMode = this.sensory.isSilentMode;
+    this.saveState();
     if (this.els.demoBtnSilent) {
       this.els.demoBtnSilent.textContent = this.sensory.isSilentMode
         ? '🔇 Silent Mode: ON'
@@ -874,9 +922,7 @@ export class FableFlowApp {
       this.els.demoBtnSilent.classList.toggle('active-pill', this.sensory.isSilentMode);
     }
     this.showTelemetryToast(
-      this.sensory.isSilentMode
-        ? 'Silent Mode enabled (Audio muted, Haptics active)'
-        : 'Tactile Foley Audio enabled'
+      this.sensory.isSilentMode ? 'Sound: Off' : 'Sound: On'
     );
   }
 
@@ -1097,8 +1143,9 @@ export class FableFlowApp {
     }
   }
 
-  triggerPhotoAttachment(target = 'today') {
+  triggerPhotoAttachment(target = 'today', replaceIndex = null) {
     this._photoUploadTarget = target;
+    this._photoReplaceIndex = typeof replaceIndex === 'number' ? replaceIndex : null;
     if (this.els.journalPhotoFileInput) {
       this.els.journalPhotoFileInput.click();
     }
@@ -1597,14 +1644,16 @@ export class FableFlowApp {
     let dragStartX = 0;
     let dragStartAngle = 0;
     let lastNotchIndex = 0;
+    let warnedStopwatchDrag = false;
 
     stage.addEventListener('pointerdown', (e) => {
       this.closeHeroTimeEditorDOM();
       const slot = this.state.timers[this.state.selectedQuadrant];
-      if (!slot || slot.mode === 'stopwatch') return;
+      if (!slot) return;
 
       isDragging = true;
       hasDragged = false;
+      warnedStopwatchDrag = false;
       dragStartX = e.clientX;
       dragStartAngle = slot.angleDegrees;
       lastNotchIndex = Math.round(dragStartAngle / OdometerDialPhysics.DEGREES_PER_NOTCH);
@@ -1614,11 +1663,19 @@ export class FableFlowApp {
     stage.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
       const slot = this.state.timers[this.state.selectedQuadrant];
-      if (!slot || slot.mode === 'stopwatch') return;
+      if (!slot) return;
 
       const translationX = e.clientX - dragStartX;
       if (!hasDragged && Math.abs(translationX) <= 3) return;
       hasDragged = true;
+
+      if (slot.mode === 'stopwatch') {
+        if (!warnedStopwatchDrag && Math.abs(translationX) > 6) {
+          warnedStopwatchDrag = true;
+          this.showTelemetryToast('Switch to Countdown to set duration');
+        }
+        return;
+      }
 
       const update = OdometerDialPhysics.computeDragUpdate(
         dragStartAngle,
@@ -1769,6 +1826,11 @@ export class FableFlowApp {
     const slot = this.state.timers[this.state.selectedQuadrant] || this.state.timers[0];
     if (!slot || !this.els.heroTimeEditor || !this.els.heroTimeInput) return;
 
+    if (slot.mode === 'stopwatch') {
+      this.showTelemetryToast('Switch to Countdown to set duration');
+      return;
+    }
+
     const currentMinutes = Math.round(slot.remainingSeconds / 60);
     this.els.heroReadout.classList.add('hidden');
     this.els.heroTimeEditor.classList.remove('hidden');
@@ -1860,6 +1922,17 @@ export class FableFlowApp {
   startWallClockTicker() {
     if (this.tickInterval) clearInterval(this.tickInterval);
     this.tickInterval = setInterval(() => {
+      // QA #3: Automatically roll over the daily card when the configured dailyResetHour passes
+      const currentLogicalDate = this.getCurrentLogicalDateString(this.state.dailyResetHour);
+      if (
+        this.state.lastRolloverLogicalDate &&
+        currentLogicalDate !== this.state.lastRolloverLogicalDate
+      ) {
+        this.state.lastRolloverLogicalDate = currentLogicalDate;
+        this.simulateFiveAmRollover();
+        return;
+      }
+
       let anyUpdated = false;
       let anyCompletedTransition = false;
       const now = Date.now();
@@ -2392,12 +2465,19 @@ export class FableFlowApp {
     photos.forEach((photoSrc, idx) => {
       const slot = document.createElement('div');
       slot.className = 'journal-photo-slot';
+      slot.title = 'Tap photo to replace, or tap × to remove';
 
       const img = document.createElement('img');
       img.className = 'journal-photo-img';
       img.src = photoSrc;
       img.alt = `Evening journal memory photo ${idx + 1}`;
       slot.appendChild(img);
+
+      slot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this._justFinishedCardSwipe) return;
+        this.triggerPhotoAttachment(targetType, idx);
+      });
 
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
@@ -2454,10 +2534,21 @@ export class FableFlowApp {
       const activeMonth =
         selectedCard && selectedCard.monthKey === '2026-09' ? '2026-09' : '2026-10';
 
-      const monthSpan = document.createElement('span');
-      monthSpan.className = 'stack-month-label';
-      monthSpan.textContent = activeMonth === '2026-09' ? 'SEP' : 'OCT';
-      this.els.stackDateStrip.appendChild(monthSpan);
+      const monthBtn = document.createElement('button');
+      monthBtn.type = 'button';
+      monthBtn.className = 'stack-month-label';
+      monthBtn.title = 'Tap to switch between SEP and OCT';
+      monthBtn.textContent = activeMonth === '2026-09' ? 'SEP' : 'OCT';
+      monthBtn.addEventListener('click', () => {
+        const targetMonth = activeMonth === '2026-09' ? '2026-10' : '2026-09';
+        const candidates = sortedKeys.filter((k) => k.startsWith(`${targetMonth}-`));
+        if (candidates.length > 0) {
+          this.selectStackDate(candidates[candidates.length - 1]);
+        } else if (targetMonth === '2026-10' && this.state.cardDateKey) {
+          this.selectStackDate(this.state.cardDateKey);
+        }
+      });
+      this.els.stackDateStrip.appendChild(monthBtn);
 
       if (activeMonth === '2026-10') {
         const octDays = [1, 2, 3, 4, 5, 6];
@@ -2581,13 +2672,9 @@ export class FableFlowApp {
       strikeCanvas.width = 720;
       strikeCanvas.height = 120;
 
-      const spacer = document.createElement('span');
-      spacer.style.width = '22px';
-
       row.appendChild(numSpan);
       row.appendChild(titleWrap);
       row.appendChild(strikeCanvas);
-      row.appendChild(spacer);
 
       listEl.appendChild(row);
 
@@ -2629,26 +2716,60 @@ export class FableFlowApp {
 
   /**
    * Renders Screen 5: Monthly Calendar Zoom-Out View (Mockup 07-calendar-view.png)
+   * Loads dates from Sept 1, 2026 to Dec 31, 2026 (always showing 2 additional months after the current month).
    */
   renderCalendarScreen() {
     const container = this.els.calendarMonthsContainer;
     if (!container) return;
     container.innerHTML = '';
 
-    const months = [
-      {
-        monthKey: '2026-09',
-        title: 'SEPTEMBER 2026',
-        daysInMonth: 30,
-        startDayOfWeek: 2, // Sep 1, 2026 is Tuesday
-      },
-      {
-        monthKey: '2026-10',
-        title: 'OCTOBER 2026',
-        daysInMonth: 31,
-        startDayOfWeek: 4, // Oct 1, 2026 is Thursday
-      },
+    const fullMonthNames = [
+      'JANUARY',
+      'FEBRUARY',
+      'MARCH',
+      'APRIL',
+      'MAY',
+      'JUNE',
+      'JULY',
+      'AUGUST',
+      'SEPTEMBER',
+      'OCTOBER',
+      'NOVEMBER',
+      'DECEMBER',
     ];
+
+    // Base range: SEPTEMBER 2026 through DECEMBER 2026, always guaranteeing 2 additional months after current card month
+    const activeDateKey = this.state.cardDateKey || '2026-10-06';
+    const [curYearStr, curMonthStr] = activeDateKey.split('-');
+    const curYear = parseInt(curYearStr, 10) || 2026;
+    const curMonthIdx = (parseInt(curMonthStr, 10) || 10) - 1;
+
+    const startTotalMonths = 2026 * 12 + 8; // Sep 2026 (index 8)
+    const minEndTotalMonths = 2026 * 12 + 11; // Dec 2026 (index 11)
+    const dynamicEndTotalMonths = curYear * 12 + curMonthIdx + 2; // Always +2 months after current month
+    const endTotalMonths = Math.max(minEndTotalMonths, dynamicEndTotalMonths);
+
+    const months = [];
+    for (let totalM = startTotalMonths; totalM <= endTotalMonths; totalM++) {
+      const y = Math.floor(totalM / 12);
+      const mIdx = totalM % 12;
+      const mNumPadded = String(mIdx + 1).padStart(2, '0');
+      const monthKey = `${y}-${mNumPadded}`;
+      const title =
+        monthKey === '2026-09'
+          ? 'SEPTEMBER 2026'
+          : monthKey === '2026-10'
+          ? 'OCTOBER 2026'
+          : `${fullMonthNames[mIdx]} ${y}`;
+      const daysInMonth = new Date(y, mIdx + 1, 0).getDate();
+      const startDayOfWeek = new Date(y, mIdx, 1).getDay();
+      months.push({
+        monthKey,
+        title,
+        daysInMonth,
+        startDayOfWeek,
+      });
+    }
 
     const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -2683,8 +2804,9 @@ export class FableFlowApp {
         const dPadded = String(d).padStart(2, '0');
         const dateKey = `${m.monthKey}-${dPadded}`;
         const hasArchivedCard = Boolean(this.state.archiveCards[dateKey]);
-        const isTodayCard = dateKey === this.state.cardDateKey;
+        const isTodayCard = dateKey === activeDateKey;
         const isSelected = dateKey === this.state.selectedStackDateKey;
+        const isFutureDate = dateKey > activeDateKey && !hasArchivedCard;
 
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -2695,8 +2817,14 @@ export class FableFlowApp {
         if (hasArchivedCard || isTodayCard) {
           btn.classList.add('has-card');
         }
+        if (isTodayCard) {
+          btn.classList.add('is-today');
+        }
         if (isSelected) {
           btn.classList.add('is-selected');
+        }
+        if (isFutureDate) {
+          btn.classList.add('is-future');
         }
 
         btn.addEventListener('click', () => {
@@ -2715,6 +2843,8 @@ export class FableFlowApp {
             this._stackFlipDeg = 0;
             this.saveState();
             this.renderAll();
+          } else if (isFutureDate) {
+            this.showTelemetryToast(`Future date (${dateKey})`);
           } else {
             this.showTelemetryToast(`No archived card for ${dateKey}`);
           }
@@ -3058,11 +3188,18 @@ export class FableFlowApp {
       overlay.className = 'grid-tomato-overlay';
 
       if (isAssigned) {
-        tomatoWrap.title = 'Click tomato to open Single Hero Tomato Timer page';
+        tomatoWrap.title = 'Tap tomato body to open Hero Timer; tap title text to edit/reassign';
 
         const titleEl = document.createElement('div');
         titleEl.className = 'grid-tomato-title';
+        titleEl.title = 'Tap title to edit or reassign task';
         titleEl.textContent = shortTitleText;
+        titleEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.state.openDropdownQuadrant =
+            this.state.openDropdownQuadrant === qIdx ? null : qIdx;
+          this.renderGridScreen();
+        });
 
         const timeEl = document.createElement('div');
         timeEl.className = 'grid-tomato-time';
@@ -3074,6 +3211,7 @@ export class FableFlowApp {
 
         tomatoWrap.addEventListener('click', (e) => {
           e.stopPropagation();
+          this.state.openDropdownQuadrant = null;
           this.state.selectedQuadrant = qIdx;
           this.state.timerSubMode = 'hero';
           this.saveState();
@@ -3152,6 +3290,9 @@ export class FableFlowApp {
   }
 
   buildTaskDropdownDOM(quadrant) {
+    const slot = this.state.timers[quadrant];
+    const hasExistingTitle = Boolean(slot && (slot.assignedTaskId || slot.customTitle));
+
     const menu = document.createElement('div');
     menu.className = 'task-assign-dropdown';
     menu.addEventListener('click', (e) => e.stopPropagation());
@@ -3159,8 +3300,9 @@ export class FableFlowApp {
     const customBtn = document.createElement('button');
     customBtn.type = 'button';
     customBtn.className = 'dropdown-custom-header';
+    const headerLabel = hasExistingTitle ? '✎ Edit Title...' : '+ Custom Title...';
     customBtn.innerHTML = `
-      <span>+ Custom Title...</span>
+      <span>${headerLabel}</span>
       <svg width="14" height="9" viewBox="0 0 14 9" fill="none">
         <path d="M1.5 1.5L7 7L12.5 1.5" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
@@ -3188,8 +3330,7 @@ export class FableFlowApp {
       listBody.appendChild(itemBtn);
     });
 
-    const slot = this.state.timers[quadrant];
-    if (slot && (slot.assignedTaskId || slot.customTitle)) {
+    if (hasExistingTitle) {
       const unassignBtn = document.createElement('button');
       unassignBtn.type = 'button';
       unassignBtn.className = 'dropdown-task-item';
@@ -3449,14 +3590,28 @@ export class FableFlowApp {
   }
 
   openCustomTitleModal(quadrant) {
-    const current = this.state.timers[quadrant]?.customTitle || '';
+    const slot = this.state.timers[quadrant];
+    const current = slot?.customTitle || '';
+    const isEditingExisting = Boolean(slot && (slot.assignedTaskId || slot.customTitle));
     this.openInputModal(
-      'Assign Custom Timer Title',
+      isEditingExisting ? 'Edit Timer Title' : 'Assign Custom Timer Title',
       current,
       (val) => {
         const cleanVal = this.clampTaskInputText(val).trim();
         if (!cleanVal) return;
-        this.assignCustomTitleToQuadrant(quadrant, cleanVal);
+        if (slot && slot.assignedTaskId) {
+          const linkedTask = this.state.tasks.find((t) => t.id === slot.assignedTaskId);
+          if (linkedTask) {
+            linkedTask.title = cleanVal;
+          }
+          slot.customTitle = cleanVal;
+          this.state.openDropdownQuadrant = null;
+          this.state.isHeroDropdownOpen = false;
+          this.saveState();
+          this.renderAll();
+        } else {
+          this.assignCustomTitleToQuadrant(quadrant, cleanVal);
+        }
       },
       null,
       true

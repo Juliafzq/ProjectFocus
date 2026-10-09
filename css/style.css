@@ -405,11 +405,12 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
+  opacity: 0.78;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
-.journal-photo-slot:hover .journal-photo-remove-btn {
+.journal-photo-slot:hover .journal-photo-remove-btn,
+.journal-photo-remove-btn:active {
   opacity: 1;
 }
 
@@ -457,6 +458,10 @@ html, body {
   padding: 9px 26px 9px 26px;
   cursor: ew-resize;
   touch-action: pan-y;
+}
+
+#stack-task-list-container .task-row {
+  grid-template-columns: 42px minmax(0, 1fr);
 }
 
 .task-index {
@@ -651,10 +656,11 @@ html, body {
 
 /* Strictly constrain title to first few words inside the tomato belly without overflow */
 .grid-tomato-title {
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   max-width: 112px;
-  height: 16px;
-  line-height: 16px;
+  height: 18px;
+  line-height: 18px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -662,8 +668,14 @@ html, body {
   font-weight: 600;
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.94);
+  padding: 0 5px;
+  border-radius: 4px;
   margin-bottom: 2px;
-  transition: color 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 0.15s ease, color 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grid-tomato-title:hover {
+  background-color: rgba(0, 0, 0, 0.22);
 }
 
 .grid-tomato-wrap.is-silver-completed .grid-tomato-title {
@@ -1075,12 +1087,23 @@ html, body {
 }
 
 .stack-month-label {
+  border: none;
+  background: transparent;
+  font-family: inherit;
   font-size: 16.5px;
   font-weight: 800;
   color: #0D0D0D;
   letter-spacing: 0.01em;
   margin-right: 4px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
   flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.stack-month-label:hover {
+  background-color: rgba(0, 0, 0, 0.06);
 }
 
 .stack-date-pill {
@@ -1204,12 +1227,13 @@ html, body {
 
 .calendar-months-container {
   flex: 1;
-  padding: 12px 34px 8px;
+  padding: 12px 34px 16px;
   display: flex;
   flex-direction: column;
-  justify-content: space-evenly;
-  gap: 14px;
+  justify-content: flex-start;
+  gap: 24px;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .cal-month-block {
@@ -1277,10 +1301,21 @@ html, body {
   font-weight: 600;
 }
 
+.cal-day-btn.is-today {
+  box-shadow: inset 0 0 0 1.5px #111111;
+  font-weight: 700;
+}
+
+.cal-day-btn.is-future {
+  color: #AEACA5;
+  opacity: 0.56;
+}
+
 .cal-day-btn.is-selected {
   background-color: #080808;
   color: #FFFFFF;
   font-weight: 700;
+  opacity: 1;
 }
 
 .calendar-bottom-bar {
@@ -1508,17 +1543,7 @@ html, body {
    ========================================================================= */
 
 .beta-eval-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 8px 14px;
-  background: rgba(250, 249, 245, 0.92);
-  border: 1px solid #C8C6BE;
-  border-radius: 999px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  display: none !important;
 }
 
 .beta-eval-btn {
