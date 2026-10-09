@@ -20,12 +20,12 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v22';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v22';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v22';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v22';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v23';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v23';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v23';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v23';
 
-const STORAGE_KEY = 'fable_flow_phase2_mvp_v7';
+const STORAGE_KEY = 'fable_flow_phase2_mvp_v8';
 const NUM_GRID_SLOTS = 6;
 
 const MAX_TASK_WORDS = 18;
@@ -191,6 +191,7 @@ export class FableFlowApp {
         'fable_flow_phase2_mvp_v4',
         'fable_flow_phase2_mvp_v5',
         'fable_flow_phase2_mvp_v6',
+        'fable_flow_phase2_mvp_v7',
       ].forEach((k) => localStorage.removeItem(k));
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -394,7 +395,7 @@ export class FableFlowApp {
 
       onboardingOverlay: document.getElementById('onboarding-overlay'),
       onboardingDismissBtn: document.getElementById('onboarding-dismiss-btn'),
-      tourAnimStage: document.getElementById('tour-anim-stage'),
+      tourPageDot: document.getElementById('tour-page-dot'),
       tourStepTitle: document.getElementById('tour-step-title'),
       tourStepDesc: document.getElementById('tour-step-desc'),
       tourPrevBtn: document.getElementById('tour-prev-btn'),
@@ -416,6 +417,17 @@ export class FableFlowApp {
           this.els.stackAddItemRow
         );
         this.adjustReflectionTypography(this.els.stackCardBackReflection);
+      }
+      if (this._isGuidedTourActive && this._currentTourDotTarget) {
+        const targetEl = this._currentTourDotTarget.getEl
+          ? this._currentTourDotTarget.getEl()
+          : null;
+        this.positionTourPageDot(
+          targetEl,
+          this._currentTourDotTarget.offsetX || 0,
+          this._currentTourDotTarget.offsetY || 0,
+          this._currentTourDotTarget.gesture || 'dot-tap'
+        );
       }
     });
   }
@@ -3653,19 +3665,12 @@ export class FableFlowApp {
       {
         title: 'Tap Card or Tomato',
         desc: 'Open today’s card or focus timer',
-        animKey: 'home-objects',
-        animHtml: `
-          <div class="tanim-home-wrap">
-            <div class="tanim-home-card"><span></span></div>
-            <div class="tanim-home-tomato">
-              <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-                <path d="M16 6V10M12 8.5L16 10L20 8.5" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="16" cy="18.5" r="9.5" fill="#FFFFFF" stroke="#111111" stroke-width="1.8"/>
-              </svg>
-            </div>
-          </div>
-        `,
-        getSpotlightEl: () => this.els.homeMiniCard,
+        dotGesture: 'dot-tap',
+        getDotTarget: () => ({
+          el: this.els.homeMiniCard,
+          offsetX: 0,
+          offsetY: 0,
+        }),
         applyPage: () => {
           this.state.activePillar = 'home';
         },
@@ -3673,25 +3678,24 @@ export class FableFlowApp {
           let alt = false;
           this._tourDemoTimer = setInterval(() => {
             alt = !alt;
-            this.clearTourSpotlight();
-            const el = alt ? this.els.homeTomatoBtn : this.els.homeMiniCard;
-            if (el) el.classList.add('tour-spotlight-target');
-          }, 1100);
+            const targetEl = alt ? this.els.homeTomatoBtn : this.els.homeMiniCard;
+            this.positionTourPageDot(targetEl, 0, 0, 'dot-tap');
+          }, 1150);
         },
       },
       {
-        title: 'Swipe Text',
-        desc: 'Cross out or erase an item',
-        animKey: 'cross-out',
-        animHtml: `
-          <div class="tanim-strike-box">
-            <div class="tanim-strike-row"><span class="tanim-strike-line"></span></div>
-            <div class="tanim-strike-row short"></div>
-          </div>
-        `,
-        getSpotlightEl: () =>
-          this.els.taskListContainer &&
-          this.els.taskListContainer.querySelector('.task-row'),
+        title: 'Front Page · Daily To-Dos',
+        desc: 'Add up to 6 tasks, swipe text to cross out',
+        dotGesture: 'dot-swipe-right',
+        getDotTarget: () => ({
+          el:
+            (this.els.taskListContainer &&
+              this.els.taskListContainer.querySelector('.task-title')) ||
+            (this.els.taskListContainer &&
+              this.els.taskListContainer.querySelector('.task-row')),
+          offsetX: -12,
+          offsetY: 0,
+        }),
         applyPage: () => {
           this.state.activePillar = 'card';
           this.state.isCardFlipped = false;
@@ -3711,16 +3715,14 @@ export class FableFlowApp {
         },
       },
       {
-        title: 'Flip Page',
-        desc: 'See back of card',
-        animKey: 'flip-page',
-        animHtml: `
-          <div class="tanim-flip-wrap">
-            <div class="tanim-flip-face tanim-flip-front"><span></span><span></span></div>
-            <div class="tanim-flip-face tanim-flip-back"><span></span><span></span></div>
-          </div>
-        `,
-        getSpotlightEl: () => this.els.card3DWrapper,
+        title: 'Flip Page · Daily Reflection',
+        desc: 'Swipe card to write reflection & attach photos',
+        dotGesture: 'dot-swipe-left',
+        getDotTarget: () => ({
+          el: this.els.card3DWrapper,
+          offsetX: 36,
+          offsetY: -22,
+        }),
         applyPage: () => {
           this.state.activePillar = 'card';
           this.state.isCardFlipped = false;
@@ -3735,25 +3737,20 @@ export class FableFlowApp {
               this.state.isCardFlipped,
               this._todayFlipDeg
             );
-          }, 1400);
+          }, 1450);
         },
       },
       {
-        title: 'Tap Tomato',
-        desc: 'Assign task and open timer',
-        animKey: 'tap-tomato',
-        animHtml: `
-          <div class="tanim-tomato-wrap">
-            <span class="tanim-tomato-ring"></span>
-            <svg class="tanim-tomato-svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M16 6V10M12 8.5L16 10L20 8.5" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="16" cy="18.5" r="9.5" fill="#FFFFFF" stroke="#111111" stroke-width="1.8"/>
-            </svg>
-          </div>
-        `,
-        getSpotlightEl: () =>
-          this.els.taskListContainer &&
-          this.els.taskListContainer.querySelector('.task-tomato-btn'),
+        title: 'Tap Mini Tomato',
+        desc: 'Link a daily to-do item to a focus timer',
+        dotGesture: 'dot-tap',
+        getDotTarget: () => ({
+          el:
+            this.els.taskListContainer &&
+            this.els.taskListContainer.querySelector('.task-tomato-btn'),
+          offsetX: 0,
+          offsetY: 0,
+        }),
         applyPage: () => {
           this.state.activePillar = 'card';
           this.state.isCardFlipped = false;
@@ -3761,17 +3758,44 @@ export class FableFlowApp {
         },
       },
       {
-        title: 'Turn Dial',
-        desc: 'Set duration, or tap digits',
-        animKey: 'wind-dial',
-        animHtml: `
-          <div class="tanim-dial-box">
-            <div class="tanim-dial-ticks"><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tanim-dial-seam"></div>
-            <div class="tanim-dial-ptr"></div>
-          </div>
-        `,
-        getSpotlightEl: () => this.els.heroTomatoStage,
+        title: 'Tomato Grid · 6 Focus Timers',
+        desc: 'Tap tomato body for big timer, tap title to edit',
+        dotGesture: 'dot-tap',
+        getDotTarget: () => ({
+          el:
+            this.els.gridQuadrants[0] &&
+            this.els.gridQuadrants[0].querySelector('.grid-tomato-wrap'),
+          offsetX: 0,
+          offsetY: 0,
+        }),
+        applyPage: () => {
+          this.state.activePillar = 'timer';
+          this.state.timerSubMode = 'grid';
+          this.state.openDropdownQuadrant = null;
+        },
+        startDemoLoop: () => {
+          let alt = false;
+          this._tourDemoTimer = setInterval(() => {
+            alt = !alt;
+            const quad0 = this.els.gridQuadrants[0];
+            if (!quad0) return;
+            const targetEl = alt
+              ? quad0.querySelector('.grid-task-label') ||
+                quad0.querySelector('.grid-tomato-wrap')
+              : quad0.querySelector('.grid-tomato-wrap');
+            this.positionTourPageDot(targetEl, 0, 0, 'dot-tap');
+          }, 1150);
+        },
+      },
+      {
+        title: 'Turn Tomato Dial',
+        desc: 'Drag equator or tap digits to set duration',
+        dotGesture: 'dot-swipe-left',
+        getDotTarget: () => ({
+          el: this.els.heroTomatoStage,
+          offsetX: 16,
+          offsetY: 16,
+        }),
         applyPage: () => {
           this.state.activePillar = 'timer';
           this.state.timerSubMode = 'hero';
@@ -3794,6 +3818,44 @@ export class FableFlowApp {
           }, 85);
         },
       },
+      {
+        title: 'Stack & Calendar · Past Days',
+        desc: 'Swipe to browse past cards, or zoom out to calendar',
+        dotGesture: 'dot-swipe-bi',
+        getDotTarget: () => ({
+          el: this.els.stackCard3D,
+          offsetX: 0,
+          offsetY: -12,
+        }),
+        applyPage: () => {
+          this.state.activePillar = 'stack';
+          this.state.isStackCardFlipped = false;
+          this._stackFlipDeg = 0;
+        },
+        startDemoLoop: () => {
+          let showCalendar = false;
+          this._tourDemoTimer = setInterval(() => {
+            showCalendar = !showCalendar;
+            if (showCalendar) {
+              this.state.activePillar = 'calendar';
+              this.renderAll();
+              const calCell =
+                (this.els.calendarMonthsContainer &&
+                  this.els.calendarMonthsContainer.querySelector(
+                    '.cal-day-cell.today-outline'
+                  )) ||
+                this.els.calendarMonthsContainer;
+              this.positionTourPageDot(calCell, 0, 0, 'dot-tap');
+            } else {
+              this.state.activePillar = 'stack';
+              this.state.isStackCardFlipped = false;
+              this._stackFlipDeg = 0;
+              this.renderAll();
+              this.positionTourPageDot(this.els.stackCard3D, 0, -12, 'dot-swipe-bi');
+            }
+          }, 1750);
+        },
+      },
     ];
   }
 
@@ -3804,10 +3866,37 @@ export class FableFlowApp {
     }
   }
 
-  clearTourSpotlight() {
-    document
-      .querySelectorAll('.tour-spotlight-target')
-      .forEach((el) => el.classList.remove('tour-spotlight-target'));
+  positionTourPageDot(targetEl, offsetX = 0, offsetY = 0, gesture = 'dot-tap') {
+    const dot = this.els.tourPageDot;
+    const overlay = this.els.onboardingOverlay;
+    if (!dot || !overlay) return;
+
+    this._currentTourDotTarget = {
+      getEl: () => targetEl,
+      offsetX,
+      offsetY,
+      gesture,
+    };
+
+    if (!targetEl) {
+      dot.style.opacity = '0';
+      return;
+    }
+
+    const rect = targetEl.getBoundingClientRect();
+    const overlayRect = overlay.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      dot.style.opacity = '0';
+      return;
+    }
+
+    const x = rect.left - overlayRect.left + rect.width * 0.5 + offsetX;
+    const y = rect.top - overlayRect.top + rect.height * 0.5 + offsetY;
+
+    dot.dataset.gesture = gesture || 'dot-tap';
+    dot.style.left = `${x.toFixed(1)}px`;
+    dot.style.top = `${y.toFixed(1)}px`;
+    dot.style.opacity = '1';
   }
 
   startGuidedTour(startStep = 0) {
@@ -3825,19 +3914,9 @@ export class FableFlowApp {
     const step = steps[clampedIdx];
 
     this.stopTourDemoLoop();
-    this.clearTourSpotlight();
     step.applyPage();
     this.renderAll();
 
-    const targetEl = step.getSpotlightEl ? step.getSpotlightEl() : null;
-    if (targetEl) {
-      targetEl.classList.add('tour-spotlight-target');
-    }
-
-    if (this.els.tourAnimStage) {
-      this.els.tourAnimStage.dataset.anim = step.animKey || '';
-      this.els.tourAnimStage.innerHTML = step.animHtml || '';
-    }
     if (this.els.tourStepTitle) {
       this.els.tourStepTitle.textContent = step.title;
     }
@@ -3853,6 +3932,19 @@ export class FableFlowApp {
     }
 
     requestAnimationFrame(() => {
+      if (step.getDotTarget) {
+        const info = step.getDotTarget();
+        if (info && info.el) {
+          this.positionTourPageDot(
+            info.el,
+            info.offsetX || 0,
+            info.offsetY || 0,
+            step.dotGesture || 'dot-tap'
+          );
+        } else {
+          this.positionTourPageDot(null);
+        }
+      }
       if (step.startDemoLoop) {
         step.startDemoLoop();
       }
@@ -3861,7 +3953,10 @@ export class FableFlowApp {
 
   finishGuidedTour() {
     this.stopTourDemoLoop();
-    this.clearTourSpotlight();
+    this._currentTourDotTarget = null;
+    if (this.els.tourPageDot) {
+      this.els.tourPageDot.style.opacity = '0';
+    }
     if (this.els.onboardingOverlay) {
       this.els.onboardingOverlay.classList.add('hidden');
     }

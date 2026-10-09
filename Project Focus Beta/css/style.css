@@ -1629,18 +1629,18 @@ html, body {
 }
 
 /* =========================================================================
-   CLEAN, NON-INTERACTIVE MINIMALIST ANIMATED TUTORIAL INTEGRATED ON PAGES
+   CLEAN, NON-INTERACTIVE MINIMALIST TUTORIAL WITH SIMPLE DOT ON PAGES
    ========================================================================= */
 
 .guided-tour-overlay {
   position: absolute;
   inset: 0;
   pointer-events: auto;
-  background: rgba(18, 18, 16, 0.06);
+  background: transparent;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 0 22px 22px;
+  padding: 0 22px 20px;
   z-index: 95;
   touch-action: none;
   user-select: none;
@@ -1650,47 +1650,113 @@ html, body {
   display: none !important;
 }
 
+/* Simple Minimalist Touch Dot on the Live Page (Zero Boxes Around Places) */
+.tour-page-dot {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  margin-top: -8px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.88);
+  border: 2.2px solid #FAF9F5;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 96;
+  transition: left 0.34s cubic-bezier(0.22, 1, 0.36, 1), top 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tour-page-dot::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(17, 17, 17, 0.42);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes tourDotTap {
+  0%, 100% { transform: scale(1); }
+  35% { transform: scale(0.82); }
+  60% { transform: scale(1.08); }
+}
+
+@keyframes tourDotRipple {
+  0%, 25% { transform: scale(0.65); opacity: 0; }
+  40% { transform: scale(0.95); opacity: 0.85; }
+  85%, 100% { transform: scale(1.75); opacity: 0; }
+}
+
+@keyframes tourDotSwipeRight {
+  0% { transform: translateX(-48px) scale(0.92); opacity: 0; }
+  15% { transform: translateX(-44px) scale(1); opacity: 1; }
+  78% { transform: translateX(48px) scale(1); opacity: 1; }
+  100% { transform: translateX(54px) scale(0.92); opacity: 0; }
+}
+
+@keyframes tourDotSwipeLeft {
+  0% { transform: translateX(48px) scale(0.92); opacity: 0; }
+  15% { transform: translateX(44px) scale(1); opacity: 1; }
+  78% { transform: translateX(-48px) scale(1); opacity: 1; }
+  100% { transform: translateX(-54px) scale(0.92); opacity: 0; }
+}
+
+@keyframes tourDotSwipeBi {
+  0%, 100% { transform: translateX(-38px); }
+  50% { transform: translateX(38px); }
+}
+
+.tour-page-dot.dot-tap {
+  animation: tourDotTap 1.35s ease-in-out infinite;
+}
+
+.tour-page-dot.dot-tap::after {
+  animation: tourDotRipple 1.35s ease-out infinite;
+}
+
+.tour-page-dot.dot-swipe-right {
+  animation: tourDotSwipeRight 1.55s cubic-bezier(0.25, 1, 0.4, 1) infinite;
+}
+
+.tour-page-dot.dot-swipe-left {
+  animation: tourDotSwipeLeft 1.55s cubic-bezier(0.25, 1, 0.4, 1) infinite;
+}
+
+.tour-page-dot.dot-swipe-bi {
+  animation: tourDotSwipeBi 1.75s ease-in-out infinite;
+}
+
 .guided-tour-card {
   position: relative;
   width: 100%;
-  max-width: 316px;
-  background: rgba(250, 249, 245, 0.97);
+  max-width: 312px;
+  background: rgba(250, 249, 245, 0.96);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1.5px solid #141414;
+  border: 1.4px solid #141414;
   border-radius: 16px;
-  padding: 16px 20px 16px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+  padding: 15px 20px 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-}
-
-@keyframes tourSpotlightPulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(17, 17, 17, 0.28);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(17, 17, 17, 0.10);
-  }
-}
-
-.tour-spotlight-target {
-  animation: tourSpotlightPulse 1.5s ease-in-out infinite;
-  border-radius: 12px;
+  z-index: 97;
 }
 
 .tour-card-close-btn {
   position: absolute;
-  top: 10px;
-  right: 12px;
-  width: 26px;
-  height: 26px;
+  top: 8px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: transparent;
   color: #77756F;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1;
   border-radius: 999px;
   cursor: pointer;
@@ -1706,34 +1772,24 @@ html, body {
   background-color: rgba(0, 0, 0, 0.06);
 }
 
-.tour-anim-stage {
-  width: 136px;
-  height: 68px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  perspective: 420px;
-  margin-bottom: 2px;
-}
-
 .tour-action-title {
-  font-size: 15.5px;
+  font-size: 15px;
   font-weight: 700;
   color: #111111;
   letter-spacing: -0.01em;
-  margin-top: 4px;
+  padding: 0 16px;
 }
 
 .tour-action-desc {
   font-size: 13px;
   font-weight: 450;
   color: #5E5D59;
-  margin-top: 2px;
+  margin-top: 4px;
   line-height: 1.35;
 }
 
 .tour-btn-row {
-  margin-top: 14px;
+  margin-top: 12px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -1743,10 +1799,10 @@ html, body {
 
 .tour-nav-btn {
   flex: 1;
-  height: 34px;
+  height: 33px;
   border-radius: 999px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -1758,7 +1814,7 @@ html, body {
 }
 
 .tour-nav-btn-secondary {
-  border: 1.3px solid #C8C6BE;
+  border: 1.2px solid #C8C6BE;
   background: #FFFFFF;
   color: #111111;
 }
@@ -1770,288 +1826,7 @@ html, body {
 }
 
 .tour-nav-btn-primary {
-  border: 1.3px solid #111111;
+  border: 1.2px solid #111111;
   background: #111111;
   color: #FFFFFF;
-}
-
-/* Minimalist Step Animations (Ultra-clean geometric line art) */
-
-/* 0. Home Page (Minimalist mini-card + tomato icon alternating pulse) */
-.tanim-home-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-}
-
-.tanim-home-card {
-  width: 44px;
-  height: 30px;
-  border: 1.8px solid #111111;
-  border-radius: 5px;
-  background: #FFFFFF;
-  padding: 5px 6px;
-  display: flex;
-  align-items: flex-start;
-  animation: tanimHomePulseA 2.2s ease-in-out infinite;
-}
-
-.tanim-home-card span {
-  width: 16px;
-  height: 2.2px;
-  background: #111111;
-  border-radius: 1px;
-}
-
-.tanim-home-tomato {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: tanimHomePulseB 2.2s ease-in-out infinite;
-}
-
-@keyframes tanimHomePulseA {
-  0%, 45%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(17, 17, 17, 0); }
-  22% { transform: scale(1.08); box-shadow: 0 0 0 5px rgba(17, 17, 17, 0.12); }
-}
-
-@keyframes tanimHomePulseB {
-  0%, 50%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(17, 17, 17, 0)); }
-  72% { transform: scale(1.1); filter: drop-shadow(0 3px 6px rgba(17, 17, 17, 0.2)); }
-}
-
-/* 1. Flip Page (3D minimalist card flipping 180 deg) */
-.tanim-flip-wrap {
-  width: 48px;
-  height: 66px;
-  position: relative;
-  transform-style: preserve-3d;
-  animation: tanimFlipCard 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-}
-
-.tanim-flip-face {
-  position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  border: 1.8px solid #111111;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 7px;
-  padding: 10px 9px;
-}
-
-.tanim-flip-front {
-  background: #FFFFFF;
-}
-
-.tanim-flip-front span {
-  display: block;
-  height: 2px;
-  background: #111111;
-  border-radius: 2px;
-}
-
-.tanim-flip-front span:nth-child(2) {
-  width: 72%;
-}
-
-.tanim-flip-back {
-  background: #141414;
-  transform: rotateY(180deg);
-}
-
-.tanim-flip-back span {
-  display: block;
-  height: 2px;
-  background: #FAF9F5;
-  border-radius: 2px;
-  opacity: 0.85;
-}
-
-.tanim-flip-back span:nth-child(2) {
-  width: 64%;
-}
-
-@keyframes tanimFlipCard {
-  0%, 18% { transform: rotateY(0deg); }
-  50%, 68% { transform: rotateY(180deg); }
-  100% { transform: rotateY(360deg); }
-}
-
-/* 2. Cross Out Item (Minimalist line drawing across text bar) */
-.tanim-strike-box {
-  width: 96px;
-  height: 52px;
-  border: 1.8px solid #111111;
-  border-radius: 7px;
-  background: #FFFFFF;
-  padding: 13px 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.tanim-strike-row {
-  position: relative;
-  height: 3px;
-  background: #B8B6AE;
-  border-radius: 2px;
-  width: 100%;
-}
-
-.tanim-strike-row.short {
-  width: 65%;
-  background: #DCDAD2;
-}
-
-.tanim-strike-line {
-  position: absolute;
-  top: 50%;
-  left: -3px;
-  height: 2.4px;
-  background: #111111;
-  border-radius: 2px;
-  transform: translateY(-50%);
-  animation: tanimDrawStrike 2.0s cubic-bezier(0.25, 1, 0.4, 1) infinite;
-}
-
-@keyframes tanimDrawStrike {
-  0%, 15% { width: 0%; opacity: 1; }
-  65%, 82% { width: calc(100% + 6px); opacity: 1; }
-  95%, 100% { width: calc(100% + 6px); opacity: 0; }
-}
-
-/* 3. Tap Tomato (Minimalist tomato circle + gentle pulse ring) */
-.tanim-tomato-wrap {
-  position: relative;
-  width: 58px;
-  height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tanim-tomato-ring {
-  position: absolute;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  border: 1.6px solid #111111;
-  animation: tanimTomatoPulse 1.8s ease-out infinite;
-}
-
-.tanim-tomato-svg {
-  animation: tanimTomatoTapScale 1.8s ease-in-out infinite;
-}
-
-@keyframes tanimTomatoPulse {
-  0%, 20% { transform: scale(0.85); opacity: 0; }
-  35% { transform: scale(0.95); opacity: 0.75; }
-  85%, 100% { transform: scale(1.45); opacity: 0; }
-}
-
-@keyframes tanimTomatoTapScale {
-  0%, 100% { transform: scale(1); }
-  28% { transform: scale(0.9); }
-  50% { transform: scale(1.03); }
-}
-
-/* 4. Wind Tomato Dial (Minimalist dial arc with sliding tick marks) */
-.tanim-dial-box {
-  width: 96px;
-  height: 54px;
-  border: 1.8px solid #111111;
-  border-radius: 27px;
-  background: #FFFFFF;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.tanim-dial-seam {
-  width: 100%;
-  height: 1.6px;
-  background: #111111;
-  position: relative;
-}
-
-.tanim-dial-ticks {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 4px;
-  animation: tanimSlideTicks 2.0s ease-in-out infinite;
-}
-
-.tanim-dial-ticks span {
-  width: 1.8px;
-  height: 8px;
-  background: #111111;
-  border-radius: 1px;
-}
-
-.tanim-dial-ticks span:nth-child(2n) {
-  height: 5px;
-  margin-top: 3px;
-}
-
-.tanim-dial-ptr {
-  width: 0;
-  height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-bottom: 6px solid #111111;
-  margin-top: 4px;
-}
-
-@keyframes tanimSlideTicks {
-  0%, 100% { transform: translateX(-12px); }
-  50% { transform: translateX(12px); }
-}
-
-/* 5. Scroll Stack (Minimalist layered cards sliding horizontally) */
-.tanim-stack-wrap {
-  position: relative;
-  width: 96px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tanim-stack-card {
-  position: absolute;
-  width: 42px;
-  height: 56px;
-  border-radius: 5px;
-  border: 1.7px solid #111111;
-  background: #FFFFFF;
-}
-
-.tanim-stack-card.left {
-  transform: translateX(-20px) scale(0.9);
-  opacity: 0.45;
-}
-
-.tanim-stack-card.right {
-  transform: translateX(20px) scale(0.9);
-  opacity: 0.45;
-}
-
-.tanim-stack-card.center {
-  z-index: 2;
-  animation: tanimStackSlide 2.1s ease-in-out infinite;
-}
-
-@keyframes tanimStackSlide {
-  0%, 100% { transform: translateX(-10px); }
-  50% { transform: translateX(10px); }
 }
