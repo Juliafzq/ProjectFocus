@@ -238,6 +238,7 @@ export class FableFlowApp {
       cardDateKey: '2026-10-06',
       cardHeaderDate: 'TUESDAY — OCT 06',
       cardShortDate: '06 OCT',
+      dailyResetHour: 5,
       reflectionText: DEFAULT_REFLECTION_OCT_06,
       reflectionPhotos: [
         'assets/photos/sample-poodle.jpg?v=20261009_v13',
@@ -368,6 +369,9 @@ export class FableFlowApp {
           }
           if (!parsed.cardDateKey) {
             parsed.cardDateKey = '2026-10-06';
+          }
+          if (typeof parsed.dailyResetHour !== 'number') {
+            parsed.dailyResetHour = 5;
           }
           this.reconcileElapsedTimers(parsed);
           return parsed;
@@ -522,6 +526,7 @@ export class FableFlowApp {
 
       profileModalOverlay: document.getElementById('profile-modal-overlay'),
       profileOpenHomeBtn: document.getElementById('profile-open-home-btn'),
+      profileResetTimeSelect: document.getElementById('profile-reset-time-select'),
       profileToggleAudioBtn: document.getElementById('profile-toggle-audio-btn'),
       profileAudioStateLabel: document.getElementById('profile-audio-state-label'),
       profileSimulate5amBtn: document.getElementById('profile-simulate-5am-btn'),
@@ -586,11 +591,26 @@ export class FableFlowApp {
       this.renderAll();
     });
 
-    // Profile & Workspace Settings Modal
-    this.els.profileBtn.addEventListener('click', () => {
-      this.openProfileModal();
+    // Minimal Profile Popover: Home, Reset Time, Sound On/Off
+    this.els.profileBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (
+        this.els.profileModalOverlay &&
+        !this.els.profileModalOverlay.classList.contains('hidden')
+      ) {
+        this.els.profileModalOverlay.classList.add('hidden');
+      } else {
+        this.openProfileModal();
+      }
     });
 
+    if (this.els.profileModalOverlay) {
+      this.els.profileModalOverlay.addEventListener('click', (e) => {
+        if (!e.target.closest('.profile-popover-card')) {
+          this.els.profileModalOverlay.classList.add('hidden');
+        }
+      });
+    }
     if (this.els.profileModalClose) {
       this.els.profileModalClose.addEventListener('click', () => {
         this.els.profileModalOverlay.classList.add('hidden');
@@ -604,11 +624,20 @@ export class FableFlowApp {
         this.renderAll();
       });
     }
+    if (this.els.profileResetTimeSelect) {
+      this.els.profileResetTimeSelect.addEventListener('change', (e) => {
+        const hourVal = Math.max(0, Math.min(23, parseInt(e.target.value, 10) || 0));
+        this.state.dailyResetHour = hourVal;
+        this.saveState();
+        const padded = String(hourVal).padStart(2, '0') + ':00';
+        this.showTelemetryToast(`Daily reset time: ${padded}`);
+      });
+    }
     if (this.els.profileToggleAudioBtn) {
       this.els.profileToggleAudioBtn.addEventListener('click', () => {
         this.toggleSilentAudioMode();
         if (this.els.profileAudioStateLabel) {
-          this.els.profileAudioStateLabel.textContent = this.sensory.isSilentMode ? 'MUTED' : 'ON';
+          this.els.profileAudioStateLabel.textContent = this.sensory.isSilentMode ? 'Off' : 'On';
         }
       });
     }
@@ -854,7 +883,11 @@ export class FableFlowApp {
   openProfileModal() {
     if (!this.els.profileModalOverlay) return;
     if (this.els.profileAudioStateLabel) {
-      this.els.profileAudioStateLabel.textContent = this.sensory.isSilentMode ? 'MUTED' : 'ON';
+      this.els.profileAudioStateLabel.textContent = this.sensory.isSilentMode ? 'Off' : 'On';
+    }
+    if (this.els.profileResetTimeSelect) {
+      const hr = typeof this.state.dailyResetHour === 'number' ? this.state.dailyResetHour : 5;
+      this.els.profileResetTimeSelect.value = String(hr);
     }
     this.els.profileModalOverlay.classList.remove('hidden');
   }
@@ -975,7 +1008,10 @@ export class FableFlowApp {
    */
   fitUnifiedCardTaskTypography(containerEl, addItemEl) {
     if (!containerEl) return 24;
-    const bodyEl = containerEl.closest('.card-body-tasks') || containerEl;
+    const bodyEl =
+      containerEl.closest('.card-dot-grid-body') ||
+      containerEl.closest('.card-body-tasks') ||
+      containerEl;
     const indexNodes = Array.from(containerEl.querySelectorAll('.task-index'));
     const titleNodes = Array.from(containerEl.querySelectorAll('.task-title'));
     const rowNodes = Array.from(containerEl.querySelectorAll('.task-row'));

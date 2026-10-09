@@ -7,7 +7,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="css/style.css?v=20261009_v14" />
+  <link rel="stylesheet" href="css/style.css?v=20261009_v15" />
 </head>
 <body>
 
@@ -382,30 +382,46 @@
       </div>
     </div>
 
-    <!-- Profile & Workspace Settings Modal (Zero Analytics / Zero Guilt) -->
-    <div id="profile-modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Account and Workspace Settings">
-      <div class="modal-box">
-        <div class="modal-title">Fable / Flow — Workspace Settings</div>
-        <p style="font-size: 13.5px; color: #5E5D59; margin-bottom: 14px; line-height: 1.45;">
-          Local-first encrypted storage active. Daily rollover occurs automatically at <strong>5:00 AM</strong> local time with zero unfinished-task guilt.
-        </p>
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
-          <button type="button" id="profile-open-home-btn" class="modal-btn" style="text-align: left; display: flex; justify-content: space-between; align-items: center;">
-            <span>Open Minimalist Homepage (01)</span>
-            <span>→</span>
-          </button>
-          <button type="button" id="profile-toggle-audio-btn" class="modal-btn" style="text-align: left; display: flex; justify-content: space-between; align-items: center;">
-            <span>Tactile Foley & Bell Audio</span>
-            <strong id="profile-audio-state-label">ON</strong>
-          </button>
-          <button type="button" id="profile-simulate-5am-btn" class="modal-btn" style="text-align: left; display: flex; justify-content: space-between; align-items: center;">
-            <span>Simulate 5:00 AM Daily Rollover</span>
-            <span>🌅</span>
-          </button>
-        </div>
-        <div class="modal-actions">
-          <button type="button" id="profile-modal-close" class="modal-btn modal-btn-primary">Done</button>
-        </div>
+    <!-- Minimal Profile Popover: Home, Reset Time, Sound On/Off -->
+    <div id="profile-modal-overlay" class="profile-popover-overlay hidden" role="dialog" aria-modal="true" aria-label="Profile Menu">
+      <div class="profile-popover-card">
+        <button type="button" id="profile-open-home-btn" class="profile-menu-row">
+          <span>Home</span>
+          <span class="profile-menu-val">↗</span>
+        </button>
+        <label class="profile-menu-row" for="profile-reset-time-select">
+          <span>Reset</span>
+          <select id="profile-reset-time-select" class="profile-reset-select" aria-label="Daily reset time">
+            <option value="0">00:00</option>
+            <option value="1">01:00</option>
+            <option value="2">02:00</option>
+            <option value="3">03:00</option>
+            <option value="4">04:00</option>
+            <option value="5" selected>05:00</option>
+            <option value="6">06:00</option>
+            <option value="7">07:00</option>
+            <option value="8">08:00</option>
+            <option value="9">09:00</option>
+            <option value="10">10:00</option>
+            <option value="11">11:00</option>
+            <option value="12">12:00</option>
+            <option value="13">13:00</option>
+            <option value="14">14:00</option>
+            <option value="15">15:00</option>
+            <option value="16">16:00</option>
+            <option value="17">17:00</option>
+            <option value="18">18:00</option>
+            <option value="19">19:00</option>
+            <option value="20">20:00</option>
+            <option value="21">21:00</option>
+            <option value="22">22:00</option>
+            <option value="23">23:00</option>
+          </select>
+        </label>
+        <button type="button" id="profile-toggle-audio-btn" class="profile-menu-row">
+          <span>Sound</span>
+          <span id="profile-audio-state-label" class="profile-menu-val">On</span>
+        </button>
       </div>
     </div>
 
@@ -424,6 +440,6 @@
     <button type="button" id="demo-reset-state" class="beta-eval-btn">↺ Reset State</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=20261009_v14"></script>
+  <script type="module" src="js/app.js?v=20261009_v15"></script>
 </body>
 </html>
