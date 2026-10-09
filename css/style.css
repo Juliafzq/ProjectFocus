@@ -1629,20 +1629,18 @@ html, body {
 }
 
 /* =========================================================================
-   CLEAN, NON-INTERACTIVE MINIMALIST ANIMATED TUTORIAL MODAL (Visual > Text)
+   CLEAN, NON-INTERACTIVE MINIMALIST ANIMATED TUTORIAL INTEGRATED ON PAGES
    ========================================================================= */
 
 .guided-tour-overlay {
   position: absolute;
   inset: 0;
   pointer-events: auto;
-  background: rgba(18, 18, 16, 0.42);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(18, 18, 16, 0.06);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  padding: 28px;
+  padding: 0 22px 22px;
   z-index: 95;
   touch-action: none;
   user-select: none;
@@ -1655,16 +1653,32 @@ html, body {
 .guided-tour-card {
   position: relative;
   width: 100%;
-  max-width: 284px;
-  background: #FAF9F5;
+  max-width: 316px;
+  background: rgba(250, 249, 245, 0.97);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1.5px solid #141414;
-  border-radius: 18px;
-  padding: 28px 24px 22px;
-  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.22);
+  border-radius: 16px;
+  padding: 16px 20px 16px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
+}
+
+@keyframes tourSpotlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(17, 17, 17, 0.28);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(17, 17, 17, 0.10);
+  }
+}
+
+.tour-spotlight-target {
+  animation: tourSpotlightPulse 1.5s ease-in-out infinite;
+  border-radius: 12px;
 }
 
 .tour-card-close-btn {
@@ -1694,32 +1708,32 @@ html, body {
 
 .tour-anim-stage {
   width: 136px;
-  height: 88px;
+  height: 68px;
   display: flex;
   align-items: center;
   justify-content: center;
   perspective: 420px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .tour-action-title {
-  font-size: 16.5px;
+  font-size: 15.5px;
   font-weight: 700;
   color: #111111;
   letter-spacing: -0.01em;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .tour-action-desc {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 450;
   color: #5E5D59;
-  margin-top: 4px;
+  margin-top: 2px;
   line-height: 1.35;
 }
 
 .tour-btn-row {
-  margin-top: 20px;
+  margin-top: 14px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -1729,7 +1743,7 @@ html, body {
 
 .tour-nav-btn {
   flex: 1;
-  height: 36px;
+  height: 34px;
   border-radius: 999px;
   font-family: inherit;
   font-size: 13px;
@@ -1762,6 +1776,52 @@ html, body {
 }
 
 /* Minimalist Step Animations (Ultra-clean geometric line art) */
+
+/* 0. Home Page (Minimalist mini-card + tomato icon alternating pulse) */
+.tanim-home-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.tanim-home-card {
+  width: 44px;
+  height: 30px;
+  border: 1.8px solid #111111;
+  border-radius: 5px;
+  background: #FFFFFF;
+  padding: 5px 6px;
+  display: flex;
+  align-items: flex-start;
+  animation: tanimHomePulseA 2.2s ease-in-out infinite;
+}
+
+.tanim-home-card span {
+  width: 16px;
+  height: 2.2px;
+  background: #111111;
+  border-radius: 1px;
+}
+
+.tanim-home-tomato {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tanimHomePulseB 2.2s ease-in-out infinite;
+}
+
+@keyframes tanimHomePulseA {
+  0%, 45%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(17, 17, 17, 0); }
+  22% { transform: scale(1.08); box-shadow: 0 0 0 5px rgba(17, 17, 17, 0.12); }
+}
+
+@keyframes tanimHomePulseB {
+  0%, 50%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(17, 17, 17, 0)); }
+  72% { transform: scale(1.1); filter: drop-shadow(0 3px 6px rgba(17, 17, 17, 0.2)); }
+}
 
 /* 1. Flip Page (3D minimalist card flipping 180 deg) */
 .tanim-flip-wrap {
