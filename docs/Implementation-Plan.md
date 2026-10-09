@@ -155,10 +155,30 @@ flowchart TD
 
 ---
 
-## Part 4: Automated & Visual Evaluation Suite (`tests/evaluate_phase1.py` → Phase 2 Expansion)
+## Part 4: Phase 2 (`v0.5.0-mvp`) Completed Refinements & Evaluation Suite (`21/21 PASS`)
 
-All 16 automated checks in `tests/evaluate_phase1.py` must continue to pass (`16/16 PASS`), and Phase 2 adds automated verification for:
-1. **Minimalist Homepage (`01-home-page.png`):** Verifies `'FABLE / FLOW'` header, `'06 OCT'` dynamic date stamp on the mini-card, photorealistic 3D tomato launcher, and smooth transitions into Card and Timer views.
-2. **Matte Black Card Back (`05-card-back.png`):** Verifies `Right → Left` `180°` flip, dynamic font scaling from `20px` down to the `13px` floor with scroll fallback, and 0–2 compressed photo attachments.
-3. **5:00 AM Rollover & Zero Unfinished Task Rollover:** Verifies that crossing the 5:00 AM boundary archives yesterday's card into the Stack with its uncrossed tasks intact while starting Today's new card clean.
-4. **Stack Detail (`06-stack-detail.png`) & Calendar Zoom (`07-calendar-view.png`):** Verifies the top chronological date strip, retroactive Front/Back editing of past cards, the 4-icon Stack bottom bar (`[Return ↩]`, `[Zoom Out 🔍-]`, `[Flip]`, `[Trash 🗑]`), permanent card deletion with confirmation modal + banner notification, and the 2-icon Calendar view (`[Return ↩]`, `[Zoom In 🔍+]`).
+All 21 automated checks in `tests/evaluate_phase1.py` pass (`21/21 PASS`), covering both Phase 1 (`v0.2.0-beta`) and all Phase 2 (`v0.5.0-mvp`) implementation refinements:
+
+1. **Minimalist Homepage (`01-home-page.png` Exact Match):**
+   - Centered `'FABLE / FLOW'` header (`24px`, `letter-spacing: 0.24em`), exact `334×222px` horizontal white mini-card (`#home-mini-card`) stamped `06 OCT` (`28px` serif), and `450px` photorealistic 3D Crimson Tomato (`assets/tomatoes/home-tomato.png`).
+2. **Clean Initial Profile State (`STORAGE_KEY = 'fable_flow_phase2_mvp_v3'`):**
+   - Starts with a 100% clean profile containing only `01 Example Task` on Today's Card Front, an empty Evening Reflection journal (`reflectionText: ''`, `reflectionPhotos: []`), and zero pre-populated past-day cards (`archiveCards: {}`).
+3. **Unified Card Typography & Multi-Line Pencil Strikethrough:**
+   - `fitUnifiedCardTaskTypography()` keeps all tasks on a card at the exact same unified font size (`24px` baseline), only stepping down (`24px` → `16.5px` floor) when the entire vertical card page is filled (`MAX_TASK_WORDS = 18`, `MAX_TASK_CHARS = 110`).
+   - `getTaskRowLineSegments()` uses `titleSpan.getClientRects()` so `drawGraphiteStroke()` crosses out (or erases from `Left → Right`) **every wrapped line** of a multi-line task while keeping a safe right margin (`maxSafeRightX`).
+4. **Effortless Two-Way Silent 3D Card Flip (`bindTwoWayCardFlipOnWrapper`):**
+   - Both `Right → Left` (`dx <= -22px`) and `Left → Right` (`dx >= +22px`) swipes flip Today's Card (`#daily-card-3d`) and Stack Cards (`#stack-card-3d`) in either direction (`±180°`) using `window`-level pointer tracking.
+   - Removed synthetic card flip/drag whoop sounds (`playCardFlipSwoosh()` and `playStackRiffleTick()` are silent on audio).
+5. **Matte Black Card Back (`05-card-back.png`):**
+   - `adjustReflectionTypography()` maintains a unified `21px` font size and only shrinks (`21px` → `13px` floor) when the whole reflection area is filled (`MAX_REFLECTION_WORDS = 95`, `MAX_REFLECTION_CHARS = 520`).
+   - Supports 0–2 framed photo attachments compressed client-side to `≤ 1600px` JPEG, with one-tap photo replacement or `×` removal.
+6. **Chronological Card Stack Scrolling & Calendar (`06-stack-detail.png` & `07-calendar-view.png`):**
+   - Interactive Stack scrolling via carousel drag (`#stack-carousel-stage`), wheel/trackpad scroll, `#stack-date-strip` scrubbing, or peek cards, complete with visible slide/bounce animations (`animateStackCardScroll`: `stackSlideFromRight` / `stackSlideFromLeft`; `animateStackBoundaryBounce`).
+   - Monthly Calendar dynamically loads `Sept 1, 2026 – Dec 31, 2026` and always guarantees at least 2 additional months after the current card month (`dynamicEndTotalMonths = curYear * 12 + curMonthIdx + 2`).
+7. **Silver Tomato 3D Shading & 360° Smooth Silhouette + Split Grid Tap Targets:**
+   - `recolor_silver_metallic` in `scripts/extract_mockup_assets.py` computes Green-channel absorption alpha ($\alpha_G = \operatorname{clamp}((G_{\text{bg}} - G)/142, 0, 1)$) around all $360^\circ$ of the silhouette with radial rim protection ($r_{\text{norm}} > 0.72$) and blends $38\%$ of the studio photo's organic diffuse shading (`photo_mod`) with 3D directional lighting.
+   - Expanded Hero odometer texture (`texH = 92 * K`, `meshHalfH = 44`, `numCenterY = 47.0 * K`, `padX = 16 * K`) so every character (`0`–`180`) is 100% shown without clipping.
+   - Split Grid tap targets (tapping tomato body opens Hero timer; tapping title text opens edit/reassign dropdown) and added Stopwatch duration guard toast (`"Switch to Countdown to set duration"`).
+8. **Minimalist Profile Popover, Onboarding & Contextual Hints:**
+   - Top-right Profile popover (`#profile-modal-overlay`) with `Home`, `Daily Reset` (`12:00 AM – 11:00 PM`, enforced live by `startWallClockTicker()`), and `Sound` (`On / Off`).
+   - 3-step first-time onboarding modal (`#onboarding-overlay`) and one-time contextual page hint toasts (`seenPageHints`).
