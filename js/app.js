@@ -20,12 +20,12 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v23';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v23';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v23';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v23';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v24';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v24';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v24';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v24';
 
-const STORAGE_KEY = 'fable_flow_phase2_mvp_v8';
+const STORAGE_KEY = 'fable_flow_phase2_mvp_v9';
 const NUM_GRID_SLOTS = 6;
 
 const MAX_TASK_WORDS = 18;
@@ -192,6 +192,7 @@ export class FableFlowApp {
         'fable_flow_phase2_mvp_v5',
         'fable_flow_phase2_mvp_v6',
         'fable_flow_phase2_mvp_v7',
+        'fable_flow_phase2_mvp_v8',
       ].forEach((k) => localStorage.removeItem(k));
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -2177,6 +2178,21 @@ export class FableFlowApp {
     const isStack = pillar === 'stack';
     const isCalendar = pillar === 'calendar';
 
+    // Automatically close transient dropdowns or editors that belong to inactive screens
+    if (!isTimer || this.state.timerSubMode !== 'grid') {
+      this.state.openDropdownQuadrant = null;
+    }
+    if (!isTimer || this.state.timerSubMode !== 'hero') {
+      this.state.isHeroDropdownOpen = false;
+      this.closeHeroTimeEditorDOM();
+    }
+    if (this._lastRenderedPillar && this._lastRenderedPillar !== pillar) {
+      if (this.els.notificationBanner) {
+        this.els.notificationBanner.classList.remove('visible');
+      }
+    }
+    this._lastRenderedPillar = pillar;
+
     if (this.els.homeBrandTitle && this.els.topSegmentedPill) {
       this.els.homeBrandTitle.classList.toggle('hidden', !isHome);
       this.els.topSegmentedPill.classList.toggle('hidden', isHome);
@@ -3780,10 +3796,11 @@ export class FableFlowApp {
             const quad0 = this.els.gridQuadrants[0];
             if (!quad0) return;
             const targetEl = alt
-              ? quad0.querySelector('.grid-task-label') ||
+              ? quad0.querySelector('.grid-tomato-title') ||
+                quad0.querySelector('.grid-tap-to-assign') ||
                 quad0.querySelector('.grid-tomato-wrap')
               : quad0.querySelector('.grid-tomato-wrap');
-            this.positionTourPageDot(targetEl, 0, 0, 'dot-tap');
+            this.positionTourPageDot(targetEl, 0, alt ? -10 : 8, 'dot-tap');
           }, 1150);
         },
       },
@@ -3802,6 +3819,9 @@ export class FableFlowApp {
           this.state.isHeroDropdownOpen = false;
         },
         startDemoLoop: () => {
+          if (this.els.heroSubtitle) {
+            this.els.heroSubtitle.textContent = '01 / EXAMPLE TASK';
+          }
           let phase = 0;
           this._tourDemoTimer = setInterval(() => {
             phase = (phase + 1) % 24;
@@ -3842,7 +3862,7 @@ export class FableFlowApp {
               const calCell =
                 (this.els.calendarMonthsContainer &&
                   this.els.calendarMonthsContainer.querySelector(
-                    '.cal-day-cell.today-outline'
+                    '.cal-day-btn.is-today'
                   )) ||
                 this.els.calendarMonthsContainer;
               this.positionTourPageDot(calCell, 0, 0, 'dot-tap');
@@ -3871,11 +3891,12 @@ export class FableFlowApp {
     const overlay = this.els.onboardingOverlay;
     if (!dot || !overlay) return;
 
+    const gestureClass = gesture || 'dot-tap';
     this._currentTourDotTarget = {
       getEl: () => targetEl,
       offsetX,
       offsetY,
-      gesture,
+      gesture: gestureClass,
     };
 
     if (!targetEl) {
@@ -3893,7 +3914,8 @@ export class FableFlowApp {
     const x = rect.left - overlayRect.left + rect.width * 0.5 + offsetX;
     const y = rect.top - overlayRect.top + rect.height * 0.5 + offsetY;
 
-    dot.dataset.gesture = gesture || 'dot-tap';
+    dot.className = `tour-page-dot ${gestureClass}`;
+    dot.dataset.gesture = gestureClass;
     dot.style.left = `${x.toFixed(1)}px`;
     dot.style.top = `${y.toFixed(1)}px`;
     dot.style.opacity = '1';
@@ -3903,6 +3925,11 @@ export class FableFlowApp {
     if (!this.els.onboardingOverlay) return;
     this._isGuidedTourActive = true;
     this._guidedTourStep = 0;
+    const vp = document.getElementById('app-viewport');
+    if (vp) vp.classList.add('tour-active');
+    if (this.els.toastPill) {
+      this.els.toastPill.classList.remove('visible');
+    }
     this.els.onboardingOverlay.classList.remove('hidden');
     this.goToGuidedTourStep(startStep);
   }
@@ -3954,6 +3981,8 @@ export class FableFlowApp {
   finishGuidedTour() {
     this.stopTourDemoLoop();
     this._currentTourDotTarget = null;
+    const vp = document.getElementById('app-viewport');
+    if (vp) vp.classList.remove('tour-active');
     if (this.els.tourPageDot) {
       this.els.tourPageDot.style.opacity = '0';
     }
@@ -4011,52 +4040,7 @@ export class FableFlowApp {
   }
 
   checkFirstTimePageHint() {
-    if (!this.state.hasCompletedOnboarding || this._isGuidedTourActive) return;
-    if (!this.state.seenPageHints || typeof this.state.seenPageHints !== 'object') {
-      this.state.seenPageHints = {};
-    }
-
-    const pillar = this.state.activePillar;
-    let pageKey = null;
-    let hintText = null;
-
-    if (pillar === 'home') {
-      pageKey = 'home';
-      hintText = 'Tap card for today · Tap tomato for timer';
-    } else if (pillar === 'card') {
-      if (!this.state.isCardFlipped) {
-        pageKey = 'card_front';
-        hintText = 'Swipe text to cross out · Swipe edge to flip';
-      } else {
-        pageKey = 'card_back';
-        hintText = 'Write reflection · Tap + to attach photos';
-      }
-    } else if (pillar === 'timer') {
-      if (this.state.timerSubMode === 'grid') {
-        pageKey = 'timer_grid';
-        hintText = 'Tap tomato for timer · Tap title to edit';
-      } else {
-        pageKey = 'timer_hero';
-        hintText = 'Drag dial or tap digits to set time';
-      }
-    } else if (pillar === 'stack') {
-      if (!this.state.isStackCardFlipped) {
-        pageKey = 'stack_front';
-        hintText = 'Drag left or right to scroll stack';
-      } else {
-        pageKey = 'stack_back';
-        hintText = 'Tap reflection or photos to edit';
-      }
-    } else if (pillar === 'calendar') {
-      pageKey = 'calendar';
-      hintText = 'Tap any highlighted date to open card';
-    }
-
-    if (pageKey && hintText && !this.state.seenPageHints[pageKey]) {
-      this.state.seenPageHints[pageKey] = true;
-      this.saveState();
-      this.showTelemetryToast(hintText, 2400);
-    }
+    // Redundant auto-page hint toasts are disabled because the 7-step Guided Tour covers all pages visually without overlapping bottom controls.
   }
 
   showTelemetryToast(msg, durationMs = 1900) {

@@ -55,18 +55,37 @@ html, body {
   margin: 14px auto 10px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 520px) {
+  html, body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    background-color: var(--canvas-bg);
+    justify-content: flex-start;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   .app-viewport {
+    width: 100%;
     max-width: 100%;
-    height: 100dvh;
+    height: 100%;
+    max-height: 100%;
     border-radius: 0;
     margin: 0;
     box-shadow: none;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
 .hidden {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* =========================================================================
@@ -76,8 +95,8 @@ html, body {
 .global-top-bar {
   position: relative;
   width: 100%;
-  height: 82px;
-  padding: 22px 26px 8px;
+  height: clamp(58px, 8.5dvh, 78px);
+  padding: 6px 26px 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -100,26 +119,32 @@ html, body {
    ========================================================================= */
 
 .home-screen {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 28px 34px;
+  padding: 4px 24px clamp(18px, 3.5dvh, 34px);
 }
 
 .home-objects-stage {
   width: 100%;
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 50px;
+  gap: clamp(20px, 5dvh, 48px);
 }
 
 .home-mini-card {
   width: 334px;
+  max-width: 85vw;
   height: 222px;
+  max-height: 27dvh;
+  flex-shrink: 1;
   background-color: #FBFAF6;
   border-radius: 2px;
   padding: 5px;
@@ -161,8 +186,9 @@ html, body {
 }
 
 .home-tomato-btn {
-  width: 344px;
-  height: 294px;
+  width: min(344px, 86vw);
+  height: clamp(210px, 36dvh, 294px);
+  flex-shrink: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -218,8 +244,9 @@ html, body {
 
 .profile-icon-btn {
   position: absolute;
-  right: 28px;
-  top: 27px;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 36px;
   height: 36px;
   border: none;
@@ -234,7 +261,7 @@ html, body {
 
 .profile-icon-btn:hover {
   color: #111111;
-  transform: scale(1.05);
+  transform: translateY(-50%) scale(1.05);
 }
 
 /* =========================================================================
@@ -243,6 +270,7 @@ html, body {
 
 .screen-container {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -252,7 +280,8 @@ html, body {
 
 .card-stage-perspective {
   flex: 1;
-  padding: 18px 34px 10px;
+  min-height: 0;
+  padding: clamp(6px, 1.5dvh, 16px) 28px clamp(4px, 1dvh, 10px);
   perspective: 1400px;
   display: flex;
   align-items: stretch;
@@ -261,9 +290,12 @@ html, body {
 
 .daily-card-3d {
   width: 100%;
-  height: 586px;
+  height: 100%;
+  max-height: 586px;
+  min-height: 0;
   position: relative;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   transition: transform 0.52s cubic-bezier(0.22, 1, 0.36, 1);
   touch-action: pan-y;
   user-select: none;
@@ -293,24 +325,55 @@ html, body {
   overflow: hidden;
 }
 
+.card-face-front {
+  transform: rotateY(0deg) translateZ(1px);
+  -webkit-transform: rotateY(0deg) translateZ(1px);
+  z-index: 2;
+}
+
 .card-face-back {
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(1px);
+  -webkit-transform: rotateY(180deg) translateZ(1px);
   background-color: #070707;
   color: #F4F4F0;
   padding: 0;
   display: flex;
   flex-direction: column;
+  z-index: 1;
+}
+
+/* Prevent iOS Safari WebKit preserve-3d bleed-through of front icons/text onto back face */
+.daily-card-3d.is-flipped .card-face-front {
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s linear 0.24s;
+}
+
+.daily-card-3d:not(.is-flipped) .card-face-front {
+  visibility: visible;
+  transition: visibility 0s linear 0s;
+}
+
+.daily-card-3d:not(.is-flipped) .card-face-back {
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s linear 0.24s;
+}
+
+.daily-card-3d.is-flipped .card-face-back {
+  visibility: visible;
+  transition: visibility 0s linear 0s;
 }
 
 .card-back-header-bar {
-  padding: 26px 26px 18px;
+  padding: clamp(16px, 2.6dvh, 24px) 24px clamp(12px, 1.8dvh, 16px);
   border-bottom: 1.5px solid rgba(255, 255, 255, 0.18);
   background-color: #070707;
   flex-shrink: 0;
 }
 
 .card-back-date-title {
-  font-size: 25.5px;
+  font-size: clamp(21px, 3.3dvh, 25.5px);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #F5F5F2;
@@ -319,18 +382,19 @@ html, body {
 
 .card-back-body {
   flex: 1;
-  padding: 22px 24px 22px;
+  min-height: 0;
+  padding: clamp(14px, 2.2dvh, 22px) 22px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
   overflow: hidden;
 }
 
 .card-back-reflection-editor {
   width: 100%;
   flex: 1;
-  min-height: 96px;
+  min-height: 72px;
   background: transparent;
   border: none;
   outline: none;
@@ -353,12 +417,12 @@ html, body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  height: 212px;
+  height: clamp(128px, 21dvh, 200px);
   flex-shrink: 0;
 }
 
 .card-back-photos-row.empty-photos {
-  height: 54px;
+  height: 46px;
   grid-template-columns: 1fr;
 }
 
@@ -422,13 +486,14 @@ html, body {
 }
 
 .card-header-bar {
-  padding: 26px 26px 18px;
+  padding: clamp(16px, 2.6dvh, 24px) 24px clamp(12px, 1.8dvh, 16px);
   border-bottom: 1.5px solid var(--card-divider);
   background-color: var(--card-surface);
+  flex-shrink: 0;
 }
 
 .card-date-title {
-  font-size: 25.5px;
+  font-size: clamp(21px, 3.3dvh, 25.5px);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #0B0B0B;
@@ -437,8 +502,9 @@ html, body {
 
 .card-dot-grid-body {
   flex: 1;
+  min-height: 0;
   position: relative;
-  padding: 16px 0 24px;
+  padding: clamp(10px, 1.8dvh, 16px) 0 clamp(14px, 2.2dvh, 24px);
   background-color: #FFFFFF;
   background-image: none; /* Clean solid white index card surface (no dots) */
   overflow: hidden; /* Strictly zero vertical scroll */
@@ -546,8 +612,8 @@ html, body {
 
 /* Card Bottom Action Bar: [Stack] [Flip] */
 .card-bottom-bar {
-  height: 94px;
-  padding: 0 96px 14px;
+  height: clamp(56px, 8.5dvh, 84px);
+  padding: 0 84px clamp(4px, 1dvh, 12px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -555,8 +621,8 @@ html, body {
 }
 
 .card-bottom-icon-btn {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: transparent;
   color: #141414;
@@ -579,7 +645,8 @@ html, body {
 
 .six-tomato-grid {
   flex: 1;
-  margin: 4px 16px 20px;
+  min-height: 0;
+  margin: 2px 14px clamp(8px, 1.8dvh, 18px);
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: repeat(3, 1fr);
@@ -588,11 +655,12 @@ html, body {
 
 .grid-quadrant {
   position: relative;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 4px;
+  padding: 3px 4px;
   border-right: 1px solid var(--hairline-crosshair);
   border-bottom: 1px solid var(--hairline-crosshair);
 }
@@ -609,8 +677,10 @@ html, body {
 
 .grid-tomato-wrap {
   position: relative;
-  width: 158px;
-  height: 146px;
+  width: min(154px, 41vw);
+  height: min(142px, calc((100dvh - 195px) / 3));
+  max-height: calc(100% - 26px);
+  flex-shrink: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -718,12 +788,13 @@ html, body {
 }
 
 .grid-controls-row {
-  margin-top: 6px;
-  height: 28px;
+  margin-top: 2px;
+  height: 24px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 38px;
+  gap: 32px;
 }
 
 .grid-ctrl-btn {
@@ -813,26 +884,28 @@ html, body {
 
 .hero-timer-screen {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 8px 26px 26px;
+  padding: 4px 24px clamp(8px, 1.8dvh, 22px);
 }
 
 .hero-readout-block {
-  padding-top: 4px;
+  padding-top: 2px;
   position: relative;
+  flex-shrink: 0;
 }
 
 .hero-readout-wrap {
   position: relative;
-  min-height: 103px;
+  min-height: clamp(72px, 11.5dvh, 102px);
   display: flex;
   align-items: center;
 }
 
 .hero-digital-readout {
-  font-size: 108px;
+  font-size: clamp(74px, 12.2dvh, 108px);
   font-weight: 800;
   letter-spacing: -0.035em;
   line-height: 0.95;
@@ -846,7 +919,7 @@ html, body {
 }
 
 .hero-digital-readout.has-hours {
-  font-size: 72px;
+  font-size: clamp(54px, 9dvh, 72px);
   letter-spacing: -0.04em;
 }
 
@@ -985,8 +1058,8 @@ html, body {
 }
 
 .hero-task-subtitle {
-  margin-top: 10px;
-  font-size: 24px;
+  margin-top: clamp(4px, 1dvh, 10px);
+  font-size: clamp(19px, 3dvh, 24px);
   font-weight: 600;
   letter-spacing: 0.01em;
   color: #111111;
@@ -1003,7 +1076,7 @@ html, body {
 }
 
 .hero-subtitle-dropdown-mount .task-assign-dropdown {
-  top: 44px;
+  top: 40px;
   left: 0;
   transform: none;
   width: 224px;
@@ -1011,17 +1084,23 @@ html, body {
 
 .hero-tomato-stage-wrap {
   position: relative;
-  width: 430px;
-  height: 368px;
-  margin: 2px -26px;
+  flex: 1;
+  min-height: 0;
+  width: calc(100% + 48px);
+  max-width: 430px;
+  max-height: 368px;
+  margin: 0 -24px;
+  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .hero-tomato-stage {
-  width: 430px;
-  height: 368px;
+  width: 100%;
+  height: 100%;
+  max-width: 430px;
+  max-height: 368px;
   cursor: ew-resize;
   touch-action: none;
   display: flex;
@@ -1031,8 +1110,9 @@ html, body {
 
 /* Hero Bottom Control Bar: [Grid] [Play/Pause] [End/Stop] [Stopwatch] */
 .hero-bottom-bar {
-  height: 76px;
-  padding: 0 28px;
+  height: clamp(54px, 8.2dvh, 74px);
+  padding: 0 22px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1142,10 +1222,11 @@ html, body {
 
 .stack-carousel-stage {
   flex: 1;
+  min-height: 0;
   position: relative;
-  padding: 8px 34px 6px;
+  padding: clamp(4px, 1dvh, 8px) 28px clamp(4px, 1dvh, 8px);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   overflow: hidden;
   touch-action: pan-y;
@@ -1158,7 +1239,10 @@ html, body {
 
 .stack-center-perspective {
   width: 100%;
-  height: 556px;
+  height: 100%;
+  max-height: 556px;
+  min-height: 0;
+  flex: 1;
   perspective: 1400px;
   position: relative;
   z-index: 5;
@@ -1167,14 +1251,17 @@ html, body {
 
 .stack-card-3d {
   width: 100%;
-  height: 556px;
+  height: 100%;
+  max-height: 556px;
+  min-height: 0;
 }
 
 .stack-peek-card {
   position: absolute;
   top: 50%;
   width: 362px;
-  height: 556px;
+  height: calc(100% - 14px);
+  max-height: 556px;
   transform: translateY(-50%);
   background-color: #FFFFFF;
   border-radius: 14px;
@@ -1208,8 +1295,8 @@ html, body {
 }
 
 .stack-bottom-bar {
-  height: 76px;
-  padding: 0 38px;
+  height: clamp(54px, 8.2dvh, 72px);
+  padding: 0 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1221,19 +1308,27 @@ html, body {
    ========================================================================= */
 
 .calendar-screen {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
 .calendar-months-container {
   flex: 1;
-  padding: 12px 34px 16px;
+  min-height: 0;
+  padding: 8px 28px 12px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 24px;
+  gap: 20px;
   overflow-y: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.calendar-months-container::-webkit-scrollbar {
+  display: none;
 }
 
 .cal-month-block {
@@ -1319,8 +1414,8 @@ html, body {
 }
 
 .calendar-bottom-bar {
-  height: 76px;
-  padding: 0 46px;
+  height: clamp(54px, 8.2dvh, 72px);
+  padding: 0 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1333,14 +1428,14 @@ html, body {
 
 .notification-banner {
   position: absolute;
-  top: 84px;
+  top: clamp(64px, 9.5dvh, 84px);
   left: 24px;
   right: 24px;
   background-color: #111111;
   color: #FAF9F5;
-  padding: 12px 16px;
+  padding: 11px 16px;
   border-radius: 12px;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   text-align: center;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
@@ -1356,9 +1451,10 @@ html, body {
   transform: translateY(0);
 }
 
+/* Positioned cleanly above the bottom icon bars so toast text never overlaps bottom icons */
 .telemetry-toast {
   position: absolute;
-  bottom: 18px;
+  bottom: clamp(68px, 10.5dvh, 88px);
   left: 50%;
   transform: translateX(-50%) translateY(8px);
   width: max-content;
@@ -1384,6 +1480,16 @@ html, body {
 .telemetry-toast.visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* Hide bottom action icons & toast while the Guided Tutorial card is open at the bottom */
+.app-viewport.tour-active .card-bottom-bar,
+.app-viewport.tour-active .hero-bottom-bar,
+.app-viewport.tour-active .stack-bottom-bar,
+.app-viewport.tour-active .calendar-bottom-bar,
+.app-viewport.tour-active .telemetry-toast {
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .modal-overlay {

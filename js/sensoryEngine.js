@@ -15,28 +15,99 @@ export class SensoryEngine {
   constructor() {
     this.isSilentMode = false;
     this.audioCtx = null;
+    this._iosUnlocked = false;
+    this._hapticLabel = null;
     this.onHapticPulse = null; // Optional callback for UI haptic indicator pill
+    this._installIOSAudioUnlock();
+  }
+
+  _syncIOSAudioSession() {
+    if (typeof navigator !== 'undefined' && navigator.audioSession) {
+      try {
+        navigator.audioSession.type = this.isSilentMode ? 'ambient' : 'playback';
+      } catch (_) {}
+    }
+  }
+
+  _installIOSAudioUnlock() {
+    if (typeof window === 'undefined') return;
+    const unlock = () => {
+      this._syncIOSAudioSession();
+      this._ensureIOSHapticSwitch();
+      if (this.isSilentMode) return;
+      const ctx = this._ensureContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+        ctx.resume().catch(() => {});
+      }
+      if (!this._iosUnlocked) {
+        try {
+          const silentBuf = ctx.createBuffer(1, 1, 22050);
+          const src = ctx.createBufferSource();
+          src.buffer = silentBuf;
+          src.connect(ctx.destination);
+          src.start(0);
+          if (ctx.state === 'running') {
+            this._iosUnlocked = true;
+          }
+        } catch (_) {}
+      }
+    };
+    ['touchstart', 'touchend', 'pointerdown', 'click', 'keydown'].forEach((evt) => {
+      window.addEventListener(evt, unlock, { capture: true, passive: true });
+    });
+  }
+
+  _ensureIOSHapticSwitch() {
+    if (this._hapticLabel || typeof document === 'undefined' || !document.body) return;
+    try {
+      const wrap = document.createElement('div');
+      wrap.setAttribute('aria-hidden', 'true');
+      wrap.style.cssText =
+        'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;z-index:-1;';
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.setAttribute('switch', '');
+      label.appendChild(input);
+      wrap.appendChild(label);
+      document.body.appendChild(wrap);
+      this._hapticLabel = label;
+    } catch (_) {}
   }
 
   _ensureContext() {
     if (this.isSilentMode) return null;
+    this._syncIOSAudioSession();
     if (!this.audioCtx && typeof window !== 'undefined') {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
         this.audioCtx = new AudioCtx();
       }
     }
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+    if (
+      this.audioCtx &&
+      (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')
+    ) {
       this.audioCtx.resume().catch(() => {});
     }
     return this.audioCtx;
   }
 
   _triggerHaptic(label, durationMs = 12) {
+    let vibrated = false;
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       try {
-        navigator.vibrate(durationMs);
+        vibrated = Boolean(navigator.vibrate(durationMs));
       } catch (_) {}
+    }
+    if (!vibrated) {
+      this._ensureIOSHapticSwitch();
+      if (this._hapticLabel) {
+        try {
+          this._hapticLabel.click();
+        } catch (_) {}
+      }
     }
     if (typeof this.onHapticPulse === 'function') {
       this.onHapticPulse(label);
