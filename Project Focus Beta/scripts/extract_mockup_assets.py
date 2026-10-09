@@ -376,15 +376,78 @@ def recolor_tomato_patch(w, h, src_rgb, target_hue_deg, sat_scale=1.0, val_scale
     return out
 
 
+_REF_SPHERE_CACHE = None
+
+
+def get_reference_silver_sphere():
+    """
+    Loads and softly filters the studio satin-silver sphere from
+    docs/mockup-images/silver-sphere-ref.png (center=(261.0, 134.0), radius=87.0)
+    so the tomato inherits the exact metallic tonal curve and reflections of the reference photo.
+    """
+    global _REF_SPHERE_CACHE
+    if _REF_SPHERE_CACHE is not None:
+        return _REF_SPHERE_CACHE
+    ref_path = os.path.join(ROOT, "docs", "mockup-images", "silver-sphere-ref.png")
+    rw, rh, rrgb = read_ppm(ref_path)
+    # Build luminance grid (0..1) and apply 12 passes of 5x5 Gaussian smoothing for a flawless, liquid-satin polish
+    lum = [[0.0] * rw for _ in range(rh)]
+    for y in range(rh):
+        for x in range(rw):
+            i = (y * rw + x) * 3
+            lum[y][x] = (0.299 * rrgb[i] + 0.587 * rrgb[i + 1] + 0.114 * rrgb[i + 2]) / 255.0
+    for _ in range(12):
+        nxt = [row[:] for row in lum]
+        for y in range(2, rh - 2):
+            for x in range(2, rw - 2):
+                acc, wsum = 0.0, 0.0
+                for dy in (-2, -1, 0, 1, 2):
+                    for dx in (-2, -1, 0, 1, 2):
+                        wt = math.exp(-(dx * dx + dy * dy) / 3.5)
+                        acc += wt * lum[y + dy][x + dx]
+                        wsum += wt
+                nxt[y][x] = acc / wsum
+        lum = nxt
+    _REF_SPHERE_CACHE = (rw, rh, lum)
+    return _REF_SPHERE_CACHE
+
+
+def sample_ref_sphere_metal(nx, ny):
+    rw, rh, lum = get_reference_silver_sphere()
+    cx_s, cy_s, r_s = 261.0, 134.0, 86.0
+    rho = math.sqrt(nx * nx + ny * ny)
+    if rho > 0.96:
+        scale = 0.96 / rho
+        nx *= scale
+        ny *= scale
+    fx = max(0.0, min(rw - 2.001, cx_s + nx * r_s))
+    fy = max(0.0, min(rh - 2.001, cy_s + ny * r_s))
+    x0 = int(math.floor(fx))
+    y0 = int(math.floor(fy))
+    tx = fx - x0
+    ty = fy - y0
+    v00 = lum[y0][x0]
+    v10 = lum[y0][x0 + 1]
+    v01 = lum[y0 + 1][x0]
+    v11 = lum[y0 + 1][x0 + 1]
+    return (
+        (1.0 - tx) * (1.0 - ty) * v00
+        + tx * (1.0 - ty) * v10
+        + (1.0 - tx) * ty * v01
+        + tx * ty * v11
+    )
+
+
 def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
     """
-    Transforms the studio-lit heirloom tomato into a mirror-polished, high-gloss
-    Silver Metallic tomato with:
-    1. 100% natural, studio-anti-aliased outer edges (zero halo, zero dark rim ring,
-       zero shadow speckles) using Green-channel absorption alpha_G across all 360 degrees.
-    2. True 3D ellipsoid studio key-light + right-side form shadow + bottom tabletop
-       contact occlusion (matching grid-tomato-0 & hero-tomato-0) with zero stem-bleed smudge.
-    3. One luminous, high-gloss studio softbox highlight on the upper-left cheek.
+    Transforms the studio-lit heirloom tomato into a satin-polished Silver Metallic
+    tomato matching docs/mockup-images/silver-sphere-ref.png:
+    1. 100% natural, studio-anti-aliased 360-degree outer edges using Green-channel
+       absorption (capturing even the darkest shadowed bottom rim cleanly).
+    2. Contour-aware spherical environment reflection sampled directly from the
+       reference silver sphere (bright upper dome reflection, soft mid-silver studio
+       horizon core, and bright tabletop bounce on the lower belly & sides).
+    3. Subtle heirloom 3D lobe & stem calyx sculpting with zero artificial stripe artifacts.
     """
     out = bytearray(src_rgb)
     rg_grid = [[0.0] * w for _ in range(h)]
@@ -397,7 +460,8 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
             r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
             rg = float(r - max(g, b))
             rg_grid[y][x] = rg
-            if rg >= 22.0:
+            is_tomato_core = (rg >= 18.0) or (rg >= 8.0 and g < 65)
+            if is_tomato_core:
                 if x < min_x:
                     min_x = x
                 if x > max_x:
@@ -410,25 +474,25 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
     cx = 0.5 * (min_x + max_x)
     rx = max(1.0, 0.5 * (max_x - min_x))
     span_y = max(1.0, float(max_y - min_y))
-    cy_body = min_y + 0.535 * span_y
-    ry_body = max(1.0, 0.465 * span_y)
+    cy_body = min_y + 0.54 * span_y
+    ry_body = max(1.0, 0.46 * span_y)
 
     alpha_grid = [[0.0] * w for _ in range(h)]
     bg_rgb_grid = [[None] * w for _ in range(h)]
     u_raw = [[None] * w for _ in range(h)]
 
     for y in range(h):
-        y0 = max(0, y - 5)
-        y1 = min(h - 1, y + 5)
+        y0 = max(0, y - 6)
+        y1 = min(h - 1, y + 6)
         for x in range(w):
             i = (y * w + x) * 3
             r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
             rg = rg_grid[y][x]
-            if rg <= 4.5 and g >= 115:
+            if rg <= 3.5 and g >= 145:
                 continue
 
-            x0 = max(0, x - 5)
-            x1 = min(w - 1, x + 5)
+            x0 = max(0, x - 6)
+            x1 = min(w - 1, x + 6)
             loc_max_rg = rg
             min_in_g = float(g)
             bg_r, bg_g, bg_b, bg_cnt = 0.0, 0.0, 0.0, 0
@@ -443,19 +507,19 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
                         loc_max_rg = v_rg
                     ni = (ny * w + nx) * 3
                     nr_p, ng_p, nb_p = src_rgb[ni], src_rgb[ni + 1], src_rgb[ni + 2]
-                    if v_rg >= 16.0 and ng_p < min_in_g:
+                    if (v_rg >= 12.0 or (v_rg >= 7.0 and ng_p < 60)) and ng_p < min_in_g:
                         min_in_g = float(ng_p)
-                    if v_rg <= 5.5 and ng_p >= 120:
+                    if v_rg <= 4.5 and ng_p >= 135:
                         bg_r += nr_p
                         bg_g += ng_p
                         bg_b += nb_p
                         bg_cnt += 1
-                    if v_rg <= 10.0 and ng_p > best_outside_g:
+                    if v_rg <= 8.0 and ng_p > best_outside_g:
                         best_outside_g = float(ng_p)
                         lum_out = 0.32 * nr_p + 0.43 * ng_p + 0.25 * nb_p
-                        best_outside_rgb = (lum_out, lum_out, lum_out * 0.98)
+                        best_outside_rgb = (lum_out, lum_out, lum_out * 0.985)
 
-            if loc_max_rg < 18.0:
+            if loc_max_rg < 14.0 and not (rg >= 6.0 and g < 85):
                 continue
 
             if bg_cnt > 0:
@@ -472,16 +536,48 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
                 continue
 
             bg_rgb_grid[y][x] = cur_bg
-            denom_g = max(25.0, cur_bg[1] - (min_in_g + 4.0))
+            denom_g = max(25.0, cur_bg[1] - (min_in_g + 3.0))
             alpha_g = min(1.0, max(0.0, (cur_bg[1] - g) / denom_g))
-            hi_rg = max(18.0, 0.80 * loc_max_rg)
-            alpha_rg = min(1.0, max(0.0, (rg - 4.5) / (hi_rg - 4.5)))
+            hi_rg = max(14.0, 0.78 * loc_max_rg)
+            alpha_rg = min(1.0, max(0.0, (rg - 3.5) / (hi_rg - 3.5)))
             alpha = max(alpha_g, alpha_rg)
             alpha_grid[y][x] = alpha
 
             is_pointer = is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 135 and g > 95)
-            if alpha >= 0.75 and not is_pointer:
+            if alpha >= 0.72 and not is_pointer:
                 u_raw[y][x] = max(0.0, min(1.0, ((r / 255.0) - 0.08) / 0.48))
+
+    # Measure row left/right bounds and column top/bottom bounds for contour-following reflection mapping
+    row_left = {}
+    row_right = {}
+    for y in range(h):
+        xs = [x for x in range(w) if alpha_grid[y][x] >= 0.35]
+        if xs:
+            row_left[y] = float(xs[0])
+            row_right[y] = float(xs[-1])
+
+    col_top = {}
+    col_bot = {}
+    for x in range(w):
+        ys = [y for y in range(h) if alpha_grid[y][x] >= 0.35]
+        if ys:
+            col_top[x] = float(ys[0])
+            col_bot[x] = float(ys[-1])
+
+    # Smooth row_left/row_right and col_top/col_bot so the coordinate field is C-infinity smooth
+    for _ in range(4):
+        rl_c, rr_c = dict(row_left), dict(row_right)
+        for y in list(row_left.keys()):
+            vals_l = [rl_c[ny] for ny in range(y - 5, y + 6) if ny in rl_c]
+            vals_r = [rr_c[ny] for ny in range(y - 5, y + 6) if ny in rr_c]
+            row_left[y] = sum(vals_l) / len(vals_l)
+            row_right[y] = sum(vals_r) / len(vals_r)
+        ct_c, cb_c = dict(col_top), dict(col_bot)
+        for x in list(col_top.keys()):
+            vals_t = [ct_c[nx] for nx in range(x - 6, x + 7) if nx in ct_c]
+            vals_b = [cb_c[nx] for nx in range(x - 6, x + 7) if nx in cb_c]
+            col_top[x] = sum(vals_t) / len(vals_t)
+            col_bot[x] = sum(vals_b) / len(vals_b)
 
     for _ in range(5):
         nxt_u = [row[:] for row in u_raw]
@@ -520,6 +616,7 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
                     nxt_c[y][x] = acc / wsum
         u_crisp = nxt_c
 
+    rng = random.Random(77)
     for y in range(h):
         for x in range(w):
             i = (y * w + x) * 3
@@ -529,87 +626,83 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
             if alpha <= 0.0 and not (is_hero and 314 <= x <= 348 and 298 <= y <= 336):
                 continue
 
-            nx = (x - cx) / rx
+            nx_ell = (x - cx) / rx
             ny_top = (y - min_y) / span_y
-            bx = nx
-            by = (y - cy_body) / ry_body
+            by_ell = (y - cy_body) / ry_body
 
-            r2 = bx * bx + by * by
-            rho2 = r2 / (1.0 + 0.32 * r2 * r2)
-            nnz = math.sqrt(max(0.06, 1.0 - min(0.94, 0.88 * rho2)))
-            scale_xy = math.sqrt(max(0.0, 1.0 - nnz * nnz) / max(1e-6, r2))
-            nnx = bx * scale_xy
-            nny = by * scale_xy
+            # Blend global elliptical coordinates with local contour coordinates so the
+            # spherical reflection wraps naturally around the tomato's organic silhouette
+            if y in row_left and (row_right[y] - row_left[y]) > 20.0:
+                nx_cnt = 2.0 * (x - row_left[y]) / (row_right[y] - row_left[y]) - 1.0
+                bx = 0.45 * nx_ell + 0.55 * nx_cnt
+            else:
+                bx = nx_ell
 
-            n_dot_key = max(0.0, -0.48 * nnx - 0.46 * nny + 0.747 * nnz)
-            sky_fill = max(0.0, 0.50 - 0.22 * nnx - 0.28 * nny + 0.25 * nnz)
+            if x in col_top and (col_bot[x] - col_top[x]) > 20.0:
+                ny_cnt = 2.0 * (y - col_top[x]) / (col_bot[x] - col_top[x]) - 1.0
+                by = 0.52 * by_ell + 0.48 * ny_cnt
+            else:
+                by = by_ell
 
-            contact_ao = 1.0
-            if by > 0.42:
-                t_ao = min(1.0, (by - 0.42) / 0.58)
-                contact_ao = 1.0 - 0.58 * (t_ao ** 1.85)
-            if by > 0.68 and u_crisp[y][x] is not None:
-                t_rim = min(1.0, (by - 0.68) / 0.28)
-                real_dark = max(0.26, min(1.0, u_crisp[y][x] * 2.2))
-                contact_ao *= (1.0 - t_rim) + t_rim * real_dark
+            # 1. Sample exact studio reflection map from docs/mockup-images/silver-sphere-ref.png
+            ref_env = sample_ref_sphere_metal(bx, by)
 
-            right_shadow = 1.0
-            if bx > 0.25:
-                t_rs = min(1.0, (bx - 0.25) / 0.75)
-                right_shadow = 1.0 - 0.22 * (t_rs ** 1.4)
+            # 2. Blend subtle heirloom 3D lobe & surface normal relief from the studio photo
+            u_c = u_crisp[y][x] if u_crisp[y][x] is not None else 0.5
+            lobe_relief = (u_c - 0.52) * 0.032
 
-            u_analytic = (0.18 + 0.66 * (n_dot_key ** 0.88) + 0.14 * sky_fill) * contact_ao * right_shadow
-            u_analytic = max(0.08, min(0.96, u_analytic))
+            # 3. Clean 360-degree metallic rim definition against the #E7E8E2 (0.906) canvas background
+            rho_local = math.sqrt(min(1.25, bx * bx + by * by))
+            rim_t = 0.0
+            if rho_local > 0.74:
+                rim_t = min(1.0, (rho_local - 0.74) / 0.26) ** 1.45
 
-            d_calyx = math.sqrt((nx / 0.58) ** 2 + ((ny_top - 0.125) / 0.145) ** 2)
-            if d_calyx <= 0.76:
+            # 4. Ultra-fine pixel-level satin micro-grain (zero sine-wave stripes!)
+            satin_noise = rng.uniform(-0.0025, 0.0025)
+
+            # Calyx / stem crown sculpting at top
+            d_calyx = math.sqrt((nx_ell / 0.56) ** 2 + ((ny_top - 0.12) / 0.14) ** 2)
+            if d_calyx <= 0.72:
                 w_calyx = 1.0
-            elif d_calyx >= 1.18:
+            elif d_calyx >= 1.15:
                 w_calyx = 0.0
             else:
-                w_calyx = 0.5 * (1.0 + math.cos(math.pi * (d_calyx - 0.76) / (1.18 - 0.76)))
+                w_calyx = 0.5 * (1.0 + math.cos(math.pi * (d_calyx - 0.72) / (1.15 - 0.72)))
 
+            # Equatorial seam line on Hero tomato
             seam_darken = 1.0
             if is_hero:
                 seam_y_here = fit_seam_y(x + 54) - 536.0
                 dy_seam = y - seam_y_here
-                if -4.5 <= dy_seam <= 6.5:
-                    u_seam = u_crisp[y][x] if u_crisp[y][x] is not None else 0.2
-                    seam_t = math.exp(-((dy_seam - 0.8) / 2.5) ** 2)
-                    seam_darken = 1.0 - 0.70 * seam_t * (1.0 - min(1.0, u_seam * 1.25))
+                if -4.0 <= dy_seam <= 5.5:
+                    seam_t = math.exp(-((dy_seam - 0.8) / 2.1) ** 2)
+                    seam_darken = 1.0 - 0.34 * seam_t
 
-            u_c = u_crisp[y][x] if u_crisp[y][x] is not None else u_analytic
-            u_calyx_val = 0.68 * (0.12 + 0.88 * (u_c ** 0.85)) + 0.32 * u_analytic
-            u_body_val = u_analytic * seam_darken
-            u_blend = w_calyx * u_calyx_val + (1.0 - w_calyx) * u_body_val
+            raw_body = ref_env + lobe_relief + satin_noise
+            # Soft, polished lower-contrast silver curve: darkest core ~0.50 (RGB ~128), brightest dome ~0.975 (RGB ~249)
+            polished_body = 0.50 + 0.475 * max(0.0, min(1.0, (raw_body - 0.35) / 0.64))
+            # Pull outer grazing rim gently toward crisp satin silver (0.745 / RGB ~190) so top-right shoulder never vanishes into #E7E8E2
+            if polished_body > 0.755 and rim_t > 0.0:
+                polished_body = (1.0 - 0.58 * rim_t) * polished_body + (0.58 * rim_t) * 0.755
+            body_metal = polished_body * seam_darken
 
-            s_curve = u_blend * u_blend * (3.0 - 2.0 * u_blend)
-            base_metal = (0.12 + 0.76 * (0.42 * u_blend + 0.58 * s_curve))
-
-            dx1 = bx - (-0.30)
-            dy1 = by - (-0.25)
-            rot_u = 0.80 * dx1 + 0.60 * dy1
-            rot_v = -0.60 * dx1 + 0.80 * dy1
-            spec_mask = (1.0 - 0.85 * w_calyx) * seam_darken * contact_ao
-            spec_glow = 0.20 * math.exp(-0.5 * ((rot_u / 0.36) ** 2 + (rot_v / 0.22) ** 2)) * spec_mask
-            spec_core = 0.16 * math.exp(-0.5 * ((rot_u / 0.15) ** 2 + (rot_v / 0.09) ** 2)) * spec_mask
-
-            metal_v = max(0.08, min(0.992, base_metal + spec_glow + spec_core))
+            calyx_metal = 0.53 + 0.35 * (u_c ** 0.82) + 0.07 * max(0.0, ref_env - 0.75) + satin_noise
+            metal_v = w_calyx * calyx_metal + (1.0 - w_calyx) * body_metal
+            metal_v = max(0.47, min(0.978, metal_v))
 
             if is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 130 and g > 75):
                 whiteness = min(1.0, max(0.0, (g - 75.0) / 140.0))
                 silver_bg = metal_v * 255.0
-                anthracite = 36.0
+                anthracite = 62.0
                 val = (1.0 - whiteness) * silver_bg + whiteness * anthracite
-                out[i] = max(0, min(255, int(round(val * 0.972))))
-                out[i + 1] = max(0, min(255, int(round(val * 0.988))))
-                out[i + 2] = max(0, min(255, int(round(val * 1.022))))
+                out[i] = max(0, min(255, int(round(val * 0.996))))
+                out[i + 1] = max(0, min(255, int(round(val * 0.998))))
+                out[i + 2] = max(0, min(255, int(round(val * 1.002))))
                 continue
 
-            hi = max(0.0, min(1.0, (metal_v - 0.72) / 0.27))
-            mr = metal_v * (0.968 + 0.030 * hi) * 255.0
-            mg = metal_v * (0.986 + 0.013 * hi) * 255.0
-            mb = min(1.0, metal_v * (1.024 - 0.018 * hi)) * 255.0
+            mr = metal_v * 0.996 * 255.0
+            mg = metal_v * 0.998 * 255.0
+            mb = min(255.0, metal_v * 1.003 * 255.0)
 
             bg_r, bg_g, bg_b = bg_rgb_grid[y][x]
             out[i] = max(0, min(255, int(round((1.0 - alpha) * bg_r + alpha * mr))))
@@ -665,12 +758,14 @@ def render_shiny_mini_tomato(w, h, mini_grey_rgb, mode="silver", hue_deg=0.0, sa
                 ) * stem_mask
 
                 if mode == "silver":
-                    base_v = 0.34 + 0.48 * (n_dot_l ** 0.88) + 0.06 * (n_dot_fill ** 1.3)
-                    metal_v = min(0.99, base_v + one_highlight)
-                    hi = max(0.0, min(1.0, (metal_v - 0.72) / 0.26))
-                    fg_r = metal_v * (0.965 + 0.032 * hi) * 255.0
-                    fg_g = metal_v * (0.985 + 0.014 * hi) * 255.0
-                    fg_b = min(1.0, metal_v * (1.025 - 0.018 * hi)) * 255.0
+                    r2_mini = nx * nx + ny * ny
+                    fresnel_mini = 0.08 * min(1.0, r2_mini)
+                    core_dip_mini = 0.22 * math.exp(-0.5 * (((nx + 0.05) / 0.42) ** 2 + ((ny - 0.08) / 0.30) ** 2))
+                    dome_mini = 0.20 * math.exp(-0.5 * (((nx - 0.04) / 0.52) ** 2 + ((ny + 0.34) / 0.38) ** 2))
+                    metal_v = min(0.985, max(0.46, 0.72 + dome_mini + fresnel_mini - core_dip_mini + 0.22 * one_highlight))
+                    fg_r = metal_v * 0.996 * 255.0
+                    fg_g = metal_v * 0.998 * 255.0
+                    fg_b = min(1.0, metal_v * 1.003) * 255.0
                 else:
                     base_v = min(1.0, (0.50 + 0.44 * (n_dot_l ** 0.88) + 0.05 * n_dot_fill) * val_scale)
                     cr, cg, cb = colorsys.hsv_to_rgb(target_h, sat_val, base_v)

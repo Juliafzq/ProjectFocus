@@ -14,7 +14,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="css/style.css?v=20261009_v20" />
+  <link rel="stylesheet" href="css/style.css?v=20261009_v21" />
 </head>
 <body>
 
@@ -108,7 +108,7 @@
         </div>
       </div>
 
-      <!-- Bottom Action Bar: [Stack] [Flip] [+] -->
+      <!-- Bottom Action Bar: [Stack] [Flip] -->
       <footer class="card-bottom-bar">
         <!-- Left: Stack Icon -->
         <button type="button" id="card-stack-btn" class="card-bottom-icon-btn" aria-label="Open Card Stack Archive" title="Open Chronological Card Stack Archive">
@@ -119,18 +119,11 @@
           </svg>
         </button>
 
-        <!-- Center: Flip Card Icon -->
+        <!-- Right: Flip Card Icon -->
         <button type="button" id="card-flip-btn" class="card-bottom-icon-btn" aria-label="Flip Card 180 Degrees" title="Flip Card 180° (White Front ↔ Matte Black Back)">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M14.5 7.5L6.5 10.2V24.5L14.5 21.8V7.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
             <path d="M17.5 7.5L25.5 10.2V24.5L17.5 21.8V7.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
-          </svg>
-        </button>
-
-        <!-- Right: Plus (+) Icon -->
-        <button type="button" id="card-plus-btn" class="card-bottom-icon-btn" aria-label="Add Task Item or Journal Photo" title="Add Task (Front) or Attach Photo (Back)">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-            <path d="M16 6.5V25.5M6.5 16H25.5" stroke="#111111" stroke-width="2.1" stroke-linecap="round"/>
           </svg>
         </button>
       </footer>
@@ -436,36 +429,28 @@
       </div>
     </div>
 
-    <!-- Animated Visual Gesture Guided Tour Overlay (First-Time Launch & Accessible via Profile) -->
-    <div id="onboarding-overlay" class="guided-tour-overlay hidden" role="dialog" aria-modal="false" aria-label="Fable / Flow Visual Gesture Tour">
-      <!-- Dynamic On-Target Animated Gesture Coach (Positioned directly over the active UI element) -->
-      <div id="tour-gesture-stage" class="tour-gesture-stage">
-        <div id="tour-gesture-coach" class="tour-gesture-coach">
-          <div id="tour-gesture-visual" class="tour-gesture-visual">
-            <div class="tour-gesture-trail"></div>
-            <div class="tour-touch-cursor">
-              <span class="tour-touch-ripple"></span>
-              <svg class="tour-hand-svg" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-                <circle cx="14" cy="11" r="6.5" fill="rgba(17,17,17,0.16)"/>
-                <path d="M14 9.5V21.5M14 9.5C14 8.12 15.12 7 16.5 7C17.88 7 19 8.12 19 9.5V16.5L22.4 17.5C23.95 17.95 24.9 19.5 24.6 21.1L23.5 26.2C23.15 27.85 21.7 29 20 29H13.6C11.7 29 10.05 27.9 9.25 26.15L7.2 21.6C6.65 20.4 7.15 19 8.35 18.45C9.4 17.98 10.65 18.35 11.25 19.35L14 23.2V9.5Z" fill="#FFFFFF" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-          </div>
-          <div id="tour-step-title" class="tour-micro-pill">Swipe → to cross out</div>
-        </div>
-      </div>
+    <!-- Minimalist Non-Interactive Guided Tutorial Modal (Blocks background clicks; shows Action, Minimalist Animation, What it does, Last & Next) -->
+    <div id="onboarding-overlay" class="guided-tour-overlay hidden" role="dialog" aria-modal="true" aria-label="Guided Tutorial">
+      <div class="guided-tour-card">
+        <button type="button" id="onboarding-dismiss-btn" class="tour-card-close-btn" aria-label="Close tutorial" title="Close">×</button>
 
-      <!-- Compact Visual-First Navigation Pill -->
-      <div class="guided-tour-nav-pill">
-        <button type="button" id="tour-prev-btn" class="tour-pill-arrow-btn" aria-label="Previous step" title="Previous">‹</button>
-        <div id="tour-dots" class="guided-tour-dots" role="tablist" aria-label="Tour Steps"></div>
-        <button type="button" id="tour-next-btn" class="tour-pill-next-btn" aria-label="Next step">Next ›</button>
-        <button type="button" id="onboarding-dismiss-btn" class="tour-pill-close-btn" aria-label="Close Guided Tour" title="Skip tour">×</button>
+        <!-- Minimalist Animation Stage -->
+        <div id="tour-anim-stage" class="tour-anim-stage" data-anim="flip-page" aria-hidden="true"></div>
+
+        <!-- Action & What It Does -->
+        <div id="tour-step-title" class="tour-action-title">Flip Page</div>
+        <div id="tour-step-desc" class="tour-action-desc">See back of card</div>
+
+        <!-- Last & Next Buttons -->
+        <div class="tour-btn-row">
+          <button type="button" id="tour-prev-btn" class="tour-nav-btn tour-nav-btn-secondary">Last</button>
+          <button type="button" id="tour-next-btn" class="tour-nav-btn tour-nav-btn-primary">Next</button>
+        </div>
       </div>
     </div>
 
   </main>
 
-  <script type="module" src="js/app.js?v=20261009_v20"></script>
+  <script type="module" src="js/app.js?v=20261009_v21"></script>
 </body>
 </html>
