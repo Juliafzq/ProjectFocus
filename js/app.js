@@ -20,21 +20,18 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v17';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v17';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v17';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v17';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v18';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v18';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v18';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v18';
 
-const STORAGE_KEY = 'fable_flow_phase2_mvp_v2';
+const STORAGE_KEY = 'fable_flow_phase2_mvp_v3';
 const NUM_GRID_SLOTS = 6;
 
 const MAX_TASK_WORDS = 18;
 const MAX_TASK_CHARS = 110;
 const MAX_REFLECTION_WORDS = 95;
 const MAX_REFLECTION_CHARS = 520;
-
-const DEFAULT_REFLECTION_OCT_06 =
-  'Today felt steady and surprisingly productive. I wrapped up the Q3 report ahead of schedule and finally cleared out my inbox. Taking a walk at sunset helped me reset before the evening. Grateful for quiet moments and good coffee.';
 
 export class FableFlowApp {
   constructor() {
@@ -71,171 +68,7 @@ export class FableFlowApp {
   }
 
   getDefaultArchiveCards() {
-    return {
-      '2026-09-08': {
-        dateKey: '2026-09-08',
-        headerDate: 'TUESDAY — SEP 08',
-        shortDate: '08 SEP',
-        monthKey: '2026-09',
-        dayNum: 8,
-        tasks: [
-          { id: 's0908-1', orderIndex: 1, title: 'Kickoff autumn product roadmap', isCompleted: true },
-          { id: 's0908-2', orderIndex: 2, title: 'Review typography specimen sheets', isCompleted: true },
-          { id: 's0908-3', orderIndex: 3, title: 'Evening run in the park', isCompleted: false },
-        ],
-        reflectionText:
-          'Crisp early September air this morning. Setting the foundation for the autumn sprint felt calm and intentional.',
-        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v13'],
-      },
-      '2026-09-12': {
-        dateKey: '2026-09-12',
-        headerDate: 'SATURDAY — SEP 12',
-        shortDate: '12 SEP',
-        monthKey: '2026-09',
-        dayNum: 12,
-        tasks: [
-          { id: 's0912-1', orderIndex: 1, title: 'Farmers market heirloom tomatoes', isCompleted: true },
-          { id: 's0912-2', orderIndex: 2, title: 'Sketch 3D dial seam geometry', isCompleted: true },
-        ],
-        reflectionText:
-          'Picked up real heirloom tomatoes at the market and studied how studio light wraps around their ribs.',
-        reflectionPhotos: [],
-      },
-      '2026-09-15': {
-        dateKey: '2026-09-15',
-        headerDate: 'TUESDAY — SEP 15',
-        shortDate: '15 SEP',
-        monthKey: '2026-09',
-        dayNum: 15,
-        tasks: [
-          { id: 's0915-1', orderIndex: 1, title: 'Prototype WebAudio bell chime', isCompleted: true },
-          { id: 's0915-2', orderIndex: 2, title: 'Test dry-graphite pencil grain', isCompleted: true },
-        ],
-        reflectionText:
-          'The two-strike brass bell resonance finally sounds like a real kitchen timer sitting on a wooden desk.',
-        reflectionPhotos: ['assets/photos/sample-poodle.jpg?v=20261009_v13'],
-      },
-      '2026-09-19': {
-        dateKey: '2026-09-19',
-        headerDate: 'SATURDAY — SEP 19',
-        shortDate: '19 SEP',
-        monthKey: '2026-09',
-        dayNum: 19,
-        tasks: [
-          { id: 's0919-1', orderIndex: 1, title: 'Read Design as Art chapters', isCompleted: true },
-          { id: 's0919-2', orderIndex: 2, title: 'Organize studio bookshelves', isCompleted: false },
-        ],
-        reflectionText:
-          'Slow Saturday afternoon with Bruno Munari and a pot of roasted oolong tea.',
-        reflectionPhotos: [],
-      },
-      '2026-09-23': {
-        dateKey: '2026-09-23',
-        headerDate: 'WEDNESDAY — SEP 23',
-        shortDate: '23 SEP',
-        monthKey: '2026-09',
-        dayNum: 23,
-        tasks: [
-          { id: 's0923-1', orderIndex: 1, title: 'Finalize cardstock shadow elevation', isCompleted: true },
-          { id: 's0923-2', orderIndex: 2, title: 'Write Q3 architecture notes', isCompleted: true },
-        ],
-        reflectionText:
-          'Autumn equinox. Kept the task list short and finished everything before 5 PM.',
-        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v13'],
-      },
-      '2026-09-28': {
-        dateKey: '2026-09-28',
-        headerDate: 'MONDAY — SEP 28',
-        shortDate: '28 SEP',
-        monthKey: '2026-09',
-        dayNum: 28,
-        tasks: [
-          { id: 's0928-1', orderIndex: 1, title: 'Prepare monthly financial summary', isCompleted: true },
-          { id: 's0928-2', orderIndex: 2, title: 'Call hardware supplier', isCompleted: true },
-        ],
-        reflectionText:
-          'Steady start to the final week of September. Focused deep work blocks made all the difference.',
-        reflectionPhotos: [],
-      },
-      '2026-09-30': {
-        dateKey: '2026-09-30',
-        headerDate: 'WEDNESDAY — SEP 30',
-        shortDate: '30 SEP',
-        monthKey: '2026-09',
-        dayNum: 30,
-        tasks: [
-          { id: 's0930-1', orderIndex: 1, title: 'Close September sprint items', isCompleted: true },
-          { id: 's0930-2', orderIndex: 2, title: 'Archive September index cards', isCompleted: true },
-        ],
-        reflectionText:
-          'Wrapped up September with a clean desk and zero carry-over anxiety.',
-        reflectionPhotos: [
-          'assets/photos/sample-poodle.jpg?v=20261009_v13',
-          'assets/photos/sample-desk.jpg?v=20261009_v13',
-        ],
-      },
-      '2026-10-01': {
-        dateKey: '2026-10-01',
-        headerDate: 'THURSDAY — OCT 01',
-        shortDate: '01 OCT',
-        monthKey: '2026-10',
-        dayNum: 1,
-        tasks: [
-          { id: 's1001-1', orderIndex: 1, title: 'Outline October product milestones', isCompleted: true },
-          { id: 's1001-2', orderIndex: 2, title: 'Review 3D metallic shader polish', isCompleted: true },
-          { id: 's1001-3', orderIndex: 3, title: 'Walk dog before sunset', isCompleted: true },
-        ],
-        reflectionText:
-          'First day of October. Three focused Pomodoros in the morning set the tone for the whole month.',
-        reflectionPhotos: ['assets/photos/sample-poodle.jpg?v=20261009_v13'],
-      },
-      '2026-10-02': {
-        dateKey: '2026-10-02',
-        headerDate: 'FRIDAY — OCT 02',
-        shortDate: '02 OCT',
-        monthKey: '2026-10',
-        dayNum: 2,
-        tasks: [
-          { id: 's1002-1', orderIndex: 1, title: 'Polish equatorial odometer numbers', isCompleted: true },
-          { id: 's1002-2', orderIndex: 2, title: 'Send weekly design update', isCompleted: true },
-        ],
-        reflectionText:
-          'Wrapped up Friday afternoon early. The 3D perspective wrapping on the tomato dial feels tactile and natural.',
-        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v13'],
-      },
-      '2026-10-04': {
-        dateKey: '2026-10-04',
-        headerDate: 'SUNDAY — OCT 04',
-        shortDate: '04 OCT',
-        monthKey: '2026-10',
-        dayNum: 4,
-        tasks: [
-          { id: 's1004-1', orderIndex: 1, title: 'Weekly grocery run & prep', isCompleted: true },
-          { id: 's1004-2', orderIndex: 2, title: 'Plan Monday top priorities', isCompleted: true },
-        ],
-        reflectionText:
-          'Quiet Sunday reset. Ready for the new week with a clear head.',
-        reflectionPhotos: [],
-      },
-      '2026-10-05': {
-        dateKey: '2026-10-05',
-        headerDate: 'MONDAY — OCT 05',
-        shortDate: '05 OCT',
-        monthKey: '2026-10',
-        dayNum: 5,
-        tasks: [
-          { id: 's1005-1', orderIndex: 1, title: 'Finalize Project Proposal', isCompleted: true },
-          { id: 's1005-2', orderIndex: 2, title: 'Meet Client for Coffee', isCompleted: true },
-          { id: 's1005-3', orderIndex: 3, title: 'Submit Weekly Report', isCompleted: false },
-        ],
-        reflectionText:
-          'Monday moved quickly. Finalized the project proposal and met with the client over coffee before wrapping up the afternoon.',
-        reflectionPhotos: [
-          'assets/photos/sample-poodle.jpg?v=20261009_v13',
-          'assets/photos/sample-desk.jpg?v=20261009_v13',
-        ],
-      },
-    };
+    return {};
   }
 
   getDefaultState() {
@@ -247,7 +80,7 @@ export class FableFlowApp {
       isHeroDropdownOpen: false,
       isCardFlipped: false,
       isStackCardFlipped: false,
-      selectedStackDateKey: '2026-10-05',
+      selectedStackDateKey: null,
       cardDateKey: '2026-10-06',
       cardHeaderDate: 'TUESDAY — OCT 06',
       cardShortDate: '06 OCT',
@@ -256,11 +89,8 @@ export class FableFlowApp {
       hasCompletedOnboarding: false,
       seenPageHints: {},
       lastRolloverLogicalDate: this.getCurrentLogicalDateString(5),
-      reflectionText: DEFAULT_REFLECTION_OCT_06,
-      reflectionPhotos: [
-        'assets/photos/sample-poodle.jpg?v=20261009_v13',
-        'assets/photos/sample-desk.jpg?v=20261009_v13',
-      ],
+      reflectionText: '',
+      reflectionPhotos: [],
       archiveCards: this.getDefaultArchiveCards(),
       tasks: [
         {
@@ -356,6 +186,7 @@ export class FableFlowApp {
         'fable_flow_phase1_beta_v3',
         'fable_flow_phase1_beta_v4',
         'fable_flow_phase2_mvp_v1',
+        'fable_flow_phase2_mvp_v2',
       ].forEach((k) => localStorage.removeItem(k));
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -366,20 +197,17 @@ export class FableFlowApp {
           Array.isArray(parsed.timers) &&
           parsed.timers.length === NUM_GRID_SLOTS
         ) {
-          if (!parsed.archiveCards) {
+          if (!parsed.archiveCards || typeof parsed.archiveCards !== 'object') {
             parsed.archiveCards = this.getDefaultArchiveCards();
           }
           if (typeof parsed.reflectionText !== 'string') {
-            parsed.reflectionText = DEFAULT_REFLECTION_OCT_06;
+            parsed.reflectionText = '';
           }
           if (!Array.isArray(parsed.reflectionPhotos)) {
-            parsed.reflectionPhotos = [
-              'assets/photos/sample-poodle.jpg?v=20261009_v13',
-              'assets/photos/sample-desk.jpg?v=20261009_v13',
-            ];
+            parsed.reflectionPhotos = [];
           }
           if (!parsed.selectedStackDateKey) {
-            parsed.selectedStackDateKey = '2026-10-05';
+            parsed.selectedStackDateKey = null;
           }
           if (!parsed.cardShortDate) {
             parsed.cardShortDate = '06 OCT';
@@ -2674,11 +2502,41 @@ export class FableFlowApp {
     }
 
     if (!selectedCard) {
+      if (this.els.stackPeekLeft) {
+        this.els.stackPeekLeft.classList.add('disabled-peek');
+      }
+      if (this.els.stackPeekRight) {
+        this.els.stackPeekRight.classList.add('disabled-peek');
+      }
+      if (this.state.isStackCardFlipped && Math.abs(this._stackFlipDeg % 360) !== 180) {
+        this._stackFlipDeg = -180;
+      } else if (!this.state.isStackCardFlipped && Math.abs(this._stackFlipDeg % 360) !== 0) {
+        this._stackFlipDeg = 0;
+      }
+      this.applyCard3DRotation(
+        this.els.stackCard3D,
+        this.state.isStackCardFlipped,
+        this._stackFlipDeg
+      );
+
       if (this.els.stackCardDateHeader) {
-        this.els.stackCardDateHeader.textContent = 'ARCHIVE EMPTY';
+        this.els.stackCardDateHeader.textContent = 'NO ARCHIVED CARDS YET';
+      }
+      if (this.els.stackCardBackDateHeader) {
+        this.els.stackCardBackDateHeader.textContent = 'NO ARCHIVED CARDS YET';
       }
       if (this.els.stackTaskListContainer) {
-        this.els.stackTaskListContainer.innerHTML = '';
+        this.els.stackTaskListContainer.innerHTML =
+          '<div class="stack-empty-hint" style="padding: 24px 30px; font-family: var(--font-serif); font-size: 19px; line-height: 1.45; color: #7C7974;">Past cards appear here automatically after each Daily Reset.</div>';
+      }
+      if (this.els.stackAddItemRow) {
+        this.els.stackAddItemRow.classList.add('hidden');
+      }
+      if (this.els.stackCardBackReflection) {
+        this.els.stackCardBackReflection.value = '';
+      }
+      if (this.els.stackCardBackPhotos) {
+        this.els.stackCardBackPhotos.innerHTML = '';
       }
       return;
     }
