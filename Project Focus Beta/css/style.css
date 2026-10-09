@@ -365,25 +365,51 @@ html, body {
   transition: visibility 0s linear 0s;
 }
 
+/* Shared Front & Back Card Header Bar & Date Title (Identical Position, Font, and Size) */
+.card-header-bar,
 .card-back-header-bar {
-  padding: clamp(16px, 2.6dvh, 24px) 24px clamp(12px, 1.8dvh, 16px);
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.18);
-  background-color: #070707;
+  padding: clamp(16px, 2.6dvh, 24px) 26px clamp(12px, 1.8dvh, 16px);
+  margin: 0;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
 
+.card-header-bar {
+  border-bottom: 1.5px solid var(--card-divider);
+  background-color: var(--card-surface);
+}
+
+.card-back-header-bar {
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.18);
+  background-color: #070707;
+}
+
+.card-date-title,
 .card-back-date-title {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
   font-size: clamp(21px, 3.3dvh, 25.5px);
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #F5F5F2;
   line-height: 1.1;
+  text-align: left;
+}
+
+.card-date-title {
+  color: #0B0B0B;
+}
+
+.card-back-date-title {
+  color: #F5F5F2;
 }
 
 .card-back-body {
   flex: 1;
   min-height: 0;
-  padding: clamp(14px, 2.2dvh, 22px) 22px;
+  padding: clamp(14px, 2.2dvh, 22px) 26px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -483,21 +509,6 @@ html, body {
   font-weight: 500;
   color: rgba(245, 245, 242, 0.62);
   letter-spacing: 0.02em;
-}
-
-.card-header-bar {
-  padding: clamp(16px, 2.6dvh, 24px) 24px clamp(12px, 1.8dvh, 16px);
-  border-bottom: 1.5px solid var(--card-divider);
-  background-color: var(--card-surface);
-  flex-shrink: 0;
-}
-
-.card-date-title {
-  font-size: clamp(21px, 3.3dvh, 25.5px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #0B0B0B;
-  line-height: 1.1;
 }
 
 .card-dot-grid-body {
@@ -1761,17 +1772,19 @@ html, body {
   position: absolute;
   left: 50%;
   top: 45%;
-  width: 16px;
-  height: 16px;
-  margin-left: -8px;
-  margin-top: -8px;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  margin-top: -10px;
   border-radius: 999px;
-  background: rgba(17, 17, 17, 0.88);
-  border: 2.2px solid #FAF9F5;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  background: rgba(17, 17, 17, 0.92);
+  border: 2.5px solid #FFFFFF;
+  box-shadow:
+    0 0 0 2px rgba(17, 17, 17, 0.24),
+    0 4px 12px rgba(0, 0, 0, 0.34);
   pointer-events: none;
   z-index: 96;
-  transition: left 0.34s cubic-bezier(0.22, 1, 0.36, 1), top 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: left, top, opacity, transform;
 }
 
 .tour-page-dot::after {
@@ -1779,60 +1792,20 @@ html, body {
   position: absolute;
   inset: -7px;
   border-radius: 999px;
-  border: 1.5px solid rgba(17, 17, 17, 0.42);
+  border: 1.8px solid rgba(17, 17, 17, 0.52);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.72);
   opacity: 0;
   pointer-events: none;
 }
 
-@keyframes tourDotTap {
-  0%, 100% { transform: scale(1); }
-  35% { transform: scale(0.82); }
-  60% { transform: scale(1.08); }
-}
-
 @keyframes tourDotRipple {
-  0%, 25% { transform: scale(0.65); opacity: 0; }
-  40% { transform: scale(0.95); opacity: 0.85; }
-  85%, 100% { transform: scale(1.75); opacity: 0; }
+  0%, 15% { transform: scale(0.65); opacity: 0; }
+  42% { transform: scale(1.0); opacity: 0.9; }
+  88%, 100% { transform: scale(1.85); opacity: 0; }
 }
 
-@keyframes tourDotSwipeRight {
-  0% { transform: translateX(-48px) scale(0.92); opacity: 0; }
-  15% { transform: translateX(-44px) scale(1); opacity: 1; }
-  78% { transform: translateX(48px) scale(1); opacity: 1; }
-  100% { transform: translateX(54px) scale(0.92); opacity: 0; }
-}
-
-@keyframes tourDotSwipeLeft {
-  0% { transform: translateX(48px) scale(0.92); opacity: 0; }
-  15% { transform: translateX(44px) scale(1); opacity: 1; }
-  78% { transform: translateX(-48px) scale(1); opacity: 1; }
-  100% { transform: translateX(-54px) scale(0.92); opacity: 0; }
-}
-
-@keyframes tourDotSwipeBi {
-  0%, 100% { transform: translateX(-38px); }
-  50% { transform: translateX(38px); }
-}
-
-.tour-page-dot.dot-tap {
-  animation: tourDotTap 1.35s ease-in-out infinite;
-}
-
-.tour-page-dot.dot-tap::after {
-  animation: tourDotRipple 1.35s ease-out infinite;
-}
-
-.tour-page-dot.dot-swipe-right {
-  animation: tourDotSwipeRight 1.55s cubic-bezier(0.25, 1, 0.4, 1) infinite;
-}
-
-.tour-page-dot.dot-swipe-left {
-  animation: tourDotSwipeLeft 1.55s cubic-bezier(0.25, 1, 0.4, 1) infinite;
-}
-
-.tour-page-dot.dot-swipe-bi {
-  animation: tourDotSwipeBi 1.75s ease-in-out infinite;
+.tour-page-dot.dot-pulse-ring::after {
+  animation: tourDotRipple 1.2s ease-out infinite;
 }
 
 .guided-tour-card {

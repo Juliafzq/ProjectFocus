@@ -20,10 +20,10 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v24';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v24';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v24';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v24';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v25';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v25';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v25';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v25';
 
 const STORAGE_KEY = 'fable_flow_phase2_mvp_v9';
 const NUM_GRID_SLOTS = 6;
@@ -397,6 +397,7 @@ export class FableFlowApp {
       onboardingOverlay: document.getElementById('onboarding-overlay'),
       onboardingDismissBtn: document.getElementById('onboarding-dismiss-btn'),
       tourPageDot: document.getElementById('tour-page-dot'),
+      tourPageDot2: document.getElementById('tour-page-dot-2'),
       tourStepTitle: document.getElementById('tour-step-title'),
       tourStepDesc: document.getElementById('tour-step-desc'),
       tourPrevBtn: document.getElementById('tour-prev-btn'),
@@ -418,17 +419,6 @@ export class FableFlowApp {
           this.els.stackAddItemRow
         );
         this.adjustReflectionTypography(this.els.stackCardBackReflection);
-      }
-      if (this._isGuidedTourActive && this._currentTourDotTarget) {
-        const targetEl = this._currentTourDotTarget.getEl
-          ? this._currentTourDotTarget.getEl()
-          : null;
-        this.positionTourPageDot(
-          targetEl,
-          this._currentTourDotTarget.offsetX || 0,
-          this._currentTourDotTarget.offsetY || 0,
-          this._currentTourDotTarget.gesture || 'dot-tap'
-        );
       }
     });
   }
@@ -1458,7 +1448,7 @@ export class FableFlowApp {
       window.addEventListener('pointercancel', endCarouselDrag);
     }
 
-    // 3. Mouse Wheel / Trackpad Scrolling through the Stack + Pinch-to-Zoom Out to Calendar
+    // 3. Mouse Wheel / Trackpad Scrolling through the Stack + Two-Finger Pinch-to-Zoom Out to Calendar
     if (this.els.stackScreen) {
       this.els.stackScreen.addEventListener(
         'wheel',
@@ -1483,6 +1473,46 @@ export class FableFlowApp {
           }
         },
         { passive: false }
+      );
+
+      let pinchStartDist = null;
+      this.els.stackScreen.addEventListener(
+        'touchstart',
+        (e) => {
+          if (e.touches && e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            pinchStartDist = Math.hypot(dx, dy);
+          } else {
+            pinchStartDist = null;
+          }
+        },
+        { passive: true }
+      );
+      this.els.stackScreen.addEventListener(
+        'touchmove',
+        (e) => {
+          if (pinchStartDist && e.touches && e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const curDist = Math.hypot(dx, dy);
+            if (curDist < pinchStartDist * 0.78) {
+              pinchStartDist = null;
+              this.sensory.playMechanicalTick();
+              this.state.activePillar = 'calendar';
+              this.saveState();
+              this.renderAll();
+            }
+          }
+        },
+        { passive: true }
+      );
+      this.els.stackScreen.addEventListener(
+        'touchend',
+        () => {
+          pinchStartDist = null;
+        },
+        { passive: true }
       );
     }
   }
@@ -1518,6 +1548,46 @@ export class FableFlowApp {
           }
         },
         { passive: false }
+      );
+
+      let spreadStartDist = null;
+      this.els.calendarScreen.addEventListener(
+        'touchstart',
+        (e) => {
+          if (e.touches && e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            spreadStartDist = Math.hypot(dx, dy);
+          } else {
+            spreadStartDist = null;
+          }
+        },
+        { passive: true }
+      );
+      this.els.calendarScreen.addEventListener(
+        'touchmove',
+        (e) => {
+          if (spreadStartDist && e.touches && e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const curDist = Math.hypot(dx, dy);
+            if (curDist > spreadStartDist * 1.24) {
+              spreadStartDist = null;
+              this.sensory.playMechanicalTick();
+              this.state.activePillar = 'stack';
+              this.saveState();
+              this.renderAll();
+            }
+          }
+        },
+        { passive: true }
+      );
+      this.els.calendarScreen.addEventListener(
+        'touchend',
+        () => {
+          spreadStartDist = null;
+        },
+        { passive: true }
       );
     }
   }
@@ -3676,204 +3746,595 @@ export class FableFlowApp {
     this.els.modalInput.addEventListener('input', onInput);
   }
 
+  setInstantCardRotation(wrapperEl, isFlipped, degValue) {
+    if (!wrapperEl) return;
+    wrapperEl.style.transition = 'none';
+    this.applyCard3DRotation(wrapperEl, isFlipped, degValue);
+    void wrapperEl.offsetWidth;
+    wrapperEl.style.transition = '';
+  }
+
+  ensureTourDemoArchiveCards() {
+    if (!this._tourSavedArchiveState) {
+      this._tourSavedArchiveState = {
+        archiveCards: JSON.parse(JSON.stringify(this.state.archiveCards || {})),
+        selectedStackDateKey: this.state.selectedStackDateKey,
+      };
+    }
+    const keys = Object.keys(this.state.archiveCards || {});
+    if (keys.length < 2) {
+      this.state.archiveCards = {
+        ...this.state.archiveCards,
+        '2026-10-04': {
+          dateKey: '2026-10-04',
+          headerDate: 'SUNDAY — OCT 04',
+          shortDate: '04 OCT',
+          monthKey: '2026-10',
+          dayNum: 4,
+          tasks: [
+            {
+              id: 'tour-oct04-1',
+              orderIndex: 1,
+              title: 'Sketch weekend notes',
+              isCompleted: true,
+            },
+          ],
+          reflectionText: 'Quiet Sunday afternoon reading.',
+          reflectionPhotos: [],
+        },
+        '2026-10-05': {
+          dateKey: '2026-10-05',
+          headerDate: 'MONDAY — OCT 05',
+          shortDate: '05 OCT',
+          monthKey: '2026-10',
+          dayNum: 5,
+          tasks: [
+            {
+              id: 'tour-oct05-1',
+              orderIndex: 1,
+              title: 'Example Task',
+              isCompleted: true,
+            },
+          ],
+          reflectionText: 'Focused morning session.',
+          reflectionPhotos: [],
+        },
+      };
+      if (!this.state.selectedStackDateKey || !this.state.archiveCards[this.state.selectedStackDateKey]) {
+        this.state.selectedStackDateKey = '2026-10-05';
+      }
+    }
+  }
+
+  restoreTourDemoArchiveCards() {
+    if (this._tourSavedArchiveState) {
+      this.state.archiveCards = JSON.parse(
+        JSON.stringify(this._tourSavedArchiveState.archiveCards || {})
+      );
+      this.state.selectedStackDateKey = this._tourSavedArchiveState.selectedStackDateKey;
+      this._tourSavedArchiveState = null;
+    }
+  }
+
+  getElementBoxInTourOverlay(targetEl) {
+    const overlay = this.els.onboardingOverlay;
+    if (!targetEl || !overlay) return null;
+    const rect = targetEl.getBoundingClientRect();
+    const overlayRect = overlay.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return null;
+    const left = rect.left - overlayRect.left;
+    const top = rect.top - overlayRect.top;
+    return {
+      left,
+      top,
+      width: rect.width,
+      height: rect.height,
+      x: left + rect.width * 0.5,
+      y: top + rect.height * 0.5,
+    };
+  }
+
+  setTourDotState(dotEl, x, y, opacity, scale = 1, pulseRing = false) {
+    if (!dotEl) return;
+    if (opacity <= 0.01 || x === null || y === null) {
+      dotEl.style.opacity = '0';
+      dotEl.classList.add('hidden');
+      dotEl.classList.remove('dot-pulse-ring');
+      return;
+    }
+    dotEl.classList.remove('hidden');
+    dotEl.classList.toggle('dot-pulse-ring', Boolean(pulseRing));
+    dotEl.style.left = `${x.toFixed(1)}px`;
+    dotEl.style.top = `${y.toFixed(1)}px`;
+    dotEl.style.opacity = `${Math.max(0, Math.min(1, opacity)).toFixed(3)}`;
+    dotEl.style.transform = `scale(${scale.toFixed(3)})`;
+  }
+
+  easeInOutCubic(t) {
+    const c = Math.max(0, Math.min(1, t));
+    return c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
+  }
+
   getGuidedTourSteps() {
     return [
+      // STEP 1: HOME PAGE
       {
         title: 'Tap Card or Tomato',
         desc: 'Open today’s card or focus timer',
-        dotGesture: 'dot-tap',
-        getDotTarget: () => ({
-          el: this.els.homeMiniCard,
-          offsetX: 0,
-          offsetY: 0,
-        }),
         applyPage: () => {
+          this.restoreTourDemoArchiveCards();
           this.state.activePillar = 'home';
         },
-        startDemoLoop: () => {
-          let alt = false;
-          this._tourDemoTimer = setInterval(() => {
-            alt = !alt;
-            const targetEl = alt ? this.els.homeTomatoBtn : this.els.homeMiniCard;
-            this.positionTourPageDot(targetEl, 0, 0, 'dot-tap');
-          }, 1150);
+        animateFrame: (elapsedMs) => {
+          const period = 2400;
+          const half = period / 2;
+          const isSecond = (elapsedMs % period) >= half;
+          const subT = ((elapsedMs % half) / half);
+          const targetEl = isSecond ? this.els.homeTomatoBtn : this.els.homeMiniCard;
+          const box = this.getElementBoxInTourOverlay(targetEl);
+          if (!box) return;
+          // Fade on and off to catch the user's attention
+          const fade = 0.08 + 0.92 * Math.pow(Math.sin(subT * Math.PI), 1.15);
+          const scale = 0.88 + 0.16 * Math.sin(subT * Math.PI);
+          this.setTourDotState(this.els.tourPageDot, box.x, box.y, fade, scale, true);
+          this.setTourDotState(this.els.tourPageDot2, null, null, 0);
         },
       },
+      // STEP 2: FRONT OF CARD (DAILY TO-DOS)
       {
         title: 'Front Page · Daily To-Dos',
         desc: 'Add up to 6 tasks, swipe text to cross out',
-        dotGesture: 'dot-swipe-right',
-        getDotTarget: () => ({
-          el:
-            (this.els.taskListContainer &&
-              this.els.taskListContainer.querySelector('.task-title')) ||
-            (this.els.taskListContainer &&
-              this.els.taskListContainer.querySelector('.task-row')),
-          offsetX: -12,
-          offsetY: 0,
-        }),
         applyPage: () => {
+          this.restoreTourDemoArchiveCards();
           this.state.activePillar = 'card';
           this.state.isCardFlipped = false;
           this._todayFlipDeg = 0;
+          this.setInstantCardRotation(this.els.card3DWrapper, false, 0);
         },
-        startDemoLoop: () => {
-          let prog = 0;
-          this._tourDemoTimer = setInterval(() => {
-            const row =
-              this.els.taskListContainer &&
-              this.els.taskListContainer.querySelector('.task-row');
-            const canvas = row && row.querySelector('.pencil-strike-canvas');
-            if (!canvas) return;
-            prog = (prog + 0.08) % 1.25;
-            this.drawGraphiteStroke(canvas, 0.0, Math.min(1.0, prog));
-          }, 90);
+        animateFrame: (elapsedMs) => {
+          const row =
+            this.els.taskListContainer &&
+            this.els.taskListContainer.querySelector('.task-row');
+          const titleEl =
+            (row && row.querySelector('.task-title')) ||
+            (row && row.querySelector('.task-title-wrap')) ||
+            row;
+          const canvas = row && row.querySelector('.pencil-strike-canvas');
+          const box = this.getElementBoxInTourOverlay(titleEl);
+          if (!box) return;
+
+          const period = 2100;
+          const t = (elapsedMs % period) / period;
+          const startX = box.left + 4;
+          const endX = box.left + Math.max(76, box.width + 8);
+          const centerY = box.y;
+
+          let dotX = startX;
+          let opacity = 0;
+          let scale = 1;
+          let strokeProg = 0;
+
+          if (t < 0.15) {
+            const p = t / 0.15;
+            opacity = p;
+            scale = 1.06 - 0.12 * p;
+            dotX = startX;
+            strokeProg = 0;
+          } else if (t < 0.72) {
+            const p = this.easeInOutCubic((t - 0.15) / 0.57);
+            opacity = 1;
+            scale = 0.94;
+            dotX = startX + p * (endX - startX);
+            strokeProg = p;
+          } else if (t < 0.90) {
+            const p = (t - 0.72) / 0.18;
+            opacity = 1 - p * 0.92;
+            scale = 0.94 + 0.08 * p;
+            dotX = endX;
+            strokeProg = 1.0;
+          } else {
+            opacity = 0.06;
+            dotX = startX;
+            strokeProg = 0;
+          }
+
+          if (canvas) {
+            this.drawGraphiteStroke(canvas, 0.0, strokeProg);
+          }
+          this.setTourDotState(this.els.tourPageDot, dotX, centerY, opacity, scale, false);
+          this.setTourDotState(this.els.tourPageDot2, null, null, 0);
         },
       },
+      // STEP 3: BACK OF CARD (DAILY REFLECTION)
       {
         title: 'Flip Page · Daily Reflection',
         desc: 'Swipe card to write reflection & attach photos',
-        dotGesture: 'dot-swipe-left',
-        getDotTarget: () => ({
-          el: this.els.card3DWrapper,
-          offsetX: 36,
-          offsetY: -22,
-        }),
         applyPage: () => {
+          this.restoreTourDemoArchiveCards();
           this.state.activePillar = 'card';
           this.state.isCardFlipped = false;
           this._todayFlipDeg = 0;
+          this.setInstantCardRotation(this.els.card3DWrapper, false, 0);
         },
-        startDemoLoop: () => {
-          this._tourDemoTimer = setInterval(() => {
-            this.state.isCardFlipped = !this.state.isCardFlipped;
-            this._todayFlipDeg = this.state.isCardFlipped ? -180 : 0;
-            this.applyCard3DRotation(
-              this.els.card3DWrapper,
-              this.state.isCardFlipped,
-              this._todayFlipDeg
-            );
-          }, 1450);
+        animateFrame: (elapsedMs) => {
+          const cardEl = this.els.card3DWrapper;
+          const box = this.getElementBoxInTourOverlay(cardEl);
+          if (!box || !cardEl) return;
+
+          const period = 3400;
+          const t = (elapsedMs % period) / period;
+          const rightX = box.x + 62;
+          const leftX = box.x - 62;
+          const swipeY = box.y - 16;
+
+          if (t < 0.28) {
+            // Dot moves Right -> Left while turning card 0deg -> -180deg
+            const p = this.easeInOutCubic(t / 0.28);
+            const deg = -180 * p;
+            const flipped = deg <= -90;
+            this.state.isCardFlipped = flipped;
+            this._todayFlipDeg = deg;
+            cardEl.style.transition = 'none';
+            this.applyCard3DRotation(cardEl, flipped, deg);
+
+            const dotX = rightX + (leftX - rightX) * p;
+            const opacity = t < 0.05 ? t / 0.05 : 1;
+            this.setTourDotState(this.els.tourPageDot, dotX, swipeY, opacity, 0.94, false);
+          } else if (t < 0.76) {
+            // Card rests on Matte Black Back (-180deg); dot fades on & off pointing at reflection/photos
+            this.state.isCardFlipped = true;
+            this._todayFlipDeg = -180;
+            cardEl.style.transition = 'none';
+            this.applyCard3DRotation(cardEl, true, -180);
+
+            const backSubT = (t - 0.28) / 0.48;
+            const pulse = Math.sin(backSubT * Math.PI * 2);
+            const fade = 0.08 + 0.92 * Math.abs(pulse);
+            const pointY = backSubT < 0.5 ? box.top + box.height * 0.36 : box.top + box.height * 0.78;
+            this.setTourDotState(this.els.tourPageDot, box.x, pointY, fade, 0.92 + 0.12 * fade, true);
+          } else {
+            // Dot swipes Left -> Right while turning card -180deg -> 0deg
+            const p = this.easeInOutCubic((t - 0.76) / 0.24);
+            const deg = -180 * (1 - p);
+            const flipped = deg <= -90;
+            this.state.isCardFlipped = flipped;
+            this._todayFlipDeg = deg;
+            cardEl.style.transition = 'none';
+            this.applyCard3DRotation(cardEl, flipped, deg);
+
+            const dotX = leftX + (rightX - leftX) * p;
+            const opacity = t > 0.95 ? (1 - t) / 0.05 : 1;
+            this.setTourDotState(this.els.tourPageDot, dotX, swipeY, opacity, 0.94, false);
+          }
+          this.setTourDotState(this.els.tourPageDot2, null, null, 0);
         },
       },
+      // STEP 4: TAP MINI TOMATO ON CARD FRONT (Immediately followed by Hero Tomato Page in Step 5!)
       {
         title: 'Tap Mini Tomato',
         desc: 'Link a daily to-do item to a focus timer',
-        dotGesture: 'dot-tap',
-        getDotTarget: () => ({
-          el:
-            this.els.taskListContainer &&
-            this.els.taskListContainer.querySelector('.task-tomato-btn'),
-          offsetX: 0,
-          offsetY: 0,
-        }),
         applyPage: () => {
+          this.restoreTourDemoArchiveCards();
           this.state.activePillar = 'card';
           this.state.isCardFlipped = false;
           this._todayFlipDeg = 0;
+          // Immediately snap card to 0deg without 3D transition lag so .task-tomato-btn rect is exact
+          this.setInstantCardRotation(this.els.card3DWrapper, false, 0);
+        },
+        animateFrame: (elapsedMs) => {
+          // Ensure card stays strictly unflipped at 0deg so the mini tomato is at its true right-side position
+          if (this.els.card3DWrapper) {
+            this.els.card3DWrapper.style.transition = 'none';
+            this.applyCard3DRotation(this.els.card3DWrapper, false, 0);
+          }
+          const tomatoBtn =
+            this.els.taskListContainer &&
+            this.els.taskListContainer.querySelector('.task-tomato-btn');
+          const miniImg =
+            tomatoBtn && tomatoBtn.querySelector('.task-mini-tomato-img');
+          const box = this.getElementBoxInTourOverlay(miniImg || tomatoBtn);
+          if (!box) return;
+
+          const period = 1500;
+          const t = (elapsedMs % period) / period;
+          // Fade on and off + tap press directly on the mini tomato
+          const fade = 0.08 + 0.92 * Math.pow(Math.sin(t * Math.PI), 1.1);
+          const isPressed = t > 0.36 && t < 0.78;
+          const scale = isPressed ? 0.84 : 1.04;
+
+          if (miniImg && this.gridRenderer) {
+            const targetKey = isPressed ? 0 : 'unassigned';
+            const expectedSrc = this.gridRenderer.getMiniDataURL(targetKey);
+            if (miniImg.dataset.tourKey !== String(targetKey)) {
+              miniImg.dataset.tourKey = String(targetKey);
+              miniImg.src = expectedSrc;
+            }
+          }
+
+          this.setTourDotState(this.els.tourPageDot, box.x, box.y, fade, scale, true);
+          this.setTourDotState(this.els.tourPageDot2, null, null, 0);
         },
       },
-      {
-        title: 'Tomato Grid · 6 Focus Timers',
-        desc: 'Tap tomato body for big timer, tap title to edit',
-        dotGesture: 'dot-tap',
-        getDotTarget: () => ({
-          el:
-            this.els.gridQuadrants[0] &&
-            this.els.gridQuadrants[0].querySelector('.grid-tomato-wrap'),
-          offsetX: 0,
-          offsetY: 0,
-        }),
-        applyPage: () => {
-          this.state.activePillar = 'timer';
-          this.state.timerSubMode = 'grid';
-          this.state.openDropdownQuadrant = null;
-        },
-        startDemoLoop: () => {
-          let alt = false;
-          this._tourDemoTimer = setInterval(() => {
-            alt = !alt;
-            const quad0 = this.els.gridQuadrants[0];
-            if (!quad0) return;
-            const targetEl = alt
-              ? quad0.querySelector('.grid-tomato-title') ||
-                quad0.querySelector('.grid-tap-to-assign') ||
-                quad0.querySelector('.grid-tomato-wrap')
-              : quad0.querySelector('.grid-tomato-wrap');
-            this.positionTourPageDot(targetEl, 0, alt ? -10 : 8, 'dot-tap');
-          }, 1150);
-        },
-      },
+      // STEP 5: HERO TOMATO PAGE (Immediately after "Tap Mini Tomato"!)
       {
         title: 'Turn Tomato Dial',
-        desc: 'Drag equator or tap digits to set duration',
-        dotGesture: 'dot-swipe-left',
-        getDotTarget: () => ({
-          el: this.els.heroTomatoStage,
-          offsetX: 16,
-          offsetY: 16,
-        }),
+        desc: 'Twist tomato equator or tap digits to set time',
         applyPage: () => {
+          this.restoreTourDemoArchiveCards();
           this.state.activePillar = 'timer';
           this.state.timerSubMode = 'hero';
           this.state.isHeroDropdownOpen = false;
         },
-        startDemoLoop: () => {
+        animateFrame: (elapsedMs) => {
           if (this.els.heroSubtitle) {
             this.els.heroSubtitle.textContent = '01 / EXAMPLE TASK';
           }
-          let phase = 0;
-          this._tourDemoTimer = setInterval(() => {
-            phase = (phase + 1) % 24;
-            const extraMins = Math.round(Math.sin((phase / 24) * Math.PI * 2) * 5);
-            const demoMins = 25 + extraMins;
-            if (this.hero3D) {
-              this.hero3D.updateOdometer(demoMins * 6.0, 0, true, false);
-            }
-            if (this.els.heroReadout) {
-              this.els.heroReadout.textContent = OdometerDialPhysics.formatMockupReadout(
-                demoMins * 60
-              );
-            }
-          }, 85);
+          const box = this.getElementBoxInTourOverlay(this.els.heroTomatoStage);
+          if (!box) return;
+
+          const period = 2500;
+          const t = (elapsedMs % period) / period;
+          const equatorY = box.top + box.height * 0.46;
+          const startX = box.x + 56;
+          const endX = box.x - 56;
+
+          let dotX = startX;
+          let dotY = equatorY;
+          let opacity = 0;
+          let scale = 1;
+          let demoMins = 25;
+
+          if (t < 0.14) {
+            // Dot fades in on the right side of the equator
+            const p = t / 0.14;
+            opacity = p;
+            scale = 1.08 - 0.14 * p;
+            dotX = startX;
+            dotY = equatorY;
+            demoMins = 25;
+          } else if (t < 0.74) {
+            // Dot moves along the tomato equator and turns the 3D tomato in 1:1 lockstep
+            const p = this.easeInOutCubic((t - 0.14) / 0.60);
+            opacity = 1;
+            scale = 0.94;
+            dotX = startX + (endX - startX) * p;
+            dotY = equatorY + Math.sin(p * Math.PI) * 7;
+            demoMins = 25 + p * 5;
+          } else if (t < 0.90) {
+            // Dot fades out at the left side while holding 30:00
+            const p = (t - 0.74) / 0.16;
+            opacity = 1 - p * 0.92;
+            scale = 0.94 + 0.10 * p;
+            dotX = endX;
+            dotY = equatorY;
+            demoMins = 30;
+          } else {
+            // Smoothly wind back to 25:00 for next cycle
+            const p = (t - 0.90) / 0.10;
+            opacity = 0.06;
+            dotX = startX;
+            dotY = equatorY;
+            demoMins = 30 - p * 5;
+          }
+
+          if (this.hero3D) {
+            this.hero3D.updateOdometer(demoMins * 6.0, 0, true, false);
+          }
+          if (this.els.heroReadout) {
+            this.els.heroReadout.textContent = OdometerDialPhysics.formatMockupReadout(
+              Math.round(demoMins) * 60
+            );
+          }
+
+          this.setTourDotState(this.els.tourPageDot, dotX, dotY, opacity, scale, false);
+          this.setTourDotState(this.els.tourPageDot2, null, null, 0);
         },
       },
+      // STEP 6: 6-TOMATO GRID PAGE
       {
-        title: 'Stack & Calendar · Past Days',
-        desc: 'Swipe to browse past cards, or zoom out to calendar',
-        dotGesture: 'dot-swipe-bi',
-        getDotTarget: () => ({
-          el: this.els.stackCard3D,
-          offsetX: 0,
-          offsetY: -12,
-        }),
+        title: 'Tomato Grid · 6 Focus Timers',
+        desc: 'Tap tomato body for big timer, tap title to edit',
         applyPage: () => {
+          this.restoreTourDemoArchiveCards();
+          this.state.activePillar = 'timer';
+          this.state.timerSubMode = 'grid';
+          this.state.openDropdownQuadrant = null;
+        },
+        animateFrame: (elapsedMs) => {
+          const quad0 = this.els.gridQuadrants[0];
+          if (!quad0) return;
+          const period = 2400;
+          const half = period / 2;
+          const isSecond = (elapsedMs % period) >= half;
+          const subT = (elapsedMs % half) / half;
+
+          const wrapEl = quad0.querySelector('.grid-tomato-wrap');
+          const titleEl =
+            quad0.querySelector('.grid-tomato-title') ||
+            quad0.querySelector('.grid-tap-to-assign') ||
+            wrapEl;
+          const box = this.getElementBoxInTourOverlay(isSecond ? titleEl : wrapEl);
+          if (!box) return;
+
+          // Fade on and off to catch the user's attention
+          const fade = 0.08 + 0.92 * Math.pow(Math.sin(subT * Math.PI), 1.15);
+          const scale = 0.88 + 0.16 * Math.sin(subT * Math.PI);
+          const offsetY = isSecond ? -4 : 10;
+          this.setTourDotState(
+            this.els.tourPageDot,
+            box.x,
+            box.y + offsetY,
+            fade,
+            scale,
+            true
+          );
+          this.setTourDotState(this.els.tourPageDot2, null, null, 0);
+        },
+      },
+      // STEP 7: STACK SCROLLING (Dot moves WITH the card scrolling to another card)
+      {
+        title: 'Scroll Stack · Past Cards',
+        desc: 'Swipe left or right to scroll through past cards',
+        applyPage: () => {
+          this.ensureTourDemoArchiveCards();
           this.state.activePillar = 'stack';
           this.state.isStackCardFlipped = false;
           this._stackFlipDeg = 0;
+          this.state.selectedStackDateKey = '2026-10-05';
+          this._tourStackLastSwitchedCycle = -1;
         },
-        startDemoLoop: () => {
-          let showCalendar = false;
-          this._tourDemoTimer = setInterval(() => {
-            showCalendar = !showCalendar;
-            if (showCalendar) {
+        animateFrame: (elapsedMs) => {
+          const centerPerspective =
+            this.els.stackCarouselStage &&
+            this.els.stackCarouselStage.querySelector('.stack-center-perspective');
+          const stageBox = this.getElementBoxInTourOverlay(this.els.stackCarouselStage);
+          if (!centerPerspective || !stageBox) return;
+
+          const period = 2300;
+          const cycleIdx = Math.floor(elapsedMs / period);
+          const t = (elapsedMs % period) / period;
+          // Alternate swiping left (to earlier card) and right (to later card)
+          const swipeDir = cycleIdx % 2 === 0 ? -1 : 1;
+          const startX = stageBox.x - swipeDir * 58;
+          const endX = stageBox.x + swipeDir * 58;
+          const centerY = stageBox.y - 8;
+
+          if (t < 0.15) {
+            const p = t / 0.15;
+            centerPerspective.style.transition = 'none';
+            centerPerspective.style.transform = 'translateX(0px)';
+            this.setTourDotState(
+              this.els.tourPageDot,
+              startX,
+              centerY,
+              p,
+              1.05 - 0.10 * p,
+              false
+            );
+          } else if (t < 0.64) {
+            // Dot moves horizontally AND the card moves WITH the dot!
+            const p = this.easeInOutCubic((t - 0.15) / 0.49);
+            const dotX = startX + (endX - startX) * p;
+            const cardShiftX = swipeDir * p * 86;
+            centerPerspective.style.transition = 'none';
+            centerPerspective.style.transform = `translateX(${cardShiftX.toFixed(1)}px)`;
+            this.setTourDotState(this.els.tourPageDot, dotX, centerY, 1, 0.94, false);
+          } else {
+            // Switch to the other card once at t >= 0.64 and play the card scroll slide animation
+            if (this._tourStackLastSwitchedCycle !== cycleIdx) {
+              this._tourStackLastSwitchedCycle = cycleIdx;
+              centerPerspective.style.transition = '';
+              centerPerspective.style.transform = '';
+              this.state.selectedStackDateKey =
+                this.state.selectedStackDateKey === '2026-10-05'
+                  ? '2026-10-04'
+                  : '2026-10-05';
+              this.renderStackScreen();
+              this.animateStackCardScroll(-swipeDir);
+            }
+            const p = (t - 0.64) / 0.36;
+            const fadeOut = Math.max(0.06, 1 - p * 1.35);
+            this.setTourDotState(this.els.tourPageDot, endX, centerY, fadeOut, 0.98, false);
+          }
+          this.setTourDotState(this.els.tourPageDot2, null, null, 0);
+        },
+      },
+      // STEP 8: ZOOM OUT TO CALENDAR (Two dots pinching together -> Monthly Calendar)
+      {
+        title: 'Zoom Out · Monthly Calendar',
+        desc: 'Pinch two fingers to zoom out to monthly calendar',
+        applyPage: () => {
+          this.ensureTourDemoArchiveCards();
+          this.state.activePillar = 'stack';
+          this.state.isStackCardFlipped = false;
+          this._stackFlipDeg = 0;
+          this.state.selectedStackDateKey = '2026-10-05';
+        },
+        animateFrame: (elapsedMs) => {
+          const period = 3400;
+          const t = (elapsedMs % period) / period;
+          const centerPerspective =
+            this.els.stackCarouselStage &&
+            this.els.stackCarouselStage.querySelector('.stack-center-perspective');
+
+          if (t < 0.50) {
+            // Phase A: On Stack View — Two dots pinch inward together while scaling the card down
+            if (this.state.activePillar !== 'stack') {
+              this.state.activePillar = 'stack';
+              this.renderAll();
+            }
+            const stageBox = this.getElementBoxInTourOverlay(this.els.stackCarouselStage);
+            if (!stageBox) return;
+
+            const cx = stageBox.x;
+            const cy = stageBox.y - 8;
+            let spread = 66;
+            let opacity = 1;
+            let cardScale = 1;
+
+            if (t < 0.12) {
+              const p = t / 0.12;
+              opacity = p;
+              spread = 66;
+              cardScale = 1;
+            } else if (t < 0.42) {
+              const p = this.easeInOutCubic((t - 0.12) / 0.30);
+              opacity = 1;
+              spread = 66 - p * 50; // Two dots pinch from ±66px inward to ±16px
+              cardScale = 1 - p * 0.15;
+            } else {
+              const p = (t - 0.42) / 0.08;
+              opacity = 1 - p;
+              spread = 16;
+              cardScale = 0.85;
+            }
+
+            if (centerPerspective) {
+              centerPerspective.style.transition = 'none';
+              centerPerspective.style.transform = `scale(${cardScale.toFixed(3)})`;
+            }
+
+            this.setTourDotState(
+              this.els.tourPageDot,
+              cx - spread,
+              cy - spread * 0.85,
+              opacity,
+              0.94,
+              false
+            );
+            this.setTourDotState(
+              this.els.tourPageDot2,
+              cx + spread,
+              cy + spread * 0.85,
+              opacity,
+              0.94,
+              false
+            );
+          } else {
+            // Phase B: Zoomed out to Monthly Calendar View — Single dot fades on and off on selected date
+            if (centerPerspective) {
+              centerPerspective.style.transition = '';
+              centerPerspective.style.transform = '';
+            }
+            if (this.state.activePillar !== 'calendar') {
               this.state.activePillar = 'calendar';
               this.renderAll();
-              const calCell =
-                (this.els.calendarMonthsContainer &&
-                  this.els.calendarMonthsContainer.querySelector(
-                    '.cal-day-btn.is-today'
-                  )) ||
-                this.els.calendarMonthsContainer;
-              this.positionTourPageDot(calCell, 0, 0, 'dot-tap');
-            } else {
-              this.state.activePillar = 'stack';
-              this.state.isStackCardFlipped = false;
-              this._stackFlipDeg = 0;
-              this.renderAll();
-              this.positionTourPageDot(this.els.stackCard3D, 0, -12, 'dot-swipe-bi');
             }
-          }, 1750);
+            const calCell =
+              (this.els.calendarMonthsContainer &&
+                this.els.calendarMonthsContainer.querySelector('.cal-day-btn.is-selected')) ||
+              (this.els.calendarMonthsContainer &&
+                this.els.calendarMonthsContainer.querySelector('.cal-day-btn.is-today')) ||
+              this.els.calendarMonthsContainer;
+            const calBox = this.getElementBoxInTourOverlay(calCell);
+            if (calBox) {
+              const calSubT = (t - 0.50) / 0.50;
+              const fade = 0.08 + 0.92 * Math.pow(Math.sin(calSubT * Math.PI), 1.15);
+              const scale = 0.88 + 0.16 * Math.sin(calSubT * Math.PI);
+              this.setTourDotState(this.els.tourPageDot, calBox.x, calBox.y, fade, scale, true);
+            }
+            this.setTourDotState(this.els.tourPageDot2, null, null, 0);
+          }
         },
       },
     ];
@@ -3884,41 +4345,20 @@ export class FableFlowApp {
       clearInterval(this._tourDemoTimer);
       this._tourDemoTimer = null;
     }
-  }
-
-  positionTourPageDot(targetEl, offsetX = 0, offsetY = 0, gesture = 'dot-tap') {
-    const dot = this.els.tourPageDot;
-    const overlay = this.els.onboardingOverlay;
-    if (!dot || !overlay) return;
-
-    const gestureClass = gesture || 'dot-tap';
-    this._currentTourDotTarget = {
-      getEl: () => targetEl,
-      offsetX,
-      offsetY,
-      gesture: gestureClass,
-    };
-
-    if (!targetEl) {
-      dot.style.opacity = '0';
-      return;
+    if (this._tourRafId) {
+      cancelAnimationFrame(this._tourRafId);
+      this._tourRafId = null;
     }
-
-    const rect = targetEl.getBoundingClientRect();
-    const overlayRect = overlay.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) {
-      dot.style.opacity = '0';
-      return;
+    if (this.els.card3DWrapper) {
+      this.els.card3DWrapper.style.transition = '';
     }
-
-    const x = rect.left - overlayRect.left + rect.width * 0.5 + offsetX;
-    const y = rect.top - overlayRect.top + rect.height * 0.5 + offsetY;
-
-    dot.className = `tour-page-dot ${gestureClass}`;
-    dot.dataset.gesture = gestureClass;
-    dot.style.left = `${x.toFixed(1)}px`;
-    dot.style.top = `${y.toFixed(1)}px`;
-    dot.style.opacity = '1';
+    const centerPerspective =
+      this.els.stackCarouselStage &&
+      this.els.stackCarouselStage.querySelector('.stack-center-perspective');
+    if (centerPerspective) {
+      centerPerspective.style.transition = '';
+      centerPerspective.style.transform = '';
+    }
   }
 
   startGuidedTour(startStep = 0) {
@@ -3958,34 +4398,25 @@ export class FableFlowApp {
         clampedIdx === steps.length - 1 ? 'Done' : 'Next';
     }
 
-    requestAnimationFrame(() => {
-      if (step.getDotTarget) {
-        const info = step.getDotTarget();
-        if (info && info.el) {
-          this.positionTourPageDot(
-            info.el,
-            info.offsetX || 0,
-            info.offsetY || 0,
-            step.dotGesture || 'dot-tap'
-          );
-        } else {
-          this.positionTourPageDot(null);
-        }
+    const stepStartTime = performance.now();
+    const tick = (now) => {
+      if (!this._isGuidedTourActive || this._guidedTourStep !== clampedIdx) return;
+      const elapsedMs = Math.max(0, now - stepStartTime);
+      if (step.animateFrame) {
+        step.animateFrame(elapsedMs);
       }
-      if (step.startDemoLoop) {
-        step.startDemoLoop();
-      }
-    });
+      this._tourRafId = requestAnimationFrame(tick);
+    };
+    this._tourRafId = requestAnimationFrame(tick);
   }
 
   finishGuidedTour() {
     this.stopTourDemoLoop();
-    this._currentTourDotTarget = null;
+    this.restoreTourDemoArchiveCards();
     const vp = document.getElementById('app-viewport');
     if (vp) vp.classList.remove('tour-active');
-    if (this.els.tourPageDot) {
-      this.els.tourPageDot.style.opacity = '0';
-    }
+    this.setTourDotState(this.els.tourPageDot, null, null, 0);
+    this.setTourDotState(this.els.tourPageDot2, null, null, 0);
     if (this.els.onboardingOverlay) {
       this.els.onboardingOverlay.classList.add('hidden');
     }
