@@ -1477,7 +1477,7 @@ html, body {
   position: absolute;
   top: 56px;
   right: 22px;
-  width: 168px;
+  width: 186px;
   background: #FAF9F5;
   border: 1.5px solid #141414;
   border-radius: 12px;
@@ -1566,4 +1566,145 @@ html, body {
   background: #111111;
   color: #FFFFFF;
   border-color: #111111;
+}
+
+/* =========================================================================
+   STACK CAROUSEL SCROLLING MOTION & BOUNDARY BOUNCE ANIMATIONS
+   ========================================================================= */
+
+@keyframes stackSlideFromRight {
+  0% {
+    transform: translateX(88px) scale(0.95);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateX(0px) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes stackSlideFromLeft {
+  0% {
+    transform: translateX(-88px) scale(0.95);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateX(0px) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes stackBounceLeftEdge {
+  0% { transform: translateX(0px); }
+  38% { transform: translateX(26px); }
+  100% { transform: translateX(0px); }
+}
+
+@keyframes stackBounceRightEdge {
+  0% { transform: translateX(0px); }
+  38% { transform: translateX(-26px); }
+  100% { transform: translateX(0px); }
+}
+
+.stack-center-perspective.anim-slide-next {
+  animation: stackSlideFromRight 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.stack-center-perspective.anim-slide-prev {
+  animation: stackSlideFromLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.stack-center-perspective.anim-bounce-prev {
+  animation: stackBounceLeftEdge 0.26s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.stack-center-perspective.anim-bounce-next {
+  animation: stackBounceRightEdge 0.26s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* =========================================================================
+   MINIMALIST FIRST-TIME ONBOARDING TUTORIAL OVERLAY
+   ========================================================================= */
+
+.onboarding-overlay {
+  background: rgba(18, 18, 16, 0.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 95;
+}
+
+.onboarding-card {
+  width: 326px;
+  background: #FFFFFF;
+  border: 1.8px solid #121212;
+  border-radius: 16px;
+  padding: 24px 22px 20px;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.onboarding-brand {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #111111;
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #EAE8E1;
+}
+
+.onboarding-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.onboarding-step {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: start;
+  gap: 8px;
+}
+
+.onboarding-step-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8E8D88;
+  font-variant-numeric: tabular-nums;
+  padding-top: 1px;
+}
+
+.onboarding-step-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #111111;
+  margin-bottom: 2px;
+}
+
+.onboarding-step-desc {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #5E5D58;
+}
+
+.onboarding-begin-btn {
+  margin-top: 4px;
+  width: 100%;
+  border: 1.5px solid #111111;
+  background: #111111;
+  color: #FFFFFF;
+  border-radius: 10px;
+  padding: 10px 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.onboarding-begin-btn:hover {
+  opacity: 0.88;
 }

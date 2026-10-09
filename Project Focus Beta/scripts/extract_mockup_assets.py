@@ -381,11 +381,9 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
     Transforms the studio-lit heirloom tomato into a mirror-polished, high-gloss
     Silver Metallic tomato with:
     1. 100% natural, studio-anti-aliased outer edges (zero halo, zero dark rim ring,
-       zero shadow speckles) by computing sub-pixel foreground opacity alpha(x, y)
-       relative to local interior redness and compositing over local neutral background.
-    2. Ultra-smooth, even 3D metallic cheeks & belly (via C-infinity paraboloid-dome
-       normals + multi-pass seam-aware smoothing) while preserving 100% crisp 3D
-       stem and calyx leaves via a smooth 2D elliptical crown mask.
+       zero shadow speckles) using Green-channel absorption alpha_G across all 360 degrees.
+    2. True 3D ellipsoid studio key-light + right-side form shadow + bottom tabletop
+       contact occlusion (matching grid-tomato-0 & hero-tomato-0) with zero stem-bleed smudge.
     3. One luminous, high-gloss studio softbox highlight on the upper-left cheek.
     """
     out = bytearray(src_rgb)
@@ -412,74 +410,85 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
     cx = 0.5 * (min_x + max_x)
     rx = max(1.0, 0.5 * (max_x - min_x))
     span_y = max(1.0, float(max_y - min_y))
-    cy_body = min_y + 0.545 * span_y
-    ry_body = max(1.0, 0.455 * span_y)
+    cy_body = min_y + 0.535 * span_y
+    ry_body = max(1.0, 0.465 * span_y)
 
     alpha_grid = [[0.0] * w for _ in range(h)]
     bg_rgb_grid = [[None] * w for _ in range(h)]
     u_raw = [[None] * w for _ in range(h)]
 
     for y in range(h):
-        y0 = max(0, y - 4)
-        y1 = min(h - 1, y + 4)
+        y0 = max(0, y - 5)
+        y1 = min(h - 1, y + 5)
         for x in range(w):
+            i = (y * w + x) * 3
+            r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
             rg = rg_grid[y][x]
-            if rg <= 4.5:
+            if rg <= 4.5 and g >= 115:
                 continue
-            x0 = max(0, x - 4)
-            x1 = min(w - 1, x + 4)
-            loc_max = rg
+
+            x0 = max(0, x - 5)
+            x1 = min(w - 1, x + 5)
+            loc_max_rg = rg
+            min_in_g = float(g)
             bg_r, bg_g, bg_b, bg_cnt = 0.0, 0.0, 0.0, 0
             best_outside_g = -1.0
             best_outside_rgb = None
+
             for ny in range(y0, y1 + 1):
                 row_rg = rg_grid[ny]
                 for nx in range(x0, x1 + 1):
                     v_rg = row_rg[nx]
-                    if v_rg > loc_max:
-                        loc_max = v_rg
+                    if v_rg > loc_max_rg:
+                        loc_max_rg = v_rg
                     ni = (ny * w + nx) * 3
                     nr_p, ng_p, nb_p = src_rgb[ni], src_rgb[ni + 1], src_rgb[ni + 2]
-                    if v_rg <= 5.5:
+                    if v_rg >= 16.0 and ng_p < min_in_g:
+                        min_in_g = float(ng_p)
+                    if v_rg <= 5.5 and ng_p >= 120:
                         bg_r += nr_p
                         bg_g += ng_p
                         bg_b += nb_p
                         bg_cnt += 1
-                    if v_rg <= 11.0 and ng_p > best_outside_g:
+                    if v_rg <= 10.0 and ng_p > best_outside_g:
                         best_outside_g = float(ng_p)
                         lum_out = 0.32 * nr_p + 0.43 * ng_p + 0.25 * nb_p
                         best_outside_rgb = (lum_out, lum_out, lum_out * 0.98)
-            if loc_max < 18.0:
+
+            if loc_max_rg < 18.0:
                 continue
 
-            hi_rg = max(18.0, 0.78 * loc_max)
-            alpha = min(1.0, max(0.0, (rg - 4.5) / (hi_rg - 4.5)))
+            if bg_cnt > 0:
+                cur_bg = (bg_r / bg_cnt, bg_g / bg_cnt, bg_b / bg_cnt)
+            elif best_outside_rgb is not None and best_outside_g >= 115:
+                cur_bg = best_outside_rgb
+            else:
+                cur_bg = (231.0, 232.0, 226.0)
+                alpha_grid[y][x] = 1.0
+                bg_rgb_grid[y][x] = cur_bg
+                is_pointer = is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 135 and g > 95)
+                if not is_pointer:
+                    u_raw[y][x] = max(0.0, min(1.0, ((r / 255.0) - 0.08) / 0.48))
+                continue
+
+            bg_rgb_grid[y][x] = cur_bg
+            denom_g = max(25.0, cur_bg[1] - (min_in_g + 4.0))
+            alpha_g = min(1.0, max(0.0, (cur_bg[1] - g) / denom_g))
+            hi_rg = max(18.0, 0.80 * loc_max_rg)
+            alpha_rg = min(1.0, max(0.0, (rg - 4.5) / (hi_rg - 4.5)))
+            alpha = max(alpha_g, alpha_rg)
             alpha_grid[y][x] = alpha
 
-            i = (y * w + x) * 3
-            r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
-            if bg_cnt > 0:
-                bg_rgb_grid[y][x] = (bg_r / bg_cnt, bg_g / bg_cnt, bg_b / bg_cnt)
-            elif best_outside_rgb is not None:
-                bg_rgb_grid[y][x] = best_outside_rgb
-            else:
-                neutral = 0.5 * (g + b) + 0.45 * max(0.0, r - 0.5 * (g + b))
-                bg_rgb_grid[y][x] = (neutral, neutral, neutral)
-
             is_pointer = is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 135 and g > 95)
-            if alpha >= 0.72 and not is_pointer:
-                rf, gf = r / 255.0, g / 255.0
-                illum = 0.68 * rf + 0.32 * gf
-                u_raw[y][x] = max(0.0, min(1.0, (illum - 0.08) / 0.46))
+            if alpha >= 0.75 and not is_pointer:
+                u_raw[y][x] = max(0.0, min(1.0, ((r / 255.0) - 0.08) / 0.48))
 
-    # Extrapolate u_raw 5 pixels outward into the anti-aliased rim (0 < alpha < 0.72) and pointer box
-    for _ in range(6):
+    for _ in range(5):
         nxt_u = [row[:] for row in u_raw]
         for y in range(1, h - 1):
             for x in range(1, w - 1):
-                if u_raw[y][x] is None and (alpha_grid[y][x] > 0.0 or (is_hero and 312 <= x <= 350 and 296 <= y <= 338)):
-                    acc = 0.0
-                    cnt = 0
+                if u_raw[y][x] is None and alpha_grid[y][x] > 0.0:
+                    acc, cnt = 0.0, 0
                     for dy in (-1, 0, 1):
                         for dx in (-1, 0, 1):
                             un = u_raw[y + dy][x + dx]
@@ -490,7 +499,6 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
                         nxt_u[y][x] = acc / cnt
         u_raw = nxt_u
 
-    # 3-pass edge-preserving bilateral filter (eliminates fine clay grain while keeping 3D stem & calyx ridges razor-sharp)
     u_crisp = [row[:] for row in u_raw]
     for _ in range(3):
         nxt_c = [row[:] for row in u_crisp]
@@ -499,82 +507,26 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
                 u0 = u_crisp[y][x]
                 if u0 is None:
                     continue
-                acc = 0.0
-                wsum = 0.0
+                acc, wsum = 0.0, 0.0
                 for dy in (-2, -1, 0, 1, 2):
                     for dx in (-2, -1, 0, 1, 2):
                         un = u_crisp[y + dy][x + dx]
                         if un is not None:
                             diff = abs(un - u0)
-                            w_range = math.exp(-((diff / 0.055) ** 2))
-                            w_space = math.exp(-(dx * dx + dy * dy) / 3.5)
-                            wt = w_range * w_space
+                            wt = math.exp(-((diff / 0.06) ** 2)) * math.exp(-(dx * dx + dy * dy) / 3.5)
                             acc += wt * un
                             wsum += wt
                 if wsum > 0:
                     nxt_c[y][x] = acc / wsum
         u_crisp = nxt_c
 
-    # Multi-pass seam-aware smoothing across the entire tomato (eliminates uneven clay lumps, zero crown seam step)
-    u_smooth = [row[:] for row in u_crisp]
-    num_passes = 10 if is_hero else 7
-    for p_idx in range(num_passes):
-        nxt = [row[:] for row in u_smooth]
-        step = 3 if (p_idx < num_passes - 2) else 1
-        for y in range(4, h - 4):
-            for x in range(4, w - 4):
-                u0 = u_smooth[y][x]
-                if u0 is None:
-                    continue
-                if is_hero:
-                    seam_y_here = fit_seam_y(x + 54) - 536.0
-                    if abs(y - seam_y_here) <= 3.5:
-                        continue
-                    above_seam = y < seam_y_here
-                acc = 0.0
-                wsum = 0.0
-                for dy in (-2 * step, -step, 0, step, 2 * step):
-                    ny_p = y + dy
-                    if ny_p < 2 or ny_p >= h - 2:
-                        continue
-                    for dx in (-2 * step, -step, 0, step, 2 * step):
-                        nx_p = x + dx
-                        if nx_p < 2 or nx_p >= w - 2:
-                            continue
-                        un = u_smooth[ny_p][nx_p]
-                        if un is None:
-                            continue
-                        if is_hero:
-                            seam_y_n = fit_seam_y(nx_p + 54) - 536.0
-                            if (ny_p < seam_y_n) != above_seam or abs(ny_p - seam_y_n) <= 3.0:
-                                continue
-                        wt = 2.0 if (dx == 0 and dy == 0) else 1.0
-                        acc += wt * un
-                        wsum += wt
-                if wsum > 0:
-                    nxt[y][x] = acc / wsum
-        u_smooth = nxt
-
     for y in range(h):
         for x in range(w):
             i = (y * w + x) * 3
             r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
 
-            # Preserve the center pointer triangle (▲) on Hero silver tomato as a crisp dark-anthracite etched mark
-            if is_hero and (314 <= x <= 348) and (298 <= y <= 336):
-                if r > 135 and g > 95:
-                    whiteness = min(1.0, max(0.0, (g - 85.0) / 135.0))
-                    u = u_smooth[y][x] if u_smooth[y][x] is not None else 0.56
-                    silver_bg = (0.30 + 0.52 * u) * 255.0
-                    anthracite = 32.0
-                    val = (1.0 - whiteness) * silver_bg + whiteness * anthracite
-                    out[i] = max(0, min(255, int(round(val * 0.968))))
-                    out[i + 1] = max(0, min(255, int(round(val * 0.986))))
-                    out[i + 2] = max(0, min(255, int(round(val * 1.024))))
-                    continue
-
             alpha = alpha_grid[y][x]
-            if alpha <= 0.0 or u_smooth[y][x] is None:
+            if alpha <= 0.0 and not (is_hero and 314 <= x <= 348 and 298 <= y <= 336):
                 continue
 
             nx = (x - cx) / rx
@@ -582,51 +534,78 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
             bx = nx
             by = (y - cy_body) / ry_body
 
-            # C-infinity smooth paraboloid-dome normal (never clamps at r=1, zero bottom-right crescent ridge)
-            inv_norm = 1.0 / math.sqrt(1.0 + 0.85 * (bx * bx + by * by))
-            nnx = -0.92 * bx * inv_norm
-            nny = -0.92 * by * inv_norm
-            nnz = 1.0 * inv_norm
+            r2 = bx * bx + by * by
+            rho2 = r2 / (1.0 + 0.32 * r2 * r2)
+            nnz = math.sqrt(max(0.06, 1.0 - min(0.94, 0.88 * rho2)))
+            scale_xy = math.sqrt(max(0.0, 1.0 - nnz * nnz) / max(1e-6, r2))
+            nnx = bx * scale_xy
+            nny = by * scale_xy
 
-            n_dot_key = max(0.0, -0.46 * nnx - 0.42 * nny + 0.782 * nnz)
-            n_dot_fill = max(0.0, 0.35 * nnx + 0.30 * nny + 0.45 * nnz)
-            u_analytic = max(0.08, min(0.98, 0.16 + 0.72 * (n_dot_key ** 0.90) + 0.08 * (n_dot_fill ** 1.35)))
+            n_dot_key = max(0.0, -0.48 * nnx - 0.46 * nny + 0.747 * nnz)
+            sky_fill = max(0.0, 0.50 - 0.22 * nnx - 0.28 * nny + 0.25 * nnz)
 
-            # Smooth 2D elliptical crown mask around the stem & calyx leaves (zero horizontal line)
-            d_calyx = math.sqrt((nx / 0.62) ** 2 + ((ny_top - 0.135) / 0.175) ** 2)
-            if d_calyx <= 0.82:
+            contact_ao = 1.0
+            if by > 0.42:
+                t_ao = min(1.0, (by - 0.42) / 0.58)
+                contact_ao = 1.0 - 0.58 * (t_ao ** 1.85)
+            if by > 0.68 and u_crisp[y][x] is not None:
+                t_rim = min(1.0, (by - 0.68) / 0.28)
+                real_dark = max(0.26, min(1.0, u_crisp[y][x] * 2.2))
+                contact_ao *= (1.0 - t_rim) + t_rim * real_dark
+
+            right_shadow = 1.0
+            if bx > 0.25:
+                t_rs = min(1.0, (bx - 0.25) / 0.75)
+                right_shadow = 1.0 - 0.22 * (t_rs ** 1.4)
+
+            u_analytic = (0.18 + 0.66 * (n_dot_key ** 0.88) + 0.14 * sky_fill) * contact_ao * right_shadow
+            u_analytic = max(0.08, min(0.96, u_analytic))
+
+            d_calyx = math.sqrt((nx / 0.58) ** 2 + ((ny_top - 0.125) / 0.145) ** 2)
+            if d_calyx <= 0.76:
                 w_calyx = 1.0
-            elif d_calyx >= 1.36:
+            elif d_calyx >= 1.18:
                 w_calyx = 0.0
             else:
-                w_calyx = 0.5 * (1.0 + math.cos(math.pi * (d_calyx - 0.82) / (1.36 - 0.82)))
+                w_calyx = 0.5 * (1.0 + math.cos(math.pi * (d_calyx - 0.76) / (1.18 - 0.76)))
 
             seam_darken = 1.0
             if is_hero:
                 seam_y_here = fit_seam_y(x + 54) - 536.0
                 dy_seam = y - seam_y_here
                 if -4.5 <= dy_seam <= 6.5:
-                    u_seam = u_crisp[y][x] if u_crisp[y][x] is not None else u_smooth[y][x]
-                    seam_t = math.exp(-((dy_seam - 0.8) / 2.6) ** 2)
-                    seam_darken = 1.0 - 0.68 * seam_t * (1.0 - min(1.0, u_seam * 1.3))
+                    u_seam = u_crisp[y][x] if u_crisp[y][x] is not None else 0.2
+                    seam_t = math.exp(-((dy_seam - 0.8) / 2.5) ** 2)
+                    seam_darken = 1.0 - 0.70 * seam_t * (1.0 - min(1.0, u_seam * 1.25))
 
-            u_calyx_val = 0.80 * u_crisp[y][x] + 0.20 * u_analytic
-            u_body_val = (0.32 * u_smooth[y][x] + 0.68 * u_analytic) * seam_darken
+            u_c = u_crisp[y][x] if u_crisp[y][x] is not None else u_analytic
+            u_calyx_val = 0.68 * (0.12 + 0.88 * (u_c ** 0.85)) + 0.32 * u_analytic
+            u_body_val = u_analytic * seam_darken
             u_blend = w_calyx * u_calyx_val + (1.0 - w_calyx) * u_body_val
 
             s_curve = u_blend * u_blend * (3.0 - 2.0 * u_blend)
-            base_metal = 0.15 + 0.72 * (0.38 * u_blend + 0.62 * s_curve)
+            base_metal = (0.12 + 0.76 * (0.42 * u_blend + 0.58 * s_curve))
 
-            # One luminous studio softbox specular highlight on the upper-left cheek
-            dx1 = bx - (-0.32)
-            dy1 = by - (-0.28)
+            dx1 = bx - (-0.30)
+            dy1 = by - (-0.25)
             rot_u = 0.80 * dx1 + 0.60 * dy1
             rot_v = -0.60 * dx1 + 0.80 * dy1
-            spec_mask = (1.0 - 0.82 * w_calyx) * seam_darken
-            spec_glow = 0.24 * math.exp(-0.5 * ((rot_u / 0.32) ** 2 + (rot_v / 0.19) ** 2)) * spec_mask
-            spec_core = 0.19 * math.exp(-0.5 * ((rot_u / 0.14) ** 2 + (rot_v / 0.08) ** 2)) * spec_mask
+            spec_mask = (1.0 - 0.85 * w_calyx) * seam_darken * contact_ao
+            spec_glow = 0.20 * math.exp(-0.5 * ((rot_u / 0.36) ** 2 + (rot_v / 0.22) ** 2)) * spec_mask
+            spec_core = 0.16 * math.exp(-0.5 * ((rot_u / 0.15) ** 2 + (rot_v / 0.09) ** 2)) * spec_mask
 
-            metal_v = max(0.10, min(0.996, base_metal + spec_glow + spec_core))
+            metal_v = max(0.08, min(0.992, base_metal + spec_glow + spec_core))
+
+            if is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 130 and g > 75):
+                whiteness = min(1.0, max(0.0, (g - 75.0) / 140.0))
+                silver_bg = metal_v * 255.0
+                anthracite = 36.0
+                val = (1.0 - whiteness) * silver_bg + whiteness * anthracite
+                out[i] = max(0, min(255, int(round(val * 0.972))))
+                out[i + 1] = max(0, min(255, int(round(val * 0.988))))
+                out[i + 2] = max(0, min(255, int(round(val * 1.022))))
+                continue
+
             hi = max(0.0, min(1.0, (metal_v - 0.72) / 0.27))
             mr = metal_v * (0.968 + 0.030 * hi) * 255.0
             mg = metal_v * (0.986 + 0.013 * hi) * 255.0

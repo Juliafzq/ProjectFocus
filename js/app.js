@@ -20,10 +20,10 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v14';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v14';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v14';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v14';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v17';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v17';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v17';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v17';
 
 const STORAGE_KEY = 'fable_flow_phase2_mvp_v2';
 const NUM_GRID_SLOTS = 6;
@@ -58,6 +58,7 @@ export class FableFlowApp {
     this.bindGlobalEvents();
     this.startWallClockTicker();
     this.renderAll();
+    this.initFirstTimeOnboarding();
   }
 
   getCurrentLogicalDateString(resetHour = 5) {
@@ -252,6 +253,8 @@ export class FableFlowApp {
       cardShortDate: '06 OCT',
       dailyResetHour: 5,
       isSilentMode: false,
+      hasCompletedOnboarding: false,
+      seenPageHints: {},
       lastRolloverLogicalDate: this.getCurrentLogicalDateString(5),
       reflectionText: DEFAULT_REFLECTION_OCT_06,
       reflectionPhotos: [
@@ -388,6 +391,10 @@ export class FableFlowApp {
             parsed.dailyResetHour = 5;
           }
           parsed.isSilentMode = Boolean(parsed.isSilentMode);
+          parsed.hasCompletedOnboarding = Boolean(parsed.hasCompletedOnboarding);
+          if (!parsed.seenPageHints || typeof parsed.seenPageHints !== 'object') {
+            parsed.seenPageHints = {};
+          }
           if (!parsed.lastRolloverLogicalDate) {
             parsed.lastRolloverLogicalDate = this.getCurrentLogicalDateString(
               parsed.dailyResetHour
@@ -551,6 +558,9 @@ export class FableFlowApp {
       profileAudioStateLabel: document.getElementById('profile-audio-state-label'),
       profileSimulate5amBtn: document.getElementById('profile-simulate-5am-btn'),
       profileModalClose: document.getElementById('profile-modal-close'),
+
+      onboardingOverlay: document.getElementById('onboarding-overlay'),
+      onboardingDismissBtn: document.getElementById('onboarding-dismiss-btn'),
     };
   }
 
@@ -1308,6 +1318,7 @@ export class FableFlowApp {
     this.sensory.playCardFlipSwoosh();
     this.saveState();
     this.renderCardScreen();
+    this.checkFirstTimePageHint();
   }
 
   triggerStackCardFlip(direction = -1) {
@@ -1317,6 +1328,7 @@ export class FableFlowApp {
     this.sensory.playCardFlipSwoosh();
     this.saveState();
     this.renderStackScreen();
+    this.checkFirstTimePageHint();
   }
 
   // =========================================================================
@@ -1336,7 +1348,53 @@ export class FableFlowApp {
     return this.state.archiveCards[this.state.selectedStackDateKey] || null;
   }
 
-  selectStackDate(dateKey) {
+  animateStackCardScroll(direction = 1) {
+    if (!this.els.stackCarouselStage) return;
+    const centerPerspective = this.els.stackCarouselStage.querySelector(
+      '.stack-center-perspective'
+    );
+    if (!centerPerspective) return;
+
+    centerPerspective.classList.remove(
+      'anim-slide-next',
+      'anim-slide-prev',
+      'anim-bounce-next',
+      'anim-bounce-prev'
+    );
+    // Force reflow so rapid consecutive scrolls re-trigger the sliding motion
+    void centerPerspective.offsetWidth;
+    centerPerspective.classList.add(
+      direction >= 0 ? 'anim-slide-next' : 'anim-slide-prev'
+    );
+
+    if (this.els.stackDateStrip) {
+      const activePill = this.els.stackDateStrip.querySelector('.stack-date-pill.active');
+      if (activePill && typeof activePill.scrollIntoView === 'function') {
+        activePill.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+  }
+
+  animateStackBoundaryBounce(direction = 1) {
+    if (!this.els.stackCarouselStage) return;
+    const centerPerspective = this.els.stackCarouselStage.querySelector(
+      '.stack-center-perspective'
+    );
+    if (!centerPerspective) return;
+
+    centerPerspective.classList.remove(
+      'anim-slide-next',
+      'anim-slide-prev',
+      'anim-bounce-next',
+      'anim-bounce-prev'
+    );
+    void centerPerspective.offsetWidth;
+    centerPerspective.classList.add(
+      direction >= 0 ? 'anim-bounce-next' : 'anim-bounce-prev'
+    );
+  }
+
+  selectStackDate(dateKey, explicitDirection = null) {
     if (dateKey === this.state.cardDateKey) {
       this.sensory.playStackRiffleTick();
       this.state.activePillar = 'card';
@@ -1350,12 +1408,25 @@ export class FableFlowApp {
     if (this.state.selectedStackDateKey === dateKey && this.state.activePillar === 'stack') {
       return;
     }
+    const prevKey = this.state.selectedStackDateKey || '';
+    const dir =
+      explicitDirection !== null
+        ? explicitDirection
+        : dateKey > prevKey
+        ? 1
+        : -1;
+    const wasOnStack = this.state.activePillar === 'stack';
+
     this.state.selectedStackDateKey = dateKey;
     this.state.isStackCardFlipped = false;
     this._stackFlipDeg = 0;
     this.sensory.playStackRiffleTick();
     this.saveState();
     this.renderAll();
+
+    if (wasOnStack) {
+      this.animateStackCardScroll(dir);
+    }
   }
 
   stepStackCard(direction) {
@@ -1364,7 +1435,9 @@ export class FableFlowApp {
     const idx = keys.indexOf(this.state.selectedStackDateKey);
     const nextIdx = Math.max(0, Math.min(keys.length - 1, idx + direction));
     if (nextIdx !== idx) {
-      this.selectStackDate(keys[nextIdx]);
+      this.selectStackDate(keys[nextIdx], direction);
+    } else {
+      this.animateStackBoundaryBounce(direction);
     }
   }
 
@@ -2306,6 +2379,8 @@ export class FableFlowApp {
     } else if (isCalendar) {
       this.renderCalendarScreen();
     }
+
+    this.checkFirstTimePageHint();
   }
 
   /**
@@ -3676,14 +3751,86 @@ export class FableFlowApp {
     this.els.modalInput.addEventListener('input', onInput);
   }
 
-  showTelemetryToast(msg) {
+  initFirstTimeOnboarding() {
+    if (!this.els.onboardingOverlay) return;
+    const dismiss = () => {
+      this.els.onboardingOverlay.classList.add('hidden');
+      this.state.hasCompletedOnboarding = true;
+      this.saveState();
+      this.checkFirstTimePageHint();
+    };
+    if (this.els.onboardingDismissBtn) {
+      this.els.onboardingDismissBtn.addEventListener('click', dismiss);
+    }
+    this.els.onboardingOverlay.addEventListener('click', (e) => {
+      if (e.target === this.els.onboardingOverlay) {
+        dismiss();
+      }
+    });
+    if (!this.state.hasCompletedOnboarding) {
+      this.els.onboardingOverlay.classList.remove('hidden');
+    } else {
+      this.checkFirstTimePageHint();
+    }
+  }
+
+  checkFirstTimePageHint() {
+    if (!this.state.hasCompletedOnboarding) return;
+    if (!this.state.seenPageHints || typeof this.state.seenPageHints !== 'object') {
+      this.state.seenPageHints = {};
+    }
+
+    const pillar = this.state.activePillar;
+    let pageKey = null;
+    let hintText = null;
+
+    if (pillar === 'home') {
+      pageKey = 'home';
+      hintText = 'Tap the card to plan today, or click on the tomato to start a timer';
+    } else if (pillar === 'card') {
+      if (!this.state.isCardFlipped) {
+        pageKey = 'card_front';
+        hintText = 'Swipe on text to cross out the item · Swipe edge to flip to journal page';
+      } else {
+        pageKey = 'card_back';
+        hintText = 'Journal page: write evening reflections or tap to attach photos';
+      }
+    } else if (pillar === 'timer') {
+      if (this.state.timerSubMode === 'grid') {
+        pageKey = 'timer_grid';
+        hintText = 'Click on a tomato to start a timer · Tap title text to edit';
+      } else {
+        pageKey = 'timer_hero';
+        hintText = 'Drag the tomato dial or tap the digits to set duration';
+      }
+    } else if (pillar === 'stack') {
+      if (!this.state.isStackCardFlipped) {
+        pageKey = 'stack_front';
+        hintText = 'Drag left or right (or scroll) to move through archived cards';
+      } else {
+        pageKey = 'stack_back';
+        hintText = 'Archived journal page: tap text or photos to edit retroactively';
+      }
+    } else if (pillar === 'calendar') {
+      pageKey = 'calendar';
+      hintText = 'Tap any highlighted date to open that day’s card';
+    }
+
+    if (pageKey && hintText && !this.state.seenPageHints[pageKey]) {
+      this.state.seenPageHints[pageKey] = true;
+      this.saveState();
+      this.showTelemetryToast(hintText, 2800);
+    }
+  }
+
+  showTelemetryToast(msg, durationMs = 1900) {
     if (!this.els.toastPill) return;
     this.els.toastPill.textContent = msg;
     this.els.toastPill.classList.add('visible');
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => {
       this.els.toastPill.classList.remove('visible');
-    }, 1800);
+    }, durationMs);
   }
 
   showNotificationBanner(msg) {

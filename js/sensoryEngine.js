@@ -218,70 +218,17 @@ export class SensoryEngine {
   }
 
   /**
-   * 300gsm cardstock flip whoosh + subtle tabletop settle snap.
+   * Card flip / drag handler (kept silent per user preference — no whoop/swoosh audio).
    */
   playCardFlipSwoosh() {
-    this._triggerHaptic('Haptic: 180° Card Flip', 15);
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-
-    const now = ctx.currentTime;
-    const duration = 0.22;
-    const bufferSize = Math.floor(ctx.sampleRate * duration);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-
-    for (let i = 0; i < bufferSize; i++) {
-      const env = Math.sin((i / bufferSize) * Math.PI);
-      data[i] = (Math.random() * 2 - 1) * env * 0.18;
-    }
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(900, now);
-    filter.frequency.exponentialRampToValueAtTime(280, now + duration);
-
-    noise.connect(filter);
-    filter.connect(ctx.destination);
-    noise.start(now);
+    // Intentionally silent: user requested removing the whoop sound when flipping or dragging cards.
   }
 
   /**
-   * Crisp cardstock riffle tick when scrolling or selecting dates in the Card Stack / Calendar.
+   * Card stack scroll/drag handler (kept silent per user preference — no whoop/swoosh audio when dragging cards).
    */
   playStackRiffleTick() {
-    this._triggerHaptic('Haptic: Card Stack Riffle Tick', 8);
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-
-    const now = ctx.currentTime;
-    const duration = 0.032;
-    const bufLen = Math.max(1, Math.floor(ctx.sampleRate * duration));
-    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-    const ch = buf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) {
-      ch[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.28)) * 0.24;
-    }
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buf;
-
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.setValueAtTime(1280, now);
-    bp.Q.setValueAtTime(2.1, now);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.26, now);
-    gain.gain.exponentialRampToValueAtTime(0.002, now + duration);
-
-    noise.connect(bp);
-    bp.connect(gain);
-    gain.connect(ctx.destination);
-    noise.start(now);
+    // Intentionally silent when dragging or scrolling cards.
   }
 
   /**

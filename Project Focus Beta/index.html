@@ -14,7 +14,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="css/style.css?v=20261009_v16" />
+  <link rel="stylesheet" href="css/style.css?v=20261009_v17" />
 </head>
 <body>
 
@@ -389,7 +389,7 @@
       </div>
     </div>
 
-    <!-- Minimal Profile Popover: Home, Reset Time, Sound On/Off -->
+    <!-- Minimal Profile Popover: Home, Daily Reset, Sound On/Off -->
     <div id="profile-modal-overlay" class="profile-popover-overlay hidden" role="dialog" aria-modal="true" aria-label="Profile Menu">
       <div class="profile-popover-card">
         <button type="button" id="profile-open-home-btn" class="profile-menu-row">
@@ -397,7 +397,7 @@
           <span class="profile-menu-val">↗</span>
         </button>
         <label class="profile-menu-row" for="profile-reset-time-select">
-          <span>Reset</span>
+          <span>Daily Reset</span>
           <select id="profile-reset-time-select" class="profile-reset-select" aria-label="Daily reset time">
             <option value="0">00:00</option>
             <option value="1">01:00</option>
@@ -432,8 +432,39 @@
       </div>
     </div>
 
+    <!-- Minimalist First-Time Onboarding Tutorial Modal -->
+    <div id="onboarding-overlay" class="modal-overlay onboarding-overlay hidden" role="dialog" aria-modal="true" aria-label="Welcome to Fable / Flow">
+      <div class="onboarding-card">
+        <div class="onboarding-brand">FABLE / FLOW</div>
+        <div class="onboarding-steps">
+          <div class="onboarding-step">
+            <span class="onboarding-step-num">01</span>
+            <div class="onboarding-step-body">
+              <div class="onboarding-step-title">Today’s Card</div>
+              <div class="onboarding-step-desc">Swipe across text to cross out an item. Swipe the card edge to flip to your journal page.</div>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <span class="onboarding-step-num">02</span>
+            <div class="onboarding-step-body">
+              <div class="onboarding-step-title">Pomodoro Tomato</div>
+              <div class="onboarding-step-desc">Click on a tomato to start a timer. Drag the dial or tap the digits to set duration.</div>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <span class="onboarding-step-num">03</span>
+            <div class="onboarding-step-body">
+              <div class="onboarding-step-title">Daily Stack</div>
+              <div class="onboarding-step-desc">Cards archive automatically at your Daily Reset time. Drag left or right to scroll the stack.</div>
+            </div>
+          </div>
+        </div>
+        <button type="button" id="onboarding-dismiss-btn" class="onboarding-begin-btn">Begin</button>
+      </div>
+    </div>
+
   </main>
 
-  <script type="module" src="js/app.js?v=20261009_v16"></script>
+  <script type="module" src="js/app.js?v=20261009_v17"></script>
 </body>
 </html>
