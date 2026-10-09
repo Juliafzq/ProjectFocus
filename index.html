@@ -3,25 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Fable / Flow — Project Focus Beta (Phase 1)</title>
+  <title>Fable / Flow — Project Focus (Phase 1 & Phase 2 MVP)</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="css/style.css?v=20261008_v11" />
+  <link rel="stylesheet" href="css/style.css?v=20261009_v12" />
 </head>
 <body>
 
   <!-- Mobile App Viewport Shell (Exact UI Mockups Aspect Ratio 768:1376) -->
   <main class="app-viewport" id="app-viewport">
 
-    <!-- Global Top Navigation Bar (Mockups 02, 03, 04) -->
+    <!-- Global Top Navigation Bar (Mockups 01..07) -->
     <header class="global-top-bar">
-      <div class="segmented-pill" role="tablist" aria-label="Workspace Pillar">
+      <!-- Centered Brand Title on Minimalist Homepage (Mockup 01-home-page.png) -->
+      <div id="home-brand-title" class="home-brand-title hidden" role="heading" aria-level="1">FABLE / FLOW</div>
+
+      <!-- Centered Card | Timer Segmented Pill on Card, Timer, Stack & Calendar Views (Mockups 02..07) -->
+      <div id="top-segmented-pill" class="segmented-pill" role="tablist" aria-label="Workspace Pillar">
         <button type="button" class="pill-segment-btn active" id="pill-card-btn" role="tab">Card</button>
         <button type="button" class="pill-segment-btn" id="pill-timer-btn" role="tab">Timer</button>
       </div>
 
-      <button type="button" class="profile-icon-btn" id="profile-btn" aria-label="Profile and Settings">
+      <button type="button" class="profile-icon-btn" id="profile-btn" aria-label="Profile and Settings" title="Profile, Foley Audio & Workspace Navigation">
         <svg width="29" height="29" viewBox="0 0 28 28" fill="none" aria-hidden="true">
           <circle cx="14" cy="9.2" r="4.6" stroke="currentColor" stroke-width="1.85" />
           <path d="M5.2 24.2C5.9 19.6 9.4 17.2 14 17.2C18.6 17.2 22.1 19.6 22.8 24.2" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" />
@@ -33,13 +37,36 @@
     <div id="notification-banner" class="notification-banner" role="status" aria-live="polite"></div>
 
     <!-- ===================================================================
-         SCREEN 1: FRONT OF TODAY'S CARD (Mockup 04-card-front.png)
+         SCREEN 0: MINIMALIST 2-OBJECT HOMEPAGE (Mockup 01-home-page.png)
+         =================================================================== -->
+    <section id="screen-home" class="screen-container home-screen hidden">
+      <div class="home-objects-stage">
+        <!-- Object 1: The Daily Mini-Card stamped '06 OCT' -->
+        <div id="home-mini-card" class="home-mini-card" role="button" tabindex="0" aria-label="Open Today's Index Card">
+          <div class="home-mini-card-inner">
+            <div id="home-mini-date" class="home-mini-date">06 OCT</div>
+          </div>
+        </div>
+
+        <!-- Object 2: Photorealistic 3D Heirloom Tomato Pomodoro Timer -->
+        <div id="home-tomato-btn" class="home-tomato-btn" role="button" tabindex="0" aria-label="Open Pomodoro Timer">
+          <img
+            src="assets/tomatoes/home-tomato.png?v=20261009_v12"
+            alt="3D Heirloom Tomato Pomodoro Timer"
+            class="home-tomato-img"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         SCREEN 1: TODAY'S DUAL-SIDED CARD (Front 04-card-front.png & Back 05-card-back.png)
          =================================================================== -->
     <section id="screen-card" class="screen-container">
       <div class="card-stage-perspective">
         <div id="daily-card-3d" class="daily-card-3d">
 
-          <!-- Front Face of Today's Card -->
+          <!-- Front Face of Today's Card (Clean White To-Do Card — Mockup 04-card-front.png) -->
           <div class="card-face card-face-front">
             <div class="card-header-bar">
               <h1 id="card-date-header" class="card-date-title">TUESDAY — OCT 06</h1>
@@ -51,25 +78,24 @@
             </div>
           </div>
 
-          <!-- Back Face Preview (Triggered by Right->Left Flip Gesture or Center Flip Button) -->
+          <!-- Back Face of Today's Card (Matte Black Evening Reflection Journal — Mockup 05-card-back.png) -->
           <div class="card-face card-face-back">
-            <div>
-              <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #8A8881; margin-bottom: 8px;">
-                BACK OF TODAY’S CARD (180° FLIP VERIFIED)
-              </div>
-              <h2 style="font-size: 24px; font-weight: 800; color: #111111; margin-bottom: 14px;">
-                TUESDAY — OCT 06
-              </h2>
-              <p style="font-size: 15.5px; line-height: 1.55; color: #4A4945;">
-                You triggered the <strong>180° Card Flip</strong> (<code style="background:#EAE8E1;padding:2px 6px;border-radius:4px;">Right → Left Δx &lt; -40 px</code> or Center Flip button).
-              </p>
-              <p style="font-size: 15px; line-height: 1.55; color: #6E6D68; margin-top: 12px;">
-                Full freeform reflection canvas, Polaroid photo frame, and movable sticker drawer unlock in <strong>Phase 2</strong>.
-              </p>
+            <div class="card-back-header-bar">
+              <h2 id="card-back-date-header" class="card-back-date-title">TUESDAY — OCT 06</h2>
             </div>
-            <button type="button" id="card-back-return-btn" class="modal-btn modal-btn-primary" style="width: 100%; padding: 12px;">
-              Flip Back to Card Front (Tasks)
-            </button>
+
+            <div class="card-back-body">
+              <textarea
+                id="card-back-reflection"
+                class="card-back-reflection-editor"
+                placeholder="Write your evening reflection..."
+                aria-label="Evening reflection journal (100% user-authored, dynamic font scaling)"
+              ></textarea>
+
+              <!-- 0 to 2 Framed Photo Slots at Bottom of Matte Black Card -->
+              <div id="card-back-photos" class="card-back-photos-row" aria-label="Evening journal photo attachments"></div>
+              <input id="journal-photo-file-input" type="file" accept="image/*" class="hidden" />
+            </div>
           </div>
 
         </div>
@@ -78,7 +104,7 @@
       <!-- Bottom Action Bar: [Stack] [Flip] [+] -->
       <footer class="card-bottom-bar">
         <!-- Left: Stack Icon -->
-        <button type="button" id="card-stack-btn" class="card-bottom-icon-btn" aria-label="Card Stack Archive">
+        <button type="button" id="card-stack-btn" class="card-bottom-icon-btn" aria-label="Open Card Stack Archive" title="Open Chronological Card Stack Archive">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M16 5.5L27.5 11.5L16 17.5L4.5 11.5L16 5.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
             <path d="M4.5 16.2L16 22.2L27.5 16.2" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -87,7 +113,7 @@
         </button>
 
         <!-- Center: Flip Card Icon -->
-        <button type="button" id="card-flip-btn" class="card-bottom-icon-btn" aria-label="Flip Card 180 Degrees">
+        <button type="button" id="card-flip-btn" class="card-bottom-icon-btn" aria-label="Flip Card 180 Degrees" title="Flip Card 180° (White Front ↔ Matte Black Back)">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M14.5 7.5L6.5 10.2V24.5L14.5 21.8V7.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
             <path d="M17.5 7.5L25.5 10.2V24.5L17.5 21.8V7.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
@@ -95,7 +121,7 @@
         </button>
 
         <!-- Right: Plus (+) Icon -->
-        <button type="button" id="card-plus-btn" class="card-bottom-icon-btn" aria-label="Add Task Item">
+        <button type="button" id="card-plus-btn" class="card-bottom-icon-btn" aria-label="Add Task Item or Journal Photo" title="Add Task (Front) or Attach Photo (Back)">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M16 6.5V25.5M6.5 16H25.5" stroke="#111111" stroke-width="2.1" stroke-linecap="round"/>
           </svg>
@@ -212,6 +238,115 @@
       </footer>
     </section>
 
+    <!-- ===================================================================
+         SCREEN 4: CHRONOLOGICAL CARD STACK VIEWER (Mockup 06-stack-detail.png)
+         =================================================================== -->
+    <section id="screen-stack" class="screen-container stack-screen hidden">
+      <!-- Top Chronological Date Strip ('OCT 01  02  03  04  (05)  06') -->
+      <div id="stack-date-strip" class="stack-date-strip" role="tablist" aria-label="Archived Card Dates"></div>
+
+      <!-- Center Peeking Card Carousel -->
+      <div id="stack-carousel-stage" class="stack-carousel-stage">
+        <div id="stack-peek-left" class="stack-peek-card stack-peek-left" title="Previous archived card"></div>
+
+        <div class="stack-center-perspective">
+          <div id="stack-card-3d" class="daily-card-3d stack-card-3d">
+            <!-- Front of Selected Archived Card (Clean White Surface, Retroactively Editable) -->
+            <div class="card-face card-face-front">
+              <div class="card-header-bar">
+                <h2 id="stack-card-date-header" class="card-date-title">MONDAY — OCT 05</h2>
+              </div>
+              <div class="card-dot-grid-body">
+                <div id="stack-task-list-container" class="task-list-container"></div>
+                <div id="stack-add-item-row" class="add-item-row">+ Add item</div>
+              </div>
+            </div>
+
+            <!-- Back of Selected Archived Card (Matte Black Reflection Journal, Retroactively Editable) -->
+            <div class="card-face card-face-back">
+              <div class="card-back-header-bar">
+                <h2 id="stack-card-back-date-header" class="card-back-date-title">MONDAY — OCT 05</h2>
+              </div>
+              <div class="card-back-body">
+                <textarea
+                  id="stack-card-back-reflection"
+                  class="card-back-reflection-editor"
+                  placeholder="Write or update your reflection for this day..."
+                  aria-label="Archived card evening reflection"
+                ></textarea>
+                <div id="stack-card-back-photos" class="card-back-photos-row"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="stack-peek-right" class="stack-peek-card stack-peek-right" title="Next archived card"></div>
+      </div>
+
+      <!-- 4-Icon Stack Bottom Bar: [Return ↩] [Zoom Out 🔍-] [Flip] [Trash 🗑] -->
+      <footer class="stack-bottom-bar">
+        <!-- 1. Left: Return / Undo Arrow to Today's Card -->
+        <button type="button" id="stack-btn-return" class="card-bottom-icon-btn" aria-label="Return to Today's Card" title="Return to Today's Card">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M13 9L6 15.5L13 22" stroke="#111111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 15.5H19.5C23.4 15.5 26 18 26 21.2C26 23.4 24.4 25 22 25" stroke="#111111" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <!-- 2. Center-Left: Zoom Out Magnifying Glass (-) to Monthly Calendar View -->
+        <button type="button" id="stack-btn-zoomout" class="card-bottom-icon-btn" aria-label="Zoom Out to Monthly Calendar View" title="Zoom Out to Monthly Calendar View">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <circle cx="14.5" cy="14.5" r="8.5" stroke="#111111" stroke-width="2.1"/>
+            <path d="M11 14.5H18" stroke="#111111" stroke-width="2.1" stroke-linecap="round"/>
+            <path d="M20.8 20.8L26.5 26.5" stroke="#111111" stroke-width="2.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <!-- 3. Center-Right: Flip Archived Card 180° -->
+        <button type="button" id="stack-btn-flip" class="card-bottom-icon-btn" aria-label="Flip Archived Card 180 Degrees" title="Flip Archived Card 180° (Front ↔ Back)">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M14.5 7.5L6.5 10.2V24.5L14.5 21.8V7.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M17.5 7.5L25.5 10.2V24.5L17.5 21.8V7.5Z" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <!-- 4. Right: Trash Can (Permanently Delete Archived Card) -->
+        <button type="button" id="stack-btn-trash" class="card-bottom-icon-btn" aria-label="Permanently Delete Archived Card" title="Permanently Delete This Card">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M6.5 9.5H25.5M12 9.5V7.2C12 6.3 12.7 5.6 13.6 5.6H18.4C19.3 5.6 20 6.3 20 7.2V9.5M9 9.5L10.2 24.5C10.3 25.6 11.2 26.4 12.3 26.4H19.7C20.8 26.4 21.7 25.6 21.8 24.5L23 9.5" stroke="#111111" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13.8 14V22M18.2 14V22" stroke="#111111" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- ===================================================================
+         SCREEN 5: MONTHLY CALENDAR ZOOM-OUT VIEW (Mockup 07-calendar-view.png)
+         =================================================================== -->
+    <section id="screen-calendar" class="screen-container calendar-screen hidden">
+      <div id="calendar-months-container" class="calendar-months-container"></div>
+
+      <!-- 2-Icon Calendar Bottom Bar: [Return ↩] [Zoom In 🔍+] -->
+      <footer class="calendar-bottom-bar">
+        <!-- 1. Left: Return / Undo Arrow to Today's Card -->
+        <button type="button" id="calendar-btn-return" class="card-bottom-icon-btn" aria-label="Return to Today's Card" title="Return to Today's Card">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M13 9L6 15.5L13 22" stroke="#111111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 15.5H19.5C23.4 15.5 26 18 26 21.2C26 23.4 24.4 25 22 25" stroke="#111111" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <!-- 2. Right: Zoom In Magnifying Glass (+) to Selected Date's Card in Stack -->
+        <button type="button" id="calendar-btn-zoomin" class="card-bottom-icon-btn" aria-label="Zoom In to Selected Card in Stack" title="Zoom In to Selected Card in Stack">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <circle cx="14.5" cy="14.5" r="8.5" stroke="#111111" stroke-width="2.1"/>
+            <path d="M11 14.5H18M14.5 11V18" stroke="#111111" stroke-width="2.1" stroke-linecap="round"/>
+            <path d="M20.8 20.8L26.5 26.5" stroke="#111111" stroke-width="2.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </footer>
+    </section>
+
     <!-- Live Haptic & Foley Telemetry Pill -->
     <div id="telemetry-toast" class="telemetry-toast" aria-live="polite"></div>
 
@@ -233,11 +368,11 @@
       </div>
     </div>
 
-    <!-- Permanent Delete Confirmation Modal (Trash Can Confirmation & Notification Rule) -->
+    <!-- Permanent Delete Confirmation Modal (Task or Archived Card Trash Deletion) -->
     <div id="delete-modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
       <div class="modal-box">
-        <div class="modal-title">Permanently delete this item?</div>
-        <p style="font-size: 14px; color: #5E5D59; margin-bottom: 18px; line-height: 1.45;">
+        <div id="delete-modal-title" class="modal-title">Permanently delete this item?</div>
+        <p id="delete-modal-desc" style="font-size: 14px; color: #5E5D59; margin-bottom: 18px; line-height: 1.45;">
           This action cannot be undone. The item will be permanently removed from Today’s Card.
         </p>
         <div class="modal-actions">
@@ -247,17 +382,48 @@
       </div>
     </div>
 
+    <!-- Profile & Workspace Settings Modal (Zero Analytics / Zero Guilt) -->
+    <div id="profile-modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Account and Workspace Settings">
+      <div class="modal-box">
+        <div class="modal-title">Fable / Flow — Workspace Settings</div>
+        <p style="font-size: 13.5px; color: #5E5D59; margin-bottom: 14px; line-height: 1.45;">
+          Local-first encrypted storage active. Daily rollover occurs automatically at <strong>5:00 AM</strong> local time with zero unfinished-task guilt.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+          <button type="button" id="profile-open-home-btn" class="modal-btn" style="text-align: left; display: flex; justify-content: space-between; align-items: center;">
+            <span>Open Minimalist Homepage (01)</span>
+            <span>→</span>
+          </button>
+          <button type="button" id="profile-toggle-audio-btn" class="modal-btn" style="text-align: left; display: flex; justify-content: space-between; align-items: center;">
+            <span>Tactile Foley & Bell Audio</span>
+            <strong id="profile-audio-state-label">ON</strong>
+          </button>
+          <button type="button" id="profile-simulate-5am-btn" class="modal-btn" style="text-align: left; display: flex; justify-content: space-between; align-items: center;">
+            <span>Simulate 5:00 AM Daily Rollover</span>
+            <span>🌅</span>
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="profile-modal-close" class="modal-btn modal-btn-primary">Done</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 
-  <!-- Quick Screen Switcher & Sensory Toolbar (Outside Mobile Frame for Instant Evaluation) -->
-  <nav class="beta-eval-toolbar" aria-label="Phase 1 Beta Quick Switcher">
+  <!-- Quick Screen Switcher & Sensory Toolbar (Outside Mobile Frame for Instant Evaluation of All 7 Mockups) -->
+  <nav class="beta-eval-toolbar" aria-label="Phase 1 & Phase 2 Quick Switcher">
+    <button type="button" id="demo-view-home" class="beta-eval-btn">0. Home (01)</button>
     <button type="button" id="demo-view-card" class="beta-eval-btn active-pill">1. Card Front (04)</button>
-    <button type="button" id="demo-view-grid" class="beta-eval-btn">2. 6-Tomato Grid (03)</button>
-    <button type="button" id="demo-view-hero" class="beta-eval-btn">3. Hero Tomato (02)</button>
+    <button type="button" id="demo-view-back" class="beta-eval-btn">2. Card Back (05)</button>
+    <button type="button" id="demo-view-grid" class="beta-eval-btn">3. 6-Tomato Grid (03)</button>
+    <button type="button" id="demo-view-hero" class="beta-eval-btn">4. Hero Tomato (02)</button>
+    <button type="button" id="demo-view-stack" class="beta-eval-btn">5. Stack Archive (06)</button>
+    <button type="button" id="demo-view-calendar" class="beta-eval-btn">6. Calendar Zoom (07)</button>
     <button type="button" id="demo-toggle-silent" class="beta-eval-btn">🔊 Foley Audio: ON</button>
-    <button type="button" id="demo-reset-state" class="beta-eval-btn">↺ Reset Mockup State</button>
+    <button type="button" id="demo-reset-state" class="beta-eval-btn">↺ Reset State</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=20261008_v11"></script>
+  <script type="module" src="js/app.js?v=20261009_v12"></script>
 </body>
 </html>

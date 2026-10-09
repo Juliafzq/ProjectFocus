@@ -248,4 +248,71 @@ export class SensoryEngine {
     filter.connect(ctx.destination);
     noise.start(now);
   }
+
+  /**
+   * Crisp cardstock riffle tick when scrolling or selecting dates in the Card Stack / Calendar.
+   */
+  playStackRiffleTick() {
+    this._triggerHaptic('Haptic: Card Stack Riffle Tick', 8);
+    const ctx = this._ensureContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const duration = 0.032;
+    const bufLen = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      ch[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.28)) * 0.24;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(1280, now);
+    bp.Q.setValueAtTime(2.1, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.26, now);
+    gain.gain.exponentialRampToValueAtTime(0.002, now + duration);
+
+    noise.connect(bp);
+    bp.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start(now);
+  }
+
+  /**
+   * Soft paper crumple / discard audio + double-tap haptic when permanently deleting via Trash Can.
+   */
+  playTrashDelete() {
+    this._triggerHaptic('Haptic: Permanent Card Discard', [14, 24, 18]);
+    const ctx = this._ensureContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const duration = 0.16;
+    const bufLen = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      const env = Math.sin((i / bufLen) * Math.PI) * Math.exp(-i / (bufLen * 0.6));
+      ch[i] = (Math.random() * 2 - 1) * env * 0.22;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(820, now);
+    bp.frequency.exponentialRampToValueAtTime(360, now + duration);
+    bp.Q.setValueAtTime(1.4, now);
+
+    noise.connect(bp);
+    bp.connect(ctx.destination);
+    noise.start(now);
+  }
 }

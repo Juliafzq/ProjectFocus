@@ -1,23 +1,36 @@
 /**
- * Fable / Flow — Phase 1 Beta ("Core Tactile Loop") Application Controller
+ * Fable / Flow — Phase 1 & Phase 2 Complete MVP Application Controller
  *
- * Implements all PRD v4 & User Feedback requirements:
- * 1. Exact Photorealistic Mockup Tomatoes with sub-pixel equatorial seam curve & realistic 3D edge shading.
- * 2. 6-Tomato Grid (2x3 layout) matching the 6 task slots on Today's Card.
- * 3. Clicking any lit-up (assigned) tomato unassigns it and returns it to Matte Neutral Grey ("Tap to assign").
- * 4. Clicking a grey tomato on the Front Card lights it up (assigns it) AND brings the user to the Timer page.
- * 5. Set of Timer (Grid) dropdown excludes any task that is already selected and assigned to a tomato.
- * 6. Front Card Left -> Right drag both strikes through AND erases from Left -> Right.
- * 7. Default state starts cleanly with a single "Example Task".
+ * Implements all PRD v4.2, Phase 1 ("Core Tactile Loop") & Phase 2 ("Complete Daily Ritual & Memory Archive") requirements:
+ * 1. Minimalist 2-Object Homepage (01-home-page.png): 'FABLE / FLOW' header, '06 OCT' mini-card, 3D Heirloom Tomato.
+ * 2. Photorealistic Hero Tomato 3D Dial (02-hero-timer.png) & 6-Tomato 2x3 Grid (03-grid-timer.png):
+ *    - 1-minute notch snap, HH:MM:SS when > 60 min, Tap-on-Digits inline time editor (0-180 min / HH:MM).
+ *    - Mirror-polished silver metallic completion state (End -> Silver -> Reset ↺).
+ *    - Authentic mechanical 2-strike Pomodoro bell ring + WebAudio tactile foley.
+ * 3. Dual-Sided Today's Index Card:
+ *    - Clean White Front (04-card-front.png) with up to 6 tasks, glossy single-highlight mini tomatoes,
+ *      single-click Edit/Delete modal, and Left -> Right dry-graphite pencil strikethrough & erase.
+ *    - Matte Black Back (05-card-back.png) Evening Reflection Journal with 100% user-authored adaptive
+ *      typography (21px -> 13px floor) and 0-2 framed photo slots with client-side <= 1600px compression.
+ * 4. Chronological Card Stack Viewer (06-stack-detail.png):
+ *    - Horizontal date strip ('OCT 01 02 03 04 (05) 06'), peeking card carousel, cardstock riffle ticks,
+ *      full retroactive editing of Front & Back, and 4-icon bottom bar ([Return] [Zoom Out] [Flip] [Trash]).
+ * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png):
+ *    - Vertically stacked SEPTEMBER 2026 & OCTOBER 2026 grids with soft grey circles on archived card dates,
+ *      solid black circle on selected date, pinch-to-zoom, and 2-icon bottom bar ([Return] [Zoom In]).
+ * 6. 5:00 AM Daily Rollover Engine with zero unfinished-task guilt.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261008_v11';
-import { CardGestureMath } from './cardGestureMath.js?v=20261008_v11';
-import { SensoryEngine } from './sensoryEngine.js?v=20261008_v11';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261008_v11';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v12';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v12';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v12';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v12';
 
-const STORAGE_KEY = 'fable_flow_phase1_beta_v4';
+const STORAGE_KEY = 'fable_flow_phase2_mvp_v1';
 const NUM_GRID_SLOTS = 6;
+
+const DEFAULT_REFLECTION_OCT_06 =
+  'Today felt steady and surprisingly productive. I wrapped up the Q3 report ahead of schedule and finally cleared out my inbox. Taking a walk at sunset helped me reset before the evening. Grateful for quiet moments and good coffee.';
 
 export class FableFlowApp {
   constructor() {
@@ -28,6 +41,7 @@ export class FableFlowApp {
     this.hero3D = null;
     this.gridRenderer = null;
     this.tickInterval = null;
+    this._photoUploadTarget = 'today'; // 'today' | 'stack'
 
     this.initDOM();
     this.init3DRenderers();
@@ -36,15 +50,195 @@ export class FableFlowApp {
     this.renderAll();
   }
 
+  getDefaultArchiveCards() {
+    return {
+      '2026-09-08': {
+        dateKey: '2026-09-08',
+        headerDate: 'TUESDAY — SEP 08',
+        shortDate: '08 SEP',
+        monthKey: '2026-09',
+        dayNum: 8,
+        tasks: [
+          { id: 's0908-1', orderIndex: 1, title: 'Kickoff autumn product roadmap', isCompleted: true },
+          { id: 's0908-2', orderIndex: 2, title: 'Review typography specimen sheets', isCompleted: true },
+          { id: 's0908-3', orderIndex: 3, title: 'Evening run in the park', isCompleted: false },
+        ],
+        reflectionText:
+          'Crisp early September air this morning. Setting the foundation for the autumn sprint felt calm and intentional.',
+        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v12'],
+      },
+      '2026-09-12': {
+        dateKey: '2026-09-12',
+        headerDate: 'SATURDAY — SEP 12',
+        shortDate: '12 SEP',
+        monthKey: '2026-09',
+        dayNum: 12,
+        tasks: [
+          { id: 's0912-1', orderIndex: 1, title: 'Farmers market heirloom tomatoes', isCompleted: true },
+          { id: 's0912-2', orderIndex: 2, title: 'Sketch 3D dial seam geometry', isCompleted: true },
+        ],
+        reflectionText:
+          'Picked up real heirloom tomatoes at the market and studied how studio light wraps around their ribs.',
+        reflectionPhotos: [],
+      },
+      '2026-09-15': {
+        dateKey: '2026-09-15',
+        headerDate: 'TUESDAY — SEP 15',
+        shortDate: '15 SEP',
+        monthKey: '2026-09',
+        dayNum: 15,
+        tasks: [
+          { id: 's0915-1', orderIndex: 1, title: 'Prototype WebAudio mechanical bell', isCompleted: true },
+          { id: 's0915-2', orderIndex: 2, title: 'Test dry-graphite pencil grain', isCompleted: true },
+        ],
+        reflectionText:
+          'The two-strike brass bell resonance finally sounds like a real kitchen timer sitting on a wooden desk.',
+        reflectionPhotos: ['assets/photos/sample-poodle.jpg?v=20261009_v12'],
+      },
+      '2026-09-19': {
+        dateKey: '2026-09-19',
+        headerDate: 'SATURDAY — SEP 19',
+        shortDate: '19 SEP',
+        monthKey: '2026-09',
+        dayNum: 19,
+        tasks: [
+          { id: 's0919-1', orderIndex: 1, title: 'Read two chapters of Design as Art', isCompleted: true },
+          { id: 's0919-2', orderIndex: 2, title: 'Organize studio bookshelves', isCompleted: false },
+        ],
+        reflectionText:
+          'Slow Saturday afternoon with Bruno Munari and a pot of roasted oolong tea.',
+        reflectionPhotos: [],
+      },
+      '2026-09-23': {
+        dateKey: '2026-09-23',
+        headerDate: 'WEDNESDAY — SEP 23',
+        shortDate: '23 SEP',
+        monthKey: '2026-09',
+        dayNum: 23,
+        tasks: [
+          { id: 's0923-1', orderIndex: 1, title: 'Finalize cardstock shadow elevation', isCompleted: true },
+          { id: 's0923-2', orderIndex: 2, title: 'Write Q3 architecture notes', isCompleted: true },
+        ],
+        reflectionText:
+          'Autumn equinox. Kept the task list short and finished everything before 5 PM.',
+        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v12'],
+      },
+      '2026-09-28': {
+        dateKey: '2026-09-28',
+        headerDate: 'MONDAY — SEP 28',
+        shortDate: '28 SEP',
+        monthKey: '2026-09',
+        dayNum: 28,
+        tasks: [
+          { id: 's0928-1', orderIndex: 1, title: 'Prepare monthly financial summary', isCompleted: true },
+          { id: 's0928-2', orderIndex: 2, title: 'Call hardware supplier', isCompleted: true },
+        ],
+        reflectionText:
+          'Steady start to the final week of September. Focused deep work blocks made all the difference.',
+        reflectionPhotos: [],
+      },
+      '2026-09-30': {
+        dateKey: '2026-09-30',
+        headerDate: 'WEDNESDAY — SEP 30',
+        shortDate: '30 SEP',
+        monthKey: '2026-09',
+        dayNum: 30,
+        tasks: [
+          { id: 's0930-1', orderIndex: 1, title: 'Close September sprint items', isCompleted: true },
+          { id: 's0930-2', orderIndex: 2, title: 'Archive September physical index cards', isCompleted: true },
+        ],
+        reflectionText:
+          'Wrapped up September with a clean desk and zero carry-over anxiety.',
+        reflectionPhotos: [
+          'assets/photos/sample-poodle.jpg?v=20261009_v12',
+          'assets/photos/sample-desk.jpg?v=20261009_v12',
+        ],
+      },
+      '2026-10-01': {
+        dateKey: '2026-10-01',
+        headerDate: 'THURSDAY — OCT 01',
+        shortDate: '01 OCT',
+        monthKey: '2026-10',
+        dayNum: 1,
+        tasks: [
+          { id: 's1001-1', orderIndex: 1, title: 'Outline October product milestones', isCompleted: true },
+          { id: 's1001-2', orderIndex: 2, title: 'Review 3D metallic shader polish', isCompleted: true },
+          { id: 's1001-3', orderIndex: 3, title: 'Walk dog before sunset', isCompleted: true },
+        ],
+        reflectionText:
+          'First day of October. Three focused Pomodoros in the morning set the tone for the whole month.',
+        reflectionPhotos: ['assets/photos/sample-poodle.jpg?v=20261009_v12'],
+      },
+      '2026-10-02': {
+        dateKey: '2026-10-02',
+        headerDate: 'FRIDAY — OCT 02',
+        shortDate: '02 OCT',
+        monthKey: '2026-10',
+        dayNum: 2,
+        tasks: [
+          { id: 's1002-1', orderIndex: 1, title: 'Polish equatorial odometer numbers', isCompleted: true },
+          { id: 's1002-2', orderIndex: 2, title: 'Send weekly design update', isCompleted: true },
+        ],
+        reflectionText:
+          'Wrapped up Friday afternoon early. The 3D perspective wrapping on the tomato dial feels tactile and natural.',
+        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v12'],
+      },
+      '2026-10-04': {
+        dateKey: '2026-10-04',
+        headerDate: 'SUNDAY — OCT 04',
+        shortDate: '04 OCT',
+        monthKey: '2026-10',
+        dayNum: 4,
+        tasks: [
+          { id: 's1004-1', orderIndex: 1, title: 'Weekly grocery run & meal prep', isCompleted: true },
+          { id: 's1004-2', orderIndex: 2, title: 'Plan Monday top priorities', isCompleted: true },
+        ],
+        reflectionText:
+          'Quiet Sunday reset. Ready for the new week with a clear head.',
+        reflectionPhotos: [],
+      },
+      '2026-10-05': {
+        dateKey: '2026-10-05',
+        headerDate: 'MONDAY — OCT 05',
+        shortDate: '05 OCT',
+        monthKey: '2026-10',
+        dayNum: 5,
+        tasks: [
+          { id: 's1005-1', orderIndex: 1, title: 'Finalize Q3 Financial Report', isCompleted: true },
+          { id: 's1005-2', orderIndex: 2, title: 'Review UX Mockups with Sarah', isCompleted: true },
+          { id: 's1005-3', orderIndex: 3, title: 'Pick up dry cleaning before 6 PM', isCompleted: false },
+          { id: 's1005-4', orderIndex: 4, title: 'Draft agenda for Tuesday standup', isCompleted: true },
+          { id: 's1005-5', orderIndex: 5, title: 'Read 20 pages of "The Creative Act"', isCompleted: false },
+        ],
+        reflectionText:
+          'Monday moved quickly. Knocked out the Q3 financial report and UX review before lunch, and left the evening open to unwind.',
+        reflectionPhotos: [
+          'assets/photos/sample-poodle.jpg?v=20261009_v12',
+          'assets/photos/sample-desk.jpg?v=20261009_v12',
+        ],
+      },
+    };
+  }
+
   getDefaultState() {
     return {
-      activePillar: 'card', // 'card' | 'timer'
+      activePillar: 'card', // 'home' | 'card' | 'timer' | 'stack' | 'calendar'
       timerSubMode: 'grid', // 'grid' | 'hero'
       selectedQuadrant: 0,
       openDropdownQuadrant: null,
       isHeroDropdownOpen: false,
       isCardFlipped: false,
+      isStackCardFlipped: false,
+      selectedStackDateKey: '2026-10-05',
+      cardDateKey: '2026-10-06',
       cardHeaderDate: 'TUESDAY — OCT 06',
+      cardShortDate: '06 OCT',
+      reflectionText: DEFAULT_REFLECTION_OCT_06,
+      reflectionPhotos: [
+        'assets/photos/sample-poodle.jpg?v=20261009_v12',
+        'assets/photos/sample-desk.jpg?v=20261009_v12',
+      ],
+      archiveCards: this.getDefaultArchiveCards(),
       tasks: [
         {
           id: 'task-1',
@@ -61,7 +255,7 @@ export class FableFlowApp {
           assignedTaskOrder: null,
           customTitle: null,
           mode: 'countdown', // 'countdown' | 'stopwatch'
-          runState: 'idle', // 'idle' | 'running' | 'paused'
+          runState: 'idle', // 'idle' | 'running' | 'paused' | 'completed'
           configuredMinutes: 25,
           remainingSeconds: 25 * 60,
           angleDegrees: 25 * 6.0, // 150°
@@ -133,10 +327,12 @@ export class FableFlowApp {
 
   loadInitialState() {
     try {
-      // Remove any legacy cached storage keys so old demo items never reappear
-      ['fable_flow_phase1_beta_v1', 'fable_flow_phase1_beta_v2', 'fable_flow_phase1_beta_v3'].forEach((k) =>
-        localStorage.removeItem(k)
-      );
+      [
+        'fable_flow_phase1_beta_v1',
+        'fable_flow_phase1_beta_v2',
+        'fable_flow_phase1_beta_v3',
+        'fable_flow_phase1_beta_v4',
+      ].forEach((k) => localStorage.removeItem(k));
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
@@ -146,6 +342,27 @@ export class FableFlowApp {
           Array.isArray(parsed.timers) &&
           parsed.timers.length === NUM_GRID_SLOTS
         ) {
+          if (!parsed.archiveCards) {
+            parsed.archiveCards = this.getDefaultArchiveCards();
+          }
+          if (typeof parsed.reflectionText !== 'string') {
+            parsed.reflectionText = DEFAULT_REFLECTION_OCT_06;
+          }
+          if (!Array.isArray(parsed.reflectionPhotos)) {
+            parsed.reflectionPhotos = [
+              'assets/photos/sample-poodle.jpg?v=20261009_v12',
+              'assets/photos/sample-desk.jpg?v=20261009_v12',
+            ];
+          }
+          if (!parsed.selectedStackDateKey) {
+            parsed.selectedStackDateKey = '2026-10-05';
+          }
+          if (!parsed.cardShortDate) {
+            parsed.cardShortDate = '06 OCT';
+          }
+          if (!parsed.cardDateKey) {
+            parsed.cardDateKey = '2026-10-06';
+          }
           this.reconcileElapsedTimers(parsed);
           return parsed;
         }
@@ -185,7 +402,6 @@ export class FableFlowApp {
             }
           } else {
             slot.remainingSeconds += elapsedSec;
-            // Stopwatch turns on the minutes, NOT seconds
             slot.angleDegrees = OdometerDialPhysics.stopwatchSecondsToMinuteAngleDegrees(
               slot.remainingSeconds
             );
@@ -198,22 +414,35 @@ export class FableFlowApp {
 
   initDOM() {
     this.els = {
+      homeBrandTitle: document.getElementById('home-brand-title'),
+      topSegmentedPill: document.getElementById('top-segmented-pill'),
       pillCardBtn: document.getElementById('pill-card-btn'),
       pillTimerBtn: document.getElementById('pill-timer-btn'),
       profileBtn: document.getElementById('profile-btn'),
 
+      homeScreen: document.getElementById('screen-home'),
+      homeMiniCard: document.getElementById('home-mini-card'),
+      homeMiniDate: document.getElementById('home-mini-date'),
+      homeTomatoBtn: document.getElementById('home-tomato-btn'),
+
       cardScreen: document.getElementById('screen-card'),
       gridScreen: document.getElementById('screen-grid'),
       heroScreen: document.getElementById('screen-hero'),
+      stackScreen: document.getElementById('screen-stack'),
+      calendarScreen: document.getElementById('screen-calendar'),
 
       card3DWrapper: document.getElementById('daily-card-3d'),
       cardDateHeader: document.getElementById('card-date-header'),
+      cardBackDateHeader: document.getElementById('card-back-date-header'),
       taskListContainer: document.getElementById('task-list-container'),
       addItemRow: document.getElementById('add-item-row'),
+      cardBackReflection: document.getElementById('card-back-reflection'),
+      cardBackPhotos: document.getElementById('card-back-photos'),
+      journalPhotoFileInput: document.getElementById('journal-photo-file-input'),
+
       cardStackBtn: document.getElementById('card-stack-btn'),
       cardFlipBtn: document.getElementById('card-flip-btn'),
       cardPlusBtn: document.getElementById('card-plus-btn'),
-      cardBackReturnBtn: document.getElementById('card-back-return-btn'),
 
       gridQuadrants: [
         document.getElementById('grid-quad-0'),
@@ -237,12 +466,36 @@ export class FableFlowApp {
       heroBtnStop: document.getElementById('hero-btn-stop'),
       heroBtnStopwatch: document.getElementById('hero-btn-stopwatch'),
 
+      stackDateStrip: document.getElementById('stack-date-strip'),
+      stackCarouselStage: document.getElementById('stack-carousel-stage'),
+      stackPeekLeft: document.getElementById('stack-peek-left'),
+      stackPeekRight: document.getElementById('stack-peek-right'),
+      stackCard3D: document.getElementById('stack-card-3d'),
+      stackCardDateHeader: document.getElementById('stack-card-date-header'),
+      stackCardBackDateHeader: document.getElementById('stack-card-back-date-header'),
+      stackTaskListContainer: document.getElementById('stack-task-list-container'),
+      stackAddItemRow: document.getElementById('stack-add-item-row'),
+      stackCardBackReflection: document.getElementById('stack-card-back-reflection'),
+      stackCardBackPhotos: document.getElementById('stack-card-back-photos'),
+      stackBtnReturn: document.getElementById('stack-btn-return'),
+      stackBtnZoomout: document.getElementById('stack-btn-zoomout'),
+      stackBtnFlip: document.getElementById('stack-btn-flip'),
+      stackBtnTrash: document.getElementById('stack-btn-trash'),
+
+      calendarMonthsContainer: document.getElementById('calendar-months-container'),
+      calendarBtnReturn: document.getElementById('calendar-btn-return'),
+      calendarBtnZoomin: document.getElementById('calendar-btn-zoomin'),
+
       toastPill: document.getElementById('telemetry-toast'),
       notificationBanner: document.getElementById('notification-banner'),
 
+      demoBtnHome: document.getElementById('demo-view-home'),
       demoBtnCard: document.getElementById('demo-view-card'),
+      demoBtnBack: document.getElementById('demo-view-back'),
       demoBtnGrid: document.getElementById('demo-view-grid'),
       demoBtnHero: document.getElementById('demo-view-hero'),
+      demoBtnStack: document.getElementById('demo-view-stack'),
+      demoBtnCalendar: document.getElementById('demo-view-calendar'),
       demoBtnSilent: document.getElementById('demo-toggle-silent'),
       demoBtnReset: document.getElementById('demo-reset-state'),
 
@@ -254,8 +507,17 @@ export class FableFlowApp {
       modalConfirm: document.getElementById('modal-confirm'),
 
       deleteModalOverlay: document.getElementById('delete-modal-overlay'),
+      deleteModalTitle: document.getElementById('delete-modal-title'),
+      deleteModalDesc: document.getElementById('delete-modal-desc'),
       deleteModalCancel: document.getElementById('delete-modal-cancel'),
       deleteModalConfirm: document.getElementById('delete-modal-confirm'),
+
+      profileModalOverlay: document.getElementById('profile-modal-overlay'),
+      profileOpenHomeBtn: document.getElementById('profile-open-home-btn'),
+      profileToggleAudioBtn: document.getElementById('profile-toggle-audio-btn'),
+      profileAudioStateLabel: document.getElementById('profile-audio-state-label'),
+      profileSimulate5amBtn: document.getElementById('profile-simulate-5am-btn'),
+      profileModalClose: document.getElementById('profile-modal-close'),
     };
   }
 
@@ -268,6 +530,40 @@ export class FableFlowApp {
   }
 
   bindGlobalEvents() {
+    // 0. Minimalist 2-Object Homepage (01-home-page.png)
+    if (this.els.homeMiniCard) {
+      const openTodayCardFromHome = () => {
+        this.sensory.playCardFlipSwoosh();
+        this.state.activePillar = 'card';
+        this.state.isCardFlipped = false;
+        this.saveState();
+        this.renderAll();
+      };
+      this.els.homeMiniCard.addEventListener('click', openTodayCardFromHome);
+      this.els.homeMiniCard.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openTodayCardFromHome();
+        }
+      });
+    }
+
+    if (this.els.homeTomatoBtn) {
+      const openTimerFromHome = () => {
+        this.sensory.playMechanicalTick();
+        this.state.activePillar = 'timer';
+        this.saveState();
+        this.renderAll();
+      };
+      this.els.homeTomatoBtn.addEventListener('click', openTimerFromHome);
+      this.els.homeTomatoBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openTimerFromHome();
+        }
+      });
+    }
+
     // 1. Top Segmented Pill: Card | Timer
     this.els.pillCardBtn.addEventListener('click', () => {
       this.state.activePillar = 'card';
@@ -281,32 +577,115 @@ export class FableFlowApp {
       this.renderAll();
     });
 
+    // Profile & Workspace Settings Modal
     this.els.profileBtn.addEventListener('click', () => {
-      this.showNotificationBanner('Profile & Settings Sheet (Phase 1 Beta — Local-First Mode Active)');
+      this.openProfileModal();
     });
+
+    if (this.els.profileModalClose) {
+      this.els.profileModalClose.addEventListener('click', () => {
+        this.els.profileModalOverlay.classList.add('hidden');
+      });
+    }
+    if (this.els.profileOpenHomeBtn) {
+      this.els.profileOpenHomeBtn.addEventListener('click', () => {
+        this.els.profileModalOverlay.classList.add('hidden');
+        this.state.activePillar = 'home';
+        this.saveState();
+        this.renderAll();
+      });
+    }
+    if (this.els.profileToggleAudioBtn) {
+      this.els.profileToggleAudioBtn.addEventListener('click', () => {
+        this.toggleSilentAudioMode();
+        if (this.els.profileAudioStateLabel) {
+          this.els.profileAudioStateLabel.textContent = this.sensory.isSilentMode ? 'MUTED' : 'ON';
+        }
+      });
+    }
+    if (this.els.profileSimulate5amBtn) {
+      this.els.profileSimulate5amBtn.addEventListener('click', () => {
+        this.els.profileModalOverlay.classList.add('hidden');
+        this.simulateFiveAmRollover();
+      });
+    }
 
     // 2. Card Bottom Action Bar: [Stack] [Flip] [+]
     this.els.cardStackBtn.addEventListener('click', () => {
-      this.showNotificationBanner('Past Cards Stack & Calendar Archive unlocks in Phase 3.');
+      this.sensory.playStackRiffleTick();
+      this.state.activePillar = 'stack';
+      this.state.isStackCardFlipped = false;
+      this.saveState();
+      this.renderAll();
     });
 
     this.els.cardFlipBtn.addEventListener('click', () => {
       this.triggerCardFlip();
     });
 
-    if (this.els.cardBackReturnBtn) {
-      this.els.cardBackReturnBtn.addEventListener('click', () => {
-        this.triggerCardFlip();
-      });
-    }
-
     this.els.cardPlusBtn.addEventListener('click', () => {
-      this.openAddTaskModal();
+      if (this.state.isCardFlipped) {
+        this.triggerPhotoAttachment('today');
+      } else {
+        this.openAddTaskModal();
+      }
     });
 
     this.els.addItemRow.addEventListener('click', () => {
       this.openAddTaskModal();
     });
+
+    // 2b. Matte Black Back of Card — Evening Reflection Journal & Photo Upload
+    if (this.els.cardBackReflection) {
+      this.els.cardBackReflection.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+      this.els.cardBackReflection.addEventListener('input', () => {
+        this.state.reflectionText = this.els.cardBackReflection.value;
+        this.adjustReflectionTypography(this.els.cardBackReflection);
+        this.saveState();
+      });
+    }
+
+    if (this.els.journalPhotoFileInput) {
+      this.els.journalPhotoFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        try {
+          const compressedDataUrl = await this.compressImageFileToDataURL(file, 1600);
+          if (this._photoUploadTarget === 'stack') {
+            const card = this.getSelectedStackCard();
+            if (card) {
+              if (!Array.isArray(card.reflectionPhotos)) card.reflectionPhotos = [];
+              if (card.reflectionPhotos.length < 2) {
+                card.reflectionPhotos.push(compressedDataUrl);
+              } else {
+                card.reflectionPhotos[1] = compressedDataUrl;
+              }
+              this.saveState();
+              this.renderStackScreen();
+              this.showTelemetryToast('Photo attached to archived card (≤ 1600px)');
+            }
+          } else {
+            if (!Array.isArray(this.state.reflectionPhotos)) {
+              this.state.reflectionPhotos = [];
+            }
+            if (this.state.reflectionPhotos.length < 2) {
+              this.state.reflectionPhotos.push(compressedDataUrl);
+            } else {
+              this.state.reflectionPhotos[1] = compressedDataUrl;
+            }
+            this.saveState();
+            this.renderCardScreen();
+            this.showTelemetryToast('Photo attached to Evening Journal (≤ 1600px)');
+          }
+        } catch (_) {
+          this.showNotificationBanner('Could not process selected image file.');
+        } finally {
+          this.els.journalPhotoFileInput.value = '';
+        }
+      });
+    }
 
     // Close open grid or hero dropdown when clicking outside
     document.addEventListener('click', (e) => {
@@ -368,11 +747,32 @@ export class FableFlowApp {
     // 5b. Tap-on-Digits Time Entry on Hero Readout (0–180 min or HH:MM)
     this.bindHeroReadoutTimeEntry();
 
-    // 6. Demo / Evaluation Toolbar Buttons
+    // 6. Chronological Card Stack Viewer Controls (Mockup 06-stack-detail.png)
+    this.bindStackViewerEvents();
+
+    // 7. Monthly Calendar Zoom-Out Controls (Mockup 07-calendar-view.png)
+    this.bindCalendarViewerEvents();
+
+    // 8. Demo / Evaluation Toolbar Buttons (All 7 Mockups)
+    if (this.els.demoBtnHome) {
+      this.els.demoBtnHome.addEventListener('click', () => {
+        this.state.activePillar = 'home';
+        this.saveState();
+        this.renderAll();
+      });
+    }
     if (this.els.demoBtnCard) {
       this.els.demoBtnCard.addEventListener('click', () => {
         this.state.activePillar = 'card';
         this.state.isCardFlipped = false;
+        this.saveState();
+        this.renderAll();
+      });
+    }
+    if (this.els.demoBtnBack) {
+      this.els.demoBtnBack.addEventListener('click', () => {
+        this.state.activePillar = 'card';
+        this.state.isCardFlipped = true;
         this.saveState();
         this.renderAll();
       });
@@ -393,18 +793,24 @@ export class FableFlowApp {
         this.renderAll();
       });
     }
+    if (this.els.demoBtnStack) {
+      this.els.demoBtnStack.addEventListener('click', () => {
+        this.state.activePillar = 'stack';
+        this.state.isStackCardFlipped = false;
+        this.saveState();
+        this.renderAll();
+      });
+    }
+    if (this.els.demoBtnCalendar) {
+      this.els.demoBtnCalendar.addEventListener('click', () => {
+        this.state.activePillar = 'calendar';
+        this.saveState();
+        this.renderAll();
+      });
+    }
     if (this.els.demoBtnSilent) {
       this.els.demoBtnSilent.addEventListener('click', () => {
-        this.sensory.isSilentMode = !this.sensory.isSilentMode;
-        this.els.demoBtnSilent.textContent = this.sensory.isSilentMode
-          ? '🔇 Silent Mode: ON'
-          : '🔊 Foley Audio: ON';
-        this.els.demoBtnSilent.classList.toggle('active-pill', this.sensory.isSilentMode);
-        this.showTelemetryToast(
-          this.sensory.isSilentMode
-            ? 'Silent Mode enabled (Audio muted, Haptics active)'
-            : 'Tactile Foley Audio enabled'
-        );
+        this.toggleSilentAudioMode();
       });
     }
     if (this.els.demoBtnReset) {
@@ -414,11 +820,185 @@ export class FableFlowApp {
     }
   }
 
+  toggleSilentAudioMode() {
+    this.sensory.isSilentMode = !this.sensory.isSilentMode;
+    if (this.els.demoBtnSilent) {
+      this.els.demoBtnSilent.textContent = this.sensory.isSilentMode
+        ? '🔇 Silent Mode: ON'
+        : '🔊 Foley Audio: ON';
+      this.els.demoBtnSilent.classList.toggle('active-pill', this.sensory.isSilentMode);
+    }
+    this.showTelemetryToast(
+      this.sensory.isSilentMode
+        ? 'Silent Mode enabled (Audio muted, Haptics active)'
+        : 'Tactile Foley Audio enabled'
+    );
+  }
+
+  openProfileModal() {
+    if (!this.els.profileModalOverlay) return;
+    if (this.els.profileAudioStateLabel) {
+      this.els.profileAudioStateLabel.textContent = this.sensory.isSilentMode ? 'MUTED' : 'ON';
+    }
+    this.els.profileModalOverlay.classList.remove('hidden');
+  }
+
+  /**
+   * Simulates the 5:00 AM daily boundary rollover:
+   * Archives Today's Card into the chronological Card Stack with zero unfinished-task guilt,
+   * resets all 6 tomatoes to idle for the new morning, and stamps a fresh Daily Card.
+   */
+  simulateFiveAmRollover() {
+    const currentKey = this.state.cardDateKey || '2026-10-06';
+    const dayMatch = currentKey.match(/^2026-10-(\d{2})$/);
+    const currentDayNum = dayMatch ? parseInt(dayMatch[1], 10) : 6;
+
+    // Save Today's Card into archiveCards
+    this.state.archiveCards[currentKey] = {
+      dateKey: currentKey,
+      headerDate: this.state.cardHeaderDate,
+      shortDate: this.state.cardShortDate,
+      monthKey: '2026-10',
+      dayNum: currentDayNum,
+      tasks: this.state.tasks.map((t, idx) => ({
+        id: `${currentKey}-task-${idx + 1}`,
+        orderIndex: idx + 1,
+        title: t.title,
+        isCompleted: Boolean(t.isCompleted),
+      })),
+      reflectionText: this.state.reflectionText || '',
+      reflectionPhotos: Array.isArray(this.state.reflectionPhotos)
+        ? [...this.state.reflectionPhotos]
+        : [],
+    };
+
+    const nextDayNum = Math.min(31, currentDayNum + 1);
+    const nextDayPadded = String(nextDayNum).padStart(2, '0');
+    const weekdays = [
+      'WEDNESDAY',
+      'THURSDAY',
+      'FRIDAY',
+      'SATURDAY',
+      'SUNDAY',
+      'MONDAY',
+      'TUESDAY',
+    ];
+    const nextWeekday = weekdays[(nextDayNum - 7 + 70) % 7];
+
+    this.state.selectedStackDateKey = currentKey;
+    this.state.cardDateKey = `2026-10-${nextDayPadded}`;
+    this.state.cardHeaderDate = `${nextWeekday} — OCT ${nextDayPadded}`;
+    this.state.cardShortDate = `${nextDayPadded} OCT`;
+    this.state.isCardFlipped = false;
+    this.state.tasks = [
+      {
+        id: 'task-' + Date.now(),
+        orderIndex: 1,
+        title: 'Morning Focus Priority',
+        isCompleted: false,
+        assignedQuadrant: null,
+      },
+    ];
+    this.state.reflectionText = '';
+    this.state.reflectionPhotos = [];
+
+    // Reset all 6 tomatoes cleanly for the new day
+    this.state.timers.forEach((s, idx) => {
+      s.assignedTaskId = null;
+      s.assignedTaskOrder = null;
+      s.customTitle = null;
+      s.runState = 'idle';
+      s.mode = 'countdown';
+      s.configuredMinutes = idx === 0 ? 25 : 0;
+      s.remainingSeconds = idx === 0 ? 25 * 60 : 0;
+      s.angleDegrees = idx === 0 ? 150 : 0;
+      s.lastTickTimestamp = null;
+    });
+
+    this.sensory.playCardFlipSwoosh();
+    this.saveState();
+    this.renderAll();
+    this.showNotificationBanner(
+      `5:00 AM Rollover: Archived ${currentKey} to Stack & created fresh card for OCT ${nextDayPadded}.`
+    );
+  }
+
+  // =========================================================================
+  // ADAPTIVE TYPOGRAPHY & CLIENT-SIDE PHOTO COMPRESSION (<= 1600px)
+  // =========================================================================
+
+  /**
+   * Dynamically scales the Evening Reflection font size between 21px and a 13px minimum floor
+   * so short entries feel bold and editorial (matching 05-card-back.png) while longer entries
+   * fit comfortably before enabling vertical scroll at 13px.
+   */
+  adjustReflectionTypography(textareaEl) {
+    if (!textareaEl) return;
+    const textLen = (textareaEl.value || '').length;
+    let targetSize = 21;
+    if (textLen > 620) {
+      targetSize = 13;
+    } else if (textLen > 480) {
+      targetSize = 14.5;
+    } else if (textLen > 360) {
+      targetSize = 16.5;
+    } else if (textLen > 275) {
+      targetSize = 18.5;
+    }
+    textareaEl.style.fontSize = `${targetSize}px`;
+    textareaEl.style.overflowY = targetSize <= 13 ? 'auto' : 'hidden';
+  }
+
+  triggerPhotoAttachment(target = 'today') {
+    this._photoUploadTarget = target;
+    if (this.els.journalPhotoFileInput) {
+      this.els.journalPhotoFileInput.click();
+    }
+  }
+
+  compressImageFileToDataURL(file, maxDimension = 1600) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('File read error'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Image decode error'));
+        img.onload = () => {
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          if (w > maxDimension || h > maxDimension) {
+            if (w >= h) {
+              h = Math.round((h * maxDimension) / w);
+              w = maxDimension;
+            } else {
+              w = Math.round((w * maxDimension) / h);
+              h = maxDimension;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.86));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   bindCardSurfaceFlipGesture() {
     let startX = null;
     let startY = null;
 
     this.els.card3DWrapper.addEventListener('pointerdown', (e) => {
+      if (
+        e.target.closest('.card-back-reflection-editor') ||
+        e.target.closest('.journal-photo-slot')
+      ) {
+        return;
+      }
       startX = e.clientX;
       startY = e.clientY;
     });
@@ -441,8 +1021,250 @@ export class FableFlowApp {
     this.state.isCardFlipped = !this.state.isCardFlipped;
     this.sensory.playCardFlipSwoosh();
     this.saveState();
-    this.renderCardScreen();
+    this.renderAll();
   }
+
+  // =========================================================================
+  // CHRONOLOGICAL CARD STACK VIEWER & CALENDAR ZOOM-OUT (Mockups 06 & 07)
+  // =========================================================================
+
+  getSortedArchiveKeys() {
+    return Object.keys(this.state.archiveCards || {}).sort();
+  }
+
+  getSelectedStackCard() {
+    const keys = this.getSortedArchiveKeys();
+    if (keys.length === 0) return null;
+    if (!this.state.archiveCards[this.state.selectedStackDateKey]) {
+      this.state.selectedStackDateKey = keys[keys.length - 1];
+    }
+    return this.state.archiveCards[this.state.selectedStackDateKey] || null;
+  }
+
+  selectStackDate(dateKey) {
+    if (dateKey === this.state.cardDateKey) {
+      // Navigating to Today's date opens Today's active Card
+      this.sensory.playStackRiffleTick();
+      this.state.activePillar = 'card';
+      this.state.isCardFlipped = false;
+      this.saveState();
+      this.renderAll();
+      return;
+    }
+    if (!this.state.archiveCards[dateKey]) return;
+    this.state.selectedStackDateKey = dateKey;
+    this.state.isStackCardFlipped = false;
+    this.sensory.playStackRiffleTick();
+    this.saveState();
+    this.renderAll();
+  }
+
+  stepStackCard(direction) {
+    const keys = this.getSortedArchiveKeys();
+    if (keys.length === 0) return;
+    const idx = keys.indexOf(this.state.selectedStackDateKey);
+    const nextIdx = Math.max(0, Math.min(keys.length - 1, idx + direction));
+    if (nextIdx !== idx) {
+      this.selectStackDate(keys[nextIdx]);
+    }
+  }
+
+  bindStackViewerEvents() {
+    if (this.els.stackBtnReturn) {
+      this.els.stackBtnReturn.addEventListener('click', () => {
+        this.sensory.playCardFlipSwoosh();
+        this.state.activePillar = 'card';
+        this.saveState();
+        this.renderAll();
+      });
+    }
+
+    if (this.els.stackBtnZoomout) {
+      this.els.stackBtnZoomout.addEventListener('click', () => {
+        this.sensory.playMechanicalTick();
+        this.state.activePillar = 'calendar';
+        this.saveState();
+        this.renderAll();
+      });
+    }
+
+    if (this.els.stackBtnFlip) {
+      this.els.stackBtnFlip.addEventListener('click', () => {
+        this.state.isStackCardFlipped = !this.state.isStackCardFlipped;
+        this.sensory.playCardFlipSwoosh();
+        this.saveState();
+        this.renderStackScreen();
+      });
+    }
+
+    if (this.els.stackBtnTrash) {
+      this.els.stackBtnTrash.addEventListener('click', () => {
+        this.confirmPermanentDeleteArchivedCard();
+      });
+    }
+
+    if (this.els.stackPeekLeft) {
+      this.els.stackPeekLeft.addEventListener('click', () => {
+        this.stepStackCard(-1);
+      });
+    }
+
+    if (this.els.stackPeekRight) {
+      this.els.stackPeekRight.addEventListener('click', () => {
+        this.stepStackCard(1);
+      });
+    }
+
+    if (this.els.stackAddItemRow) {
+      this.els.stackAddItemRow.addEventListener('click', () => {
+        this.openAddStackTaskModal();
+      });
+    }
+
+    if (this.els.stackCardBackReflection) {
+      this.els.stackCardBackReflection.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+      this.els.stackCardBackReflection.addEventListener('input', () => {
+        const card = this.getSelectedStackCard();
+        if (!card) return;
+        card.reflectionText = this.els.stackCardBackReflection.value;
+        this.adjustReflectionTypography(this.els.stackCardBackReflection);
+        this.saveState();
+      });
+    }
+
+    // Flip gesture on archived card surface
+    if (this.els.stackCard3D) {
+      let startX = null;
+      let startY = null;
+      this.els.stackCard3D.addEventListener('pointerdown', (e) => {
+        if (
+          e.target.closest('.card-back-reflection-editor') ||
+          e.target.closest('.journal-photo-slot')
+        ) {
+          return;
+        }
+        startX = e.clientX;
+        startY = e.clientY;
+      });
+      this.els.stackCard3D.addEventListener('pointerup', (e) => {
+        if (startX === null || startY === null) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        startX = null;
+        startY = null;
+        const classification = CardGestureMath.classifyGesture(dx, dy, false);
+        if (classification === 'flipCard') {
+          this.state.isStackCardFlipped = !this.state.isStackCardFlipped;
+          this.sensory.playCardFlipSwoosh();
+          this.saveState();
+          this.renderStackScreen();
+        }
+      });
+    }
+
+    // Pinch-to-zoom out on Stack screen -> Monthly Calendar
+    if (this.els.stackScreen) {
+      this.els.stackScreen.addEventListener(
+        'wheel',
+        (e) => {
+          if (e.ctrlKey && e.deltaY > 0) {
+            e.preventDefault();
+            this.state.activePillar = 'calendar';
+            this.saveState();
+            this.renderAll();
+          }
+        },
+        { passive: false }
+      );
+    }
+  }
+
+  bindCalendarViewerEvents() {
+    if (this.els.calendarBtnReturn) {
+      this.els.calendarBtnReturn.addEventListener('click', () => {
+        this.sensory.playCardFlipSwoosh();
+        this.state.activePillar = 'card';
+        this.saveState();
+        this.renderAll();
+      });
+    }
+
+    if (this.els.calendarBtnZoomin) {
+      this.els.calendarBtnZoomin.addEventListener('click', () => {
+        this.sensory.playMechanicalTick();
+        this.state.activePillar = 'stack';
+        this.saveState();
+        this.renderAll();
+      });
+    }
+
+    if (this.els.calendarScreen) {
+      this.els.calendarScreen.addEventListener(
+        'wheel',
+        (e) => {
+          if (e.ctrlKey && e.deltaY < 0) {
+            e.preventDefault();
+            this.state.activePillar = 'stack';
+            this.saveState();
+            this.renderAll();
+          }
+        },
+        { passive: false }
+      );
+    }
+  }
+
+  confirmPermanentDeleteArchivedCard() {
+    const card = this.getSelectedStackCard();
+    if (!card) {
+      this.showNotificationBanner('No archived card remaining to delete.');
+      return;
+    }
+
+    if (this.els.deleteModalTitle) {
+      this.els.deleteModalTitle.textContent = `Permanently delete ${card.shortDate} card?`;
+    }
+    if (this.els.deleteModalDesc) {
+      this.els.deleteModalDesc.textContent =
+        'This action cannot be undone. This archived card and its reflection will be permanently removed from your stack.';
+    }
+
+    this.els.deleteModalOverlay.classList.remove('hidden');
+
+    const onCancel = () => {
+      this.els.deleteModalOverlay.classList.add('hidden');
+      cleanup();
+    };
+    const onConfirm = () => {
+      this.els.deleteModalOverlay.classList.add('hidden');
+      cleanup();
+
+      const deletedKey = card.dateKey;
+      delete this.state.archiveCards[deletedKey];
+      const remainingKeys = this.getSortedArchiveKeys();
+      this.state.selectedStackDateKey =
+        remainingKeys.length > 0 ? remainingKeys[remainingKeys.length - 1] : null;
+      this.state.isStackCardFlipped = false;
+
+      this.sensory.playTrashDelete();
+      this.saveState();
+      this.renderAll();
+      this.showNotificationBanner('Card permanently deleted');
+    };
+    const cleanup = () => {
+      this.els.deleteModalCancel.removeEventListener('click', onCancel);
+      this.els.deleteModalConfirm.removeEventListener('click', onConfirm);
+    };
+
+    this.els.deleteModalCancel.addEventListener('click', onCancel);
+    this.els.deleteModalConfirm.addEventListener('click', onConfirm);
+  }
+
+  // =========================================================================
+  // HERO TOMATO DIAL DRAG & TAP-ON-DIGITS TIME ENTRY
+  // =========================================================================
 
   bindHeroDialDragGesture() {
     const stage = this.els.heroTomatoStage;
@@ -541,11 +1363,6 @@ export class FableFlowApp {
     stage.addEventListener('pointercancel', endDrag);
   }
 
-  /**
-   * Allows users to tap directly on the Hero digital readout (#hero-readout)
-   * to type a custom duration in minutes (0–180) or HH:MM (e.g. 02:30) or pick a preset,
-   * rotating the 3D tomato odometer directly without needing to twist the dial manually.
-   */
   bindHeroReadoutTimeEntry() {
     if (!this.els.heroReadout || !this.els.heroTimeEditor || !this.els.heroTimeInput) return;
 
@@ -565,7 +1382,6 @@ export class FableFlowApp {
       e.stopPropagation();
     });
 
-    // Live-preview the 3D tomato rotation as the user types digits
     this.els.heroTimeInput.addEventListener('input', () => {
       const rawVal = this.els.heroTimeInput.value;
       if (this.els.heroTimeUnitBadge) {
@@ -668,10 +1484,6 @@ export class FableFlowApp {
     this.renderHeroScreen();
   }
 
-  /**
-   * Sets a tomato timer directly to a typed minute duration [0..180],
-   * updating the digital readout and rotating the 3D tomato odometer dial.
-   */
   setCustomTimerMinutes(quadrant, minutes) {
     const slot = this.state.timers[quadrant];
     if (!slot) return;
@@ -704,11 +1516,6 @@ export class FableFlowApp {
   // TIMER COORDINATOR LOGIC (1-Active-Timer + Stopwatch Turns on Minutes)
   // =========================================================================
 
-  /**
-   * Ensures that if an unassigned (grey) tomato is wound up or started on the Hero page,
-   * it automatically lights up (assigning the first available Card task or a default
-   * 'Focus Session' title) so it never runs as an invisible ghost timer on the 6-Tomato Grid.
-   */
   ensureSlotAssignedForActiveTimer(quadrant) {
     const slot = this.state.timers[quadrant];
     if (!slot || slot.assignedTaskId || slot.customTitle) return;
@@ -752,7 +1559,6 @@ export class FableFlowApp {
             }
           }
         } else {
-          // Stopwatch Mode: count up seconds, but turn the tomato dial ONLY ON THE MINUTES!
           const prevWholeMinutes = Math.floor(slot.remainingSeconds / 60);
           slot.remainingSeconds += 1;
           const newWholeMinutes = Math.floor(slot.remainingSeconds / 60);
@@ -782,10 +1588,6 @@ export class FableFlowApp {
     }, 1000);
   }
 
-  /**
-   * Updates running timer readouts on the 6-Tomato Grid in-place without wiping
-   * quadEl.innerHTML, preserving any open task assignment dropdown or hover state (QA #5).
-   */
   updateGridTimersInPlace() {
     this.state.timers.forEach((slot, qIdx) => {
       const quadEl = this.els.gridQuadrants[qIdx];
@@ -835,15 +1637,6 @@ export class FableFlowApp {
     this.renderAll();
   }
 
-  /**
-   * Handles the End (■) / Reset (↺) button:
-   * - Step 1 (End): When the timer is running, paused, or idle, clicking End (■) transitions
-   *   the tomato smoothly into a Silver Metallic tomato (`runState = 'completed'`) WITHOUT
-   *   clearing its time, preventing accidental clearing. The End button then becomes a Reset (↺) button.
-   * - Step 2 (Reset): When the tomato is already in the Silver Metallic (`'completed'`) state,
-   *   clicking the Reset (↺) button clears and resets the timer to 00:00 and smoothly transitions
-   *   the tomato back to its heirloom color.
-   */
   handleEndOrResetButton(quadrant) {
     const slot = this.state.timers[quadrant];
     if (!slot) return;
@@ -981,9 +1774,6 @@ export class FableFlowApp {
     this.renderAll();
   }
 
-  /**
-   * Unassigns a lit-up tomato and returns it immediately to Matte Neutral Grey ("Tap to assign").
-   */
   clearQuadrantAssignment(quadrant) {
     const slot = this.state.timers[quadrant];
     if (!slot) return;
@@ -1011,12 +1801,6 @@ export class FableFlowApp {
     this.renderAll();
   }
 
-  /**
-   * Clicking a task's right-side tomato icon on Today's Card:
-   * - If the tomato is ALREADY LIT UP (assigned), clicking it UNASSIGNS the tomato (returns it to grey)!
-   * - If the tomato is GREY (unassigned), clicking it lights up a tomato (assigns the task)
-   *   AND brings the user deterministically to the Hero Timer page for that tomato (PM #2)!
-   */
   handleCardTaskTomatoClick(task) {
     if (task.assignedQuadrant !== null && task.assignedQuadrant !== undefined) {
       this.clearQuadrantAssignment(task.assignedQuadrant);
@@ -1029,7 +1813,6 @@ export class FableFlowApp {
     const targetQuad = freeSlot ? freeSlot.quadrant : 0;
     this.assignTaskToQuadrant(targetQuad, task);
 
-    // Navigate directly and deterministically to the Hero Timer page with this tomato selected (PM #2)
     this.state.selectedQuadrant = targetQuad;
     this.state.activePillar = 'timer';
     this.state.timerSubMode = 'hero';
@@ -1038,52 +1821,118 @@ export class FableFlowApp {
   }
 
   // =========================================================================
-  // RENDERING: ALL 3 MOCKUP SCREENS
+  // RENDERING: ALL 7 MOCKUP SCREENS (01..07)
   // =========================================================================
 
   renderAll() {
-    const isCard = this.state.activePillar === 'card';
-    this.els.pillCardBtn.classList.toggle('active', isCard);
-    this.els.pillTimerBtn.classList.toggle('active', !isCard);
+    const pillar = this.state.activePillar;
+    const isHome = pillar === 'home';
+    const isCard = pillar === 'card';
+    const isTimer = pillar === 'timer';
+    const isStack = pillar === 'stack';
+    const isCalendar = pillar === 'calendar';
 
+    // Top bar morphs between 'FABLE / FLOW' (on Homepage) and 'Card | Timer' pill
+    if (this.els.homeBrandTitle && this.els.topSegmentedPill) {
+      this.els.homeBrandTitle.classList.toggle('hidden', !isHome);
+      this.els.topSegmentedPill.classList.toggle('hidden', isHome);
+    }
+
+    const isCardSegmentActive = isCard || isStack || isCalendar;
+    this.els.pillCardBtn.classList.toggle('active', isCardSegmentActive);
+    this.els.pillTimerBtn.classList.toggle('active', isTimer);
+
+    if (this.els.homeScreen) {
+      this.els.homeScreen.classList.toggle('hidden', !isHome);
+    }
     this.els.cardScreen.classList.toggle('hidden', !isCard);
     this.els.gridScreen.classList.toggle(
       'hidden',
-      isCard || this.state.timerSubMode !== 'grid'
+      !isTimer || this.state.timerSubMode !== 'grid'
     );
     this.els.heroScreen.classList.toggle(
       'hidden',
-      isCard || this.state.timerSubMode !== 'hero'
+      !isTimer || this.state.timerSubMode !== 'hero'
     );
-
-    if (this.els.demoBtnCard) {
-      this.els.demoBtnCard.classList.toggle('active-pill', isCard);
-      this.els.demoBtnGrid.classList.toggle(
-        'active-pill',
-        !isCard && this.state.timerSubMode === 'grid'
-      );
-      this.els.demoBtnHero.classList.toggle(
-        'active-pill',
-        !isCard && this.state.timerSubMode === 'hero'
-      );
+    if (this.els.stackScreen) {
+      this.els.stackScreen.classList.toggle('hidden', !isStack);
+    }
+    if (this.els.calendarScreen) {
+      this.els.calendarScreen.classList.toggle('hidden', !isCalendar);
     }
 
-    if (isCard) {
+    // Update evaluation quick-switcher active pills
+    if (this.els.demoBtnHome) {
+      this.els.demoBtnHome.classList.toggle('active-pill', isHome);
+    }
+    if (this.els.demoBtnCard) {
+      this.els.demoBtnCard.classList.toggle(
+        'active-pill',
+        isCard && !this.state.isCardFlipped
+      );
+    }
+    if (this.els.demoBtnBack) {
+      this.els.demoBtnBack.classList.toggle(
+        'active-pill',
+        isCard && Boolean(this.state.isCardFlipped)
+      );
+    }
+    if (this.els.demoBtnGrid) {
+      this.els.demoBtnGrid.classList.toggle(
+        'active-pill',
+        isTimer && this.state.timerSubMode === 'grid'
+      );
+    }
+    if (this.els.demoBtnHero) {
+      this.els.demoBtnHero.classList.toggle(
+        'active-pill',
+        isTimer && this.state.timerSubMode === 'hero'
+      );
+    }
+    if (this.els.demoBtnStack) {
+      this.els.demoBtnStack.classList.toggle('active-pill', isStack);
+    }
+    if (this.els.demoBtnCalendar) {
+      this.els.demoBtnCalendar.classList.toggle('active-pill', isCalendar);
+    }
+
+    if (isHome) {
+      this.renderHomeScreen();
+    } else if (isCard) {
       this.renderCardScreen();
-    } else if (this.state.timerSubMode === 'grid') {
-      this.renderGridScreen();
-    } else {
-      this.renderHeroScreen();
+    } else if (isTimer) {
+      if (this.state.timerSubMode === 'grid') {
+        this.renderGridScreen();
+      } else {
+        this.renderHeroScreen();
+      }
+    } else if (isStack) {
+      this.renderStackScreen();
+    } else if (isCalendar) {
+      this.renderCalendarScreen();
     }
   }
 
   /**
-   * Renders Screen 1: Front of Today's Card (Mockup 04-card-front.png)
+   * Renders Screen 0: Minimalist 2-Object Homepage (Mockup 01-home-page.png)
+   */
+  renderHomeScreen() {
+    if (this.els.homeMiniDate) {
+      this.els.homeMiniDate.textContent = this.state.cardShortDate || '06 OCT';
+    }
+  }
+
+  /**
+   * Renders Screen 1: Today's Dual-Sided Card (Front 04-card-front.png & Back 05-card-back.png)
    */
   renderCardScreen() {
     this.els.cardDateHeader.textContent = this.state.cardHeaderDate;
+    if (this.els.cardBackDateHeader) {
+      this.els.cardBackDateHeader.textContent = this.state.cardHeaderDate;
+    }
     this.els.card3DWrapper.classList.toggle('is-flipped', this.state.isCardFlipped);
 
+    // 1. Render Front of Today's Card (Tasks + Graphite Strikethrough + Mini Tomatoes)
     const container = this.els.taskListContainer;
     container.innerHTML = '';
 
@@ -1145,7 +1994,7 @@ export class FableFlowApp {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
       });
 
-      this.bindTaskRowPencilGesture(row, task, strikeCanvas);
+      this.bindTaskRowPencilGesture(row, task, strikeCanvas, false);
     });
 
     if (this.state.tasks.length < 6) {
@@ -1153,12 +2002,365 @@ export class FableFlowApp {
     } else {
       this.els.addItemRow.classList.add('hidden');
     }
+
+    // 2. Render Back of Today's Card (Matte Black Reflection Journal + 0-2 Framed Photos)
+    if (this.els.cardBackReflection) {
+      if (this.els.cardBackReflection.value !== (this.state.reflectionText || '')) {
+        this.els.cardBackReflection.value = this.state.reflectionText || '';
+      }
+      this.adjustReflectionTypography(this.els.cardBackReflection);
+    }
+
+    this.renderPhotoSlotsDOM(
+      this.els.cardBackPhotos,
+      this.state.reflectionPhotos || [],
+      'today'
+    );
+  }
+
+  /**
+   * Renders 0 to 2 framed photo slots at the bottom of a Matte Black Card back face.
+   */
+  renderPhotoSlotsDOM(containerEl, photosArray, targetType) {
+    if (!containerEl) return;
+    containerEl.innerHTML = '';
+
+    const photos = Array.isArray(photosArray) ? photosArray.slice(0, 2) : [];
+    containerEl.classList.toggle('empty-photos', photos.length === 0);
+
+    if (photos.length === 0) {
+      const addSlot = document.createElement('div');
+      addSlot.className = 'journal-photo-slot';
+      addSlot.title = 'Click to attach a photo (compressed client-side to ≤ 1600px)';
+      const label = document.createElement('span');
+      label.className = 'journal-photo-add-label';
+      label.textContent = '+ Attach Photo (up to 2)';
+      addSlot.appendChild(label);
+      addSlot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.triggerPhotoAttachment(targetType);
+      });
+      containerEl.appendChild(addSlot);
+      return;
+    }
+
+    photos.forEach((photoSrc, idx) => {
+      const slot = document.createElement('div');
+      slot.className = 'journal-photo-slot';
+
+      const img = document.createElement('img');
+      img.className = 'journal-photo-img';
+      img.src = photoSrc;
+      img.alt = `Evening journal memory photo ${idx + 1}`;
+      slot.appendChild(img);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'journal-photo-remove-btn';
+      removeBtn.setAttribute('aria-label', `Remove photo ${idx + 1}`);
+      removeBtn.title = 'Remove photo';
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (targetType === 'stack') {
+          const card = this.getSelectedStackCard();
+          if (card && Array.isArray(card.reflectionPhotos)) {
+            card.reflectionPhotos.splice(idx, 1);
+            this.saveState();
+            this.renderStackScreen();
+          }
+        } else {
+          this.state.reflectionPhotos.splice(idx, 1);
+          this.saveState();
+          this.renderCardScreen();
+        }
+      });
+      slot.appendChild(removeBtn);
+
+      containerEl.appendChild(slot);
+    });
+
+    if (photos.length === 1) {
+      const secondSlot = document.createElement('div');
+      secondSlot.className = 'journal-photo-slot';
+      secondSlot.title = 'Click to attach a second photo';
+      const label = document.createElement('span');
+      label.className = 'journal-photo-add-label';
+      label.textContent = '+ Add 2nd Photo';
+      secondSlot.appendChild(label);
+      secondSlot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.triggerPhotoAttachment(targetType);
+      });
+      containerEl.appendChild(secondSlot);
+    }
+  }
+
+  /**
+   * Renders Screen 4: Chronological Card Stack Viewer (Mockup 06-stack-detail.png)
+   */
+  renderStackScreen() {
+    const selectedCard = this.getSelectedStackCard();
+    const sortedKeys = this.getSortedArchiveKeys();
+
+    // 1. Render Top Date Strip (e.g. 'OCT 01 02 03 04 (05) 06')
+    if (this.els.stackDateStrip) {
+      this.els.stackDateStrip.innerHTML = '';
+      const activeMonth =
+        selectedCard && selectedCard.monthKey === '2026-09' ? '2026-09' : '2026-10';
+
+      const monthSpan = document.createElement('span');
+      monthSpan.className = 'stack-month-label';
+      monthSpan.textContent = activeMonth === '2026-09' ? 'SEP' : 'OCT';
+      this.els.stackDateStrip.appendChild(monthSpan);
+
+      if (activeMonth === '2026-10') {
+        const octDays = [1, 2, 3, 4, 5, 6];
+        octDays.forEach((d) => {
+          const dPadded = String(d).padStart(2, '0');
+          const dKey = `2026-10-${dPadded}`;
+          const hasCard =
+            Boolean(this.state.archiveCards[dKey]) || dKey === this.state.cardDateKey;
+          const isSelected =
+            selectedCard && selectedCard.dateKey === dKey;
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'stack-date-pill';
+          if (hasCard) btn.classList.add('has-card');
+          if (isSelected) btn.classList.add('active');
+          btn.textContent = dPadded;
+          btn.dataset.dateKey = dKey;
+          btn.addEventListener('click', () => {
+            if (dKey === this.state.cardDateKey) {
+              this.selectStackDate(dKey);
+            } else if (this.state.archiveCards[dKey]) {
+              this.selectStackDate(dKey);
+            } else {
+              this.showTelemetryToast(`No archived card on OCT ${dPadded}`);
+            }
+          });
+          this.els.stackDateStrip.appendChild(btn);
+        });
+      } else {
+        const sepKeys = sortedKeys.filter((k) => k.startsWith('2026-09-'));
+        sepKeys.forEach((dKey) => {
+          const cardObj = this.state.archiveCards[dKey];
+          const dPadded = String(cardObj.dayNum).padStart(2, '0');
+          const isSelected = selectedCard && selectedCard.dateKey === dKey;
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'stack-date-pill has-card';
+          if (isSelected) btn.classList.add('active');
+          btn.textContent = dPadded;
+          btn.dataset.dateKey = dKey;
+          btn.addEventListener('click', () => {
+            this.selectStackDate(dKey);
+          });
+          this.els.stackDateStrip.appendChild(btn);
+        });
+      }
+    }
+
+    if (!selectedCard) {
+      if (this.els.stackCardDateHeader) {
+        this.els.stackCardDateHeader.textContent = 'ARCHIVE EMPTY';
+      }
+      if (this.els.stackTaskListContainer) {
+        this.els.stackTaskListContainer.innerHTML = '';
+      }
+      return;
+    }
+
+    // Update peeking left/right card states
+    const curIdx = sortedKeys.indexOf(selectedCard.dateKey);
+    if (this.els.stackPeekLeft) {
+      this.els.stackPeekLeft.classList.toggle('disabled-peek', curIdx <= 0);
+    }
+    if (this.els.stackPeekRight) {
+      this.els.stackPeekRight.classList.toggle(
+        'disabled-peek',
+        curIdx < 0 || curIdx >= sortedKeys.length - 1
+      );
+    }
+
+    // 2. Render Center Selected Archived Card (Front & Back, Retroactively Editable)
+    this.els.stackCard3D.classList.toggle(
+      'is-flipped',
+      Boolean(this.state.isStackCardFlipped)
+    );
+    this.els.stackCardDateHeader.textContent = selectedCard.headerDate;
+    if (this.els.stackCardBackDateHeader) {
+      this.els.stackCardBackDateHeader.textContent = selectedCard.headerDate;
+    }
+
+    const listEl = this.els.stackTaskListContainer;
+    listEl.innerHTML = '';
+
+    (selectedCard.tasks || []).forEach((task, idx) => {
+      task.orderIndex = idx + 1;
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      row.dataset.taskId = task.id;
+
+      const numSpan = document.createElement('span');
+      numSpan.className = 'task-index';
+      numSpan.textContent = String(task.orderIndex).padStart(2, '0');
+
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'task-title';
+      titleSpan.textContent = task.title;
+      titleSpan.title =
+        'Retroactive Edit: Click once to edit/delete • Drag Left → Right to strike through or erase';
+
+      const strikeCanvas = document.createElement('canvas');
+      strikeCanvas.className = 'pencil-strike-canvas';
+      strikeCanvas.width = 524;
+      strikeCanvas.height = 32;
+
+      const spacer = document.createElement('span');
+      spacer.style.width = '30px';
+
+      row.appendChild(numSpan);
+      row.appendChild(titleSpan);
+      row.appendChild(strikeCanvas);
+      row.appendChild(spacer);
+
+      listEl.appendChild(row);
+
+      requestAnimationFrame(() => {
+        this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
+      });
+
+      this.bindTaskRowPencilGesture(row, task, strikeCanvas, true);
+    });
+
+    if (this.els.stackAddItemRow) {
+      this.els.stackAddItemRow.classList.toggle(
+        'hidden',
+        (selectedCard.tasks || []).length >= 6
+      );
+    }
+
+    if (this.els.stackCardBackReflection) {
+      if (
+        this.els.stackCardBackReflection.value !==
+        (selectedCard.reflectionText || '')
+      ) {
+        this.els.stackCardBackReflection.value = selectedCard.reflectionText || '';
+      }
+      this.adjustReflectionTypography(this.els.stackCardBackReflection);
+    }
+
+    this.renderPhotoSlotsDOM(
+      this.els.stackCardBackPhotos,
+      selectedCard.reflectionPhotos || [],
+      'stack'
+    );
+  }
+
+  /**
+   * Renders Screen 5: Monthly Calendar Zoom-Out View (Mockup 07-calendar-view.png)
+   */
+  renderCalendarScreen() {
+    const container = this.els.calendarMonthsContainer;
+    if (!container) return;
+    container.innerHTML = '';
+
+    const months = [
+      {
+        monthKey: '2026-09',
+        title: 'SEPTEMBER 2026',
+        daysInMonth: 30,
+        startDayOfWeek: 2, // Sep 1, 2026 is Tuesday (0=Sun, 1=Mon, 2=Tue)
+      },
+      {
+        monthKey: '2026-10',
+        title: 'OCTOBER 2026',
+        daysInMonth: 31,
+        startDayOfWeek: 4, // Oct 1, 2026 is Thursday
+      },
+    ];
+
+    const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    months.forEach((m) => {
+      const block = document.createElement('div');
+      block.className = 'cal-month-block';
+
+      const titleEl = document.createElement('h2');
+      titleEl.className = 'cal-month-title';
+      titleEl.textContent = m.title;
+      block.appendChild(titleEl);
+
+      const wkRow = document.createElement('div');
+      wkRow.className = 'cal-weekday-row';
+      weekdays.forEach((w) => {
+        const span = document.createElement('span');
+        span.textContent = w;
+        wkRow.appendChild(span);
+      });
+      block.appendChild(wkRow);
+
+      const grid = document.createElement('div');
+      grid.className = 'cal-days-grid';
+
+      for (let e = 0; e < m.startDayOfWeek; e++) {
+        const empty = document.createElement('div');
+        empty.className = 'cal-day-empty';
+        grid.appendChild(empty);
+      }
+
+      for (let d = 1; d <= m.daysInMonth; d++) {
+        const dPadded = String(d).padStart(2, '0');
+        const dateKey = `${m.monthKey}-${dPadded}`;
+        const hasArchivedCard = Boolean(this.state.archiveCards[dateKey]);
+        const isTodayCard = dateKey === this.state.cardDateKey;
+        const isSelected = dateKey === this.state.selectedStackDateKey;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cal-day-btn';
+        btn.dataset.dateKey = dateKey;
+        btn.textContent = String(d);
+
+        if (hasArchivedCard || isTodayCard) {
+          btn.classList.add('has-card');
+        }
+        if (isSelected) {
+          btn.classList.add('is-selected');
+        }
+
+        btn.addEventListener('click', () => {
+          if (isTodayCard) {
+            this.sensory.playCardFlipSwoosh();
+            this.state.activePillar = 'card';
+            this.state.isCardFlipped = false;
+            this.saveState();
+            this.renderAll();
+          } else if (hasArchivedCard) {
+            this.sensory.playStackRiffleTick();
+            this.state.selectedStackDateKey = dateKey;
+            this.state.activePillar = 'stack';
+            this.state.isStackCardFlipped = false;
+            this.saveState();
+            this.renderAll();
+          } else {
+            this.showTelemetryToast(`No archived card for ${dateKey}`);
+          }
+        });
+
+        grid.appendChild(btn);
+      }
+
+      block.appendChild(grid);
+      container.appendChild(block);
+    });
   }
 
   /**
    * Draws a straight horizontal dry-graphite pencil strikethrough between normalized [startProgress, endProgress].
-   * - Striking through (Left -> Right): startProgress = 0.0, endProgress = progress (grows Left -> Right).
-   * - Erasing (Left -> Right): startProgress = progress, endProgress = 1.0 (erases from Left -> Right!).
    */
   drawGraphiteStroke(canvas, startProgress = 0.0, endProgress = 0.0) {
     const ctx = canvas.getContext('2d');
@@ -1215,7 +2417,7 @@ export class FableFlowApp {
     ctx.restore();
   }
 
-  bindTaskRowPencilGesture(rowEl, task, strikeCanvas) {
+  bindTaskRowPencilGesture(rowEl, task, strikeCanvas, isStackCard = false) {
     let startX = null;
     let startY = null;
     let isTracking = false;
@@ -1241,10 +2443,8 @@ export class FableFlowApp {
       );
       if (progress > 0) {
         if (!task.isCompleted) {
-          // Left -> Right strike-through: line grows from Left (0.0) to Right (progress)
           this.drawGraphiteStroke(strikeCanvas, 0.0, progress);
         } else {
-          // Left -> Right erase: line erases from Left (progress) to Right (1.0)
           this.drawGraphiteStroke(strikeCanvas, progress, 1.0);
         }
       }
@@ -1252,7 +2452,7 @@ export class FableFlowApp {
 
     const finishGesture = (e) => {
       if (!isTracking || startX === null) return;
-      e.stopPropagation(); // QA #1: Prevent bubbling to #daily-card-3d
+      e.stopPropagation();
       isTracking = false;
       try {
         rowEl.releasePointerCapture(e.pointerId);
@@ -1263,10 +2463,13 @@ export class FableFlowApp {
       startX = null;
       startY = null;
 
-      // PM #1: Single click on the task row/text opens the Edit / Delete modal
       if (Math.abs(dx) < 6 && Math.abs(dy) < 6) {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
-        this.openEditTaskModal(task);
+        if (isStackCard) {
+          this.openEditStackTaskModal(task);
+        } else {
+          this.openEditTaskModal(task);
+        }
         return;
       }
 
@@ -1278,7 +2481,14 @@ export class FableFlowApp {
         this.saveState();
       } else if (gesture === 'flipCard') {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
-        this.triggerCardFlip();
+        if (isStackCard) {
+          this.state.isStackCardFlipped = !this.state.isStackCardFlipped;
+          this.sensory.playCardFlipSwoosh();
+          this.saveState();
+          this.renderStackScreen();
+        } else {
+          this.triggerCardFlip();
+        }
       } else {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
       }
@@ -1289,7 +2499,7 @@ export class FableFlowApp {
   }
 
   /**
-   * Renders Screen 2: 6-Pomodoro 2x3 Grid View
+   * Renders Screen 2: 6-Pomodoro 2x3 Grid View (Mockup 03-grid-timer.png)
    */
   renderGridScreen() {
     this.state.timers.forEach((slot, qIdx) => {
@@ -1305,7 +2515,6 @@ export class FableFlowApp {
       const readoutText = OdometerDialPhysics.formatMockupReadout(
         slot.remainingSeconds
       );
-      // Only show first few words on the tomato so text never overflows!
       const shortTitleText = OdometerDialPhysics.formatShortTomatoTitle(
         slot.customTitle || '',
         2,
@@ -1375,7 +2584,6 @@ export class FableFlowApp {
         overlay.appendChild(titleEl);
         overlay.appendChild(timeEl);
 
-        // On the Tomato Grid page, clicking an assigned tomato brings the user to the Hero Tomato page (does NOT unassign)
         tomatoWrap.addEventListener('click', (e) => {
           e.stopPropagation();
           this.state.selectedQuadrant = qIdx;
@@ -1455,10 +2663,6 @@ export class FableFlowApp {
     });
   }
 
-  /**
-   * Builds the Task Assignment Dropdown on the Set of Timer (Grid) page.
-   * Excludes any task that is already selected and assigned to a tomato!
-   */
   buildTaskDropdownDOM(quadrant) {
     const menu = document.createElement('div');
     menu.className = 'task-assign-dropdown';
@@ -1481,7 +2685,6 @@ export class FableFlowApp {
     const listBody = document.createElement('div');
     listBody.className = 'dropdown-task-list';
 
-    // Filter out any task that is already assigned to a tomato!
     const availableTasks = this.state.tasks.filter(
       (t) => t.assignedQuadrant === null || t.assignedQuadrant === undefined
     );
@@ -1542,7 +2745,6 @@ export class FableFlowApp {
       this.els.heroSubtitle.textContent = `${orderStr} / TAP TO ASSIGN`;
     }
 
-    // PM #4: Render task reassignment dropdown right on the Hero page when subtitle is clicked
     if (this.els.heroSubtitleDropdownMount) {
       this.els.heroSubtitleDropdownMount.innerHTML = '';
       if (this.state.isHeroDropdownOpen) {
@@ -1588,7 +2790,7 @@ export class FableFlowApp {
   }
 
   // =========================================================================
-  // MODALS FOR ADDING / EDITING TASKS & CUSTOM TIMER TITLES
+  // MODALS FOR ADDING / EDITING TASKS (TODAY'S CARD & RETROACTIVE STACK)
   // =========================================================================
 
   openAddTaskModal() {
@@ -1610,6 +2812,61 @@ export class FableFlowApp {
       this.saveState();
       this.renderAll();
     });
+  }
+
+  openAddStackTaskModal() {
+    const card = this.getSelectedStackCard();
+    if (!card) return;
+    if (!Array.isArray(card.tasks)) card.tasks = [];
+    if (card.tasks.length >= 6) {
+      this.showNotificationBanner('Maximum 6 tasks per Daily Card reached.');
+      return;
+    }
+    this.openInputModal(`Add Task to ${card.shortDate} Card`, '', (val) => {
+      if (!val.trim()) return;
+      card.tasks.push({
+        id: `${card.dateKey}-task-${Date.now()}`,
+        orderIndex: card.tasks.length + 1,
+        title: val.trim(),
+        isCompleted: false,
+      });
+      this.sensory.playMechanicalTick();
+      this.saveState();
+      this.renderStackScreen();
+    });
+  }
+
+  openEditStackTaskModal(task) {
+    const card = this.getSelectedStackCard();
+    if (!card) return;
+    this.openInputModal(
+      `Edit ${card.shortDate} Task ${String(task.orderIndex).padStart(2, '0')}`,
+      task.title,
+      (val) => {
+        if (!val.trim()) {
+          card.tasks = card.tasks.filter((t) => t.id !== task.id);
+          card.tasks.forEach((t, idx) => {
+            t.orderIndex = idx + 1;
+          });
+          this.saveState();
+          this.renderStackScreen();
+          this.showNotificationBanner('Task removed from archived card');
+          return;
+        }
+        task.title = val.trim();
+        this.saveState();
+        this.renderStackScreen();
+      },
+      () => {
+        card.tasks = card.tasks.filter((t) => t.id !== task.id);
+        card.tasks.forEach((t, idx) => {
+          t.orderIndex = idx + 1;
+        });
+        this.saveState();
+        this.renderStackScreen();
+        this.showNotificationBanner('Task removed from archived card');
+      }
+    );
   }
 
   openEditTaskModal(task) {
@@ -1637,6 +2894,13 @@ export class FableFlowApp {
   }
 
   confirmPermanentDeleteTask(task) {
+    if (this.els.deleteModalTitle) {
+      this.els.deleteModalTitle.textContent = 'Permanently delete this item?';
+    }
+    if (this.els.deleteModalDesc) {
+      this.els.deleteModalDesc.textContent =
+        'This action cannot be undone. The item will be permanently removed from Today’s Card.';
+    }
     this.els.deleteModalOverlay.classList.remove('hidden');
     const onCancel = () => {
       this.els.deleteModalOverlay.classList.add('hidden');
@@ -1649,8 +2913,6 @@ export class FableFlowApp {
       this.state.tasks.forEach((t, i) => {
         t.orderIndex = i + 1;
       });
-      // QA #4: When the associated task is deleted, completely reset the tomato
-      // and re-sync assignedTaskOrder for all remaining tasks' tomatoes
       for (const s of this.state.timers) {
         if (s.assignedTaskId === task.id) {
           s.assignedTaskId = null;

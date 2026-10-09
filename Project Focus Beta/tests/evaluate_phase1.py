@@ -90,7 +90,11 @@ REQUIRED_FILES = [
     "FableFlow/Features/Card/PencilStrikethroughCanvas.swift",
     "FableFlow/Features/Card/TaskRowView.swift",
     "FableFlow/Features/Card/CardFrontView.swift",
+    "FableFlow/Features/Card/CardBackJournalView.swift",
+    "FableFlow/Features/Stack/CardStackViewerView.swift",
+    "FableFlow/Features/Stack/MonthlyCalendarZoomView.swift",
     "FableFlow/Features/Workspace/GlobalTopBarView.swift",
+    "FableFlow/Features/Workspace/MinimalistHomepageView.swift",
     "FableFlow/Features/Workspace/PhaseOneWorkspaceView.swift",
     # Phase 0 & 1 Automated Tests
     "FableFlowTests/LogicalDayServiceTests.swift",
@@ -122,6 +126,10 @@ REQUIRED_FILES = [
     "assets/tomatoes/mini-tomato-4.png",
     "assets/tomatoes/mini-tomato-5.png",
     "assets/tomatoes/mini-tomato-grey.png",
+    # Phase 2 MVP Assets (Minimalist Homepage Tomato & Evening Journal Sample Photos)
+    "assets/tomatoes/home-tomato.png",
+    "assets/photos/sample-poodle.jpg",
+    "assets/photos/sample-desk.jpg",
     # Interactive Web/Mobile Beta Preview Application
     "index.html",
     "css/style.css",
@@ -441,6 +449,88 @@ def verify_qa_pm_audit_fixes_and_chime():
 
 check("QAPMAuditFixes", "All 7 QA fixes, 3 PM fixes, 1-minute dial resolution, HH:MM:SS (>60m), and physical Pomodoro bell chime verified", verify_qa_pm_audit_fixes_and_chime)
 
+
+def verify_phase2_minimalist_homepage():
+    html = read_file("index.html")
+    css = read_file("css/style.css")
+    js_app = read_file("js/app.js")
+
+    assert 'id="screen-home"' in html
+    assert 'id="home-brand-title"' in html and "FABLE / FLOW" in html
+    assert 'id="home-mini-card"' in html and 'id="home-mini-date"' in html
+    assert 'id="home-tomato-btn"' in html
+    assert ".home-mini-card" in css and ".home-tomato-btn" in css
+    assert "renderHomeScreen()" in js_app
+
+
+check("Phase2Homepage", "Minimalist 2-Object Homepage (01-home-page.png) with 'FABLE / FLOW' header, '06 OCT' mini-card, and 3D Tomato verified", verify_phase2_minimalist_homepage)
+
+
+def verify_phase2_matte_black_journal_and_photos():
+    html = read_file("index.html")
+    css = read_file("css/style.css")
+    js_app = read_file("js/app.js")
+
+    assert 'id="card-back-reflection"' in html
+    assert 'id="card-back-photos"' in html
+    assert 'id="journal-photo-file-input"' in html
+    assert ".card-back-reflection-editor" in css
+    assert ".journal-photo-slot" in css
+    # Adaptive font scaling from 21px down to 13px floor
+    assert "adjustReflectionTypography(textareaEl)" in js_app
+    assert "targetSize = 21;" in js_app and "targetSize = 13;" in js_app
+    # Client-side <= 1600px image compression
+    assert "compressImageFileToDataURL(file, maxDimension = 1600)" in js_app
+    # 0 to 2 framed photo slots
+    assert "renderPhotoSlotsDOM(" in js_app
+
+
+check("Phase2MatteBlackJournal", "Matte Black Back of Card (05-card-back.png) with adaptive 21px->13px typography & 0-2 framed photo slots (<=1600px)", verify_phase2_matte_black_journal_and_photos)
+
+
+def verify_phase2_card_stack_and_retroactive_editing():
+    html = read_file("index.html")
+    css = read_file("css/style.css")
+    js_app = read_file("js/app.js")
+    js_sensory = read_file("js/sensoryEngine.js")
+
+    assert 'id="screen-stack"' in html
+    assert 'id="stack-date-strip"' in html
+    assert 'id="stack-peek-left"' in html and 'id="stack-peek-right"' in html
+    assert 'id="stack-card-3d"' in html
+    assert 'id="stack-btn-return"' in html
+    assert 'id="stack-btn-zoomout"' in html
+    assert 'id="stack-btn-flip"' in html
+    assert 'id="stack-btn-trash"' in html
+    assert ".stack-date-pill.active" in css
+    # Cardstock riffle tick foley & trash delete foley
+    assert "playStackRiffleTick()" in js_sensory
+    assert "playTrashDelete()" in js_sensory
+    # Retroactive editing & permanent trash deletion of archived cards
+    assert "openAddStackTaskModal()" in js_app
+    assert "openEditStackTaskModal(task)" in js_app
+    assert "confirmPermanentDeleteArchivedCard()" in js_app
+    assert "this.showNotificationBanner('Card permanently deleted');" in js_app
+
+
+check("Phase2CardStack", "Chronological Card Stack Viewer (06-stack-detail.png) with date strip, peeking carousel, retroactive editing & Trash delete", verify_phase2_card_stack_and_retroactive_editing)
+
+
+def verify_phase2_calendar_zoom_and_5am_rollover():
+    html = read_file("index.html")
+    css = read_file("css/style.css")
+    js_app = read_file("js/app.js")
+
+    assert 'id="screen-calendar"' in html
+    assert 'id="calendar-months-container"' in html
+    assert 'id="calendar-btn-return"' in html and 'id="calendar-btn-zoomin"' in html
+    assert ".cal-day-btn.has-card" in css and ".cal-day-btn.is-selected" in css
+    assert "SEPTEMBER 2026" in js_app and "OCTOBER 2026" in js_app
+    assert "simulateFiveAmRollover()" in js_app
+
+
+check("Phase2CalendarRollover", "Monthly Calendar Zoom-Out (07-calendar-view.png) with Sep/Oct grids, grey/black date circles & 5:00 AM rollover engine", verify_phase2_calendar_zoom_and_5am_rollover)
+
 # ============================================================================
 # 4. LAYER 3: LIVE HTTP SERVER VERIFICATION
 # ============================================================================
@@ -467,10 +557,16 @@ def verify_http_serving():
             "/js/odometerPhysics.js",
             "/js/cardGestureMath.js",
             "/js/sensoryEngine.js",
+            "/assets/tomatoes/home-tomato.png",
             "/assets/tomatoes/hero-tomato-0.png",
+            "/assets/tomatoes/hero-tomato-silver.png",
             "/assets/tomatoes/grid-tomato-0.png",
             "/assets/tomatoes/grid-tomato-grey.png",
+            "/assets/tomatoes/grid-tomato-silver.png",
             "/assets/tomatoes/mini-tomato-0.png",
+            "/assets/tomatoes/mini-tomato-silver.png",
+            "/assets/photos/sample-poodle.jpg",
+            "/assets/photos/sample-desk.jpg",
         ]
         for ep in endpoints:
             url = f"http://127.0.0.1:{port}{ep}"
@@ -481,7 +577,7 @@ def verify_http_serving():
         httpd.shutdown()
 
 
-check("HTTPServer", "All HTML, CSS, JS, and Photorealistic Tomato PNGs serve with HTTP 200 OK", verify_http_serving)
+check("HTTPServer", "All HTML, CSS, JS, Photorealistic Tomato PNGs, and Journal Photos serve with HTTP 200 OK", verify_http_serving)
 
 print("\n" + "=" * 84)
 print(f"EVALUATION RESULT: {passed_checks}/{total_checks} CHECKS PASSED ({len(failures)} FAILURES)")

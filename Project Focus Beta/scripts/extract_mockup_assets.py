@@ -785,4 +785,21 @@ if __name__ == "__main__":
     write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="color", hue_deg=354.0, sat_val=0.76, val_scale=0.82), os.path.join(OUT_DIR, "mini-tomato-5.png"))
     write_png(mw, mh, render_shiny_mini_tomato(mw, mh, mini_grey, mode="silver"), os.path.join(OUT_DIR, "mini-tomato-silver.png"))
 
+    # ============================================================================
+    # 4. EXTRACT HOMEPAGE TOMATO (01-home-page.png) & JOURNAL PHOTOS (05-card-back.png)
+    # ============================================================================
+    print("Extracting Homepage Tomato (01-home-page.png) & Back-of-Card Photos (05-card-back.png)...")
+    w1, h1, rgb1 = read_ppm(os.path.join(ROOT, "docs/mockup-images/01-home-page.png"))
+    hmw, hmh, home_tomato = crop_rgb(w1, h1, rgb1, 54, 710, 754, 1310)
+    feather_background_to_canvas_bg(hmw, hmh, home_tomato, target_bg=(231, 232, 226), margin=58)
+    write_png(hmw, hmh, home_tomato, os.path.join(OUT_DIR, "home-tomato.png"))
+
+    photos_dir = os.path.join(ROOT, "assets", "photos")
+    os.makedirs(photos_dir, exist_ok=True)
+    w5, h5, rgb5 = read_ppm(os.path.join(ROOT, "docs/mockup-images/05-card-back.png"))
+    pw1, ph1, photo_poodle = crop_rgb(w5, h5, rgb5, 118, 690, 374, 1038)
+    pw2, ph2, photo_desk = crop_rgb(w5, h5, rgb5, 394, 690, 650, 1038)
+    write_png(pw1, ph1, photo_poodle, os.path.join(photos_dir, "sample-poodle.jpg"))
+    write_png(pw2, ph2, photo_desk, os.path.join(photos_dir, "sample-desk.jpg"))
+
     print("Done!")
