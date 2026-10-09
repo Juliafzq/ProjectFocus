@@ -10,6 +10,7 @@ public enum CardGestureMath {
     public static let minimumPencilStrokeDeltaXPixels: CGFloat = 15.0
     public static let maximumPencilVerticalConeDegrees: CGFloat = 25.0
     public static let minimumCardFlipDeltaXPixels: CGFloat = -40.0
+    public static let minimumPositiveCardFlipDeltaXPixels: CGFloat = 40.0
     public static let maximumCardFlipVerticalConeDegrees: CGFloat = 35.0
     public static let minimumCompletionCoverageRatio: CGFloat = 0.45
 
@@ -46,16 +47,32 @@ public enum CardGestureMath {
         return deltaY <= maxAllowedDeltaY
     }
 
-    /// Mutually exclusive classifier so Left -> Right Pencil Strikethrough and Right -> Left Card Flip never collide.
+    /// Returns `true` when a drag moves either Right -> Left (`Δx < -40 px`) or Left -> Right (`Δx > +40 px`, when outside a task row)
+    /// within the `±35°` horizontal cone, allowing two-way card flipping.
+    public static func isBidirectionalCardFlip(
+        startPoint: CGPoint,
+        currentPoint: CGPoint,
+        isOnTaskRow: Bool = false
+    ) -> Bool {
+        let deltaX = currentPoint.x - startPoint.x
+        let deltaY = abs(currentPoint.y - startPoint.y)
+        let matchesDirection = deltaX < minimumCardFlipDeltaXPixels || (!isOnTaskRow && deltaX > abs(minimumCardFlipDeltaXPixels))
+        guard matchesDirection else { return false }
+        let maxAllowedDeltaY = abs(deltaX) * tan(maximumCardFlipVerticalConeDegrees * .pi / 180.0)
+        return deltaY <= maxAllowedDeltaY
+    }
+
+    /// Mutually exclusive classifier so Left -> Right Pencil Strikethrough and Card Flip never collide.
     public static func classifyGesture(
         startPoint: CGPoint,
         currentPoint: CGPoint,
         inRowBounds rowBounds: CGRect? = nil
     ) -> ClassifiedCardGesture {
+        let onRow = rowBounds.map { $0.contains(startPoint) } ?? false
         if let rowBounds, isLeftToRightPencilStroke(startPoint: startPoint, currentPoint: currentPoint, inRowBounds: rowBounds) {
             return .leftToRightPencilStroke
         }
-        if isRightToLeftCardFlip(startPoint: startPoint, currentPoint: currentPoint) {
+        if isBidirectionalCardFlip(startPoint: startPoint, currentPoint: currentPoint, isOnTaskRow: onRow) {
             return .rightToLeftCardFlip
         }
         return .none

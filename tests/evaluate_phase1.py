@@ -531,6 +531,47 @@ def verify_phase2_calendar_zoom_and_5am_rollover():
 
 check("Phase2CalendarRollover", "Monthly Calendar Zoom-Out (07-calendar-view.png) with Sep/Oct grids, grey/black date circles & 5:00 AM rollover engine", verify_phase2_calendar_zoom_and_5am_rollover)
 
+
+def verify_phase2_ux_refinements():
+    css = read_file("css/style.css")
+    js_app = read_file("js/app.js")
+    js_gesture = read_file("js/cardGestureMath.js")
+    swift_gesture = read_file("FableFlow/Features/Card/CardGestureMath.swift")
+
+    # 1. Homepage exact match to 01-home-page.png (12.5px tracked FABLE / FLOW, 334x222 mini card, 35px bold 06 OCT)
+    assert "font-size: 12.5px;" in css and "letter-spacing: 0.24em;" in css
+    assert "width: 334px;" in css and "height: 222px;" in css
+    assert "font-size: 35px;" in css and "border: 1px solid #B4B5AE;" in css
+
+    # 2. Scroll through the stack via horizontal carousel drag, date-strip scrubbing, and wheel/trackpad scrolling
+    assert "isScrubbingStrip" in js_app
+    assert "isDraggingCarousel" in js_app
+    assert "this._lastStackWheelTime" in js_app
+    assert "this.stepStackCard(dominantDelta > 0 ? 1 : -1);" in js_app
+
+    # 3. Two-way finger motion to flip the card (both Left -> Right and Right -> Left)
+    assert "FLIP_MIN_POSITIVE_DELTA_X = 40.0" in js_gesture
+    assert "minimumPositiveCardFlipDeltaXPixels: CGFloat = 40.0" in swift_gesture
+    assert "--card-flip-deg" in css
+    assert "this.triggerCardFlip(dir);" in js_app
+
+    # 4. Multi-line dry-graphite strikethrough crossing out ALL wrapped lines + safe right edge margin
+    assert "getTaskRowLineSegments(canvas)" in js_app
+    assert "titleSpan.getClientRects()" in js_app
+    assert "lineSegments.forEach((seg, segIdx) =>" in js_app
+    assert "maxSafeRightX = rowW - 30;" in js_app
+    assert ".task-title-wrap" in css
+
+    # 5. Adaptive font size floor + word/character limits
+    assert "MAX_TASK_WORDS = 6;" in js_app and "MAX_TASK_CHARS = 36;" in js_app
+    assert "MAX_REFLECTION_WORDS = 65;" in js_app and "MAX_REFLECTION_CHARS = 360;" in js_app
+    assert "clampTaskInputText(rawText)" in js_app
+    assert "computeTaskFontSizePx(title, totalTasksCount = 1)" in js_app
+    assert "clampReflectionInputText(rawText)" in js_app
+
+
+check("Phase2UXRefinements", "Homepage 01-home-page match, Stack drag/wheel scrolling, Two-way card flip, Multi-line strikethrough & Word/Font limits", verify_phase2_ux_refinements)
+
 # ============================================================================
 # 4. LAYER 3: LIVE HTTP SERVER VERIFICATION
 # ============================================================================

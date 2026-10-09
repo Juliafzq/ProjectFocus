@@ -2,32 +2,36 @@
  * Fable / Flow — Phase 1 & Phase 2 Complete MVP Application Controller
  *
  * Implements all PRD v4.2, Phase 1 ("Core Tactile Loop") & Phase 2 ("Complete Daily Ritual & Memory Archive") requirements:
- * 1. Minimalist 2-Object Homepage (01-home-page.png): 'FABLE / FLOW' header, '06 OCT' mini-card, 3D Heirloom Tomato.
+ * 1. Minimalist 2-Object Homepage (01-home-page.png): Wide-tracked 'FABLE / FLOW' header, exact 334x222 '06 OCT' mini-card, 3D Tomato.
  * 2. Photorealistic Hero Tomato 3D Dial (02-hero-timer.png) & 6-Tomato 2x3 Grid (03-grid-timer.png):
  *    - 1-minute notch snap, HH:MM:SS when > 60 min, Tap-on-Digits inline time editor (0-180 min / HH:MM).
  *    - Mirror-polished silver metallic completion state (End -> Silver -> Reset ↺).
  *    - Authentic mechanical 2-strike Pomodoro bell ring + WebAudio tactile foley.
  * 3. Dual-Sided Today's Index Card:
  *    - Clean White Front (04-card-front.png) with up to 6 tasks, glossy single-highlight mini tomatoes,
- *      single-click Edit/Delete modal, and Left -> Right dry-graphite pencil strikethrough & erase.
+ *      adaptive task font size (24px -> 18px floor) + word/character cap (max 6 words / 36 chars),
+ *      and multi-line Left -> Right dry-graphite pencil strikethrough & erase that crosses out EVERY wrapped line.
+ *    - Two-way 3D Card Flip gesture (both Right -> Left and Left -> Right swipes flip the card on Front and Back).
  *    - Matte Black Back (05-card-back.png) Evening Reflection Journal with 100% user-authored adaptive
- *      typography (21px -> 13px floor) and 0-2 framed photo slots with client-side <= 1600px compression.
+ *      typography (21px -> 13px floor + word/char cap) and 0-2 framed photo slots with client-side <= 1600px compression.
  * 4. Chronological Card Stack Viewer (06-stack-detail.png):
- *    - Horizontal date strip ('OCT 01 02 03 04 (05) 06'), peeking card carousel, cardstock riffle ticks,
- *      full retroactive editing of Front & Back, and 4-icon bottom bar ([Return] [Zoom Out] [Flip] [Trash]).
- * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png):
- *    - Vertically stacked SEPTEMBER 2026 & OCTOBER 2026 grids with soft grey circles on archived card dates,
- *      solid black circle on selected date, pinch-to-zoom, and 2-icon bottom bar ([Return] [Zoom In]).
- * 6. 5:00 AM Daily Rollover Engine with zero unfinished-task guilt.
+ *    - Horizontal date strip ('OCT 01 02 03 04 (05) 06'), interactive horizontal drag/swipe & wheel/trackpad scrolling
+ *      through the stack, cardstock riffle ticks, full retroactive editing of Front & Back, and 4-icon bottom bar.
+ * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v12';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v12';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v12';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v12';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v13';
+import { CardGestureMath } from './cardGestureMath.js?v=20261009_v13';
+import { SensoryEngine } from './sensoryEngine.js?v=20261009_v13';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v13';
 
-const STORAGE_KEY = 'fable_flow_phase2_mvp_v1';
+const STORAGE_KEY = 'fable_flow_phase2_mvp_v2';
 const NUM_GRID_SLOTS = 6;
+
+const MAX_TASK_WORDS = 6;
+const MAX_TASK_CHARS = 36;
+const MAX_REFLECTION_WORDS = 65;
+const MAX_REFLECTION_CHARS = 360;
 
 const DEFAULT_REFLECTION_OCT_06 =
   'Today felt steady and surprisingly productive. I wrapped up the Q3 report ahead of schedule and finally cleared out my inbox. Taking a walk at sunset helped me reset before the evening. Grateful for quiet moments and good coffee.';
@@ -42,6 +46,9 @@ export class FableFlowApp {
     this.gridRenderer = null;
     this.tickInterval = null;
     this._photoUploadTarget = 'today'; // 'today' | 'stack'
+    this._todayFlipDeg = this.state.isCardFlipped ? -180 : 0;
+    this._stackFlipDeg = this.state.isStackCardFlipped ? -180 : 0;
+    this._lastStackWheelTime = 0;
 
     this.initDOM();
     this.init3DRenderers();
@@ -65,7 +72,7 @@ export class FableFlowApp {
         ],
         reflectionText:
           'Crisp early September air this morning. Setting the foundation for the autumn sprint felt calm and intentional.',
-        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v12'],
+        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v13'],
       },
       '2026-09-12': {
         dateKey: '2026-09-12',
@@ -88,12 +95,12 @@ export class FableFlowApp {
         monthKey: '2026-09',
         dayNum: 15,
         tasks: [
-          { id: 's0915-1', orderIndex: 1, title: 'Prototype WebAudio mechanical bell', isCompleted: true },
+          { id: 's0915-1', orderIndex: 1, title: 'Prototype WebAudio bell chime', isCompleted: true },
           { id: 's0915-2', orderIndex: 2, title: 'Test dry-graphite pencil grain', isCompleted: true },
         ],
         reflectionText:
           'The two-strike brass bell resonance finally sounds like a real kitchen timer sitting on a wooden desk.',
-        reflectionPhotos: ['assets/photos/sample-poodle.jpg?v=20261009_v12'],
+        reflectionPhotos: ['assets/photos/sample-poodle.jpg?v=20261009_v13'],
       },
       '2026-09-19': {
         dateKey: '2026-09-19',
@@ -102,7 +109,7 @@ export class FableFlowApp {
         monthKey: '2026-09',
         dayNum: 19,
         tasks: [
-          { id: 's0919-1', orderIndex: 1, title: 'Read two chapters of Design as Art', isCompleted: true },
+          { id: 's0919-1', orderIndex: 1, title: 'Read Design as Art chapters', isCompleted: true },
           { id: 's0919-2', orderIndex: 2, title: 'Organize studio bookshelves', isCompleted: false },
         ],
         reflectionText:
@@ -121,7 +128,7 @@ export class FableFlowApp {
         ],
         reflectionText:
           'Autumn equinox. Kept the task list short and finished everything before 5 PM.',
-        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v12'],
+        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v13'],
       },
       '2026-09-28': {
         dateKey: '2026-09-28',
@@ -145,13 +152,13 @@ export class FableFlowApp {
         dayNum: 30,
         tasks: [
           { id: 's0930-1', orderIndex: 1, title: 'Close September sprint items', isCompleted: true },
-          { id: 's0930-2', orderIndex: 2, title: 'Archive September physical index cards', isCompleted: true },
+          { id: 's0930-2', orderIndex: 2, title: 'Archive September index cards', isCompleted: true },
         ],
         reflectionText:
           'Wrapped up September with a clean desk and zero carry-over anxiety.',
         reflectionPhotos: [
-          'assets/photos/sample-poodle.jpg?v=20261009_v12',
-          'assets/photos/sample-desk.jpg?v=20261009_v12',
+          'assets/photos/sample-poodle.jpg?v=20261009_v13',
+          'assets/photos/sample-desk.jpg?v=20261009_v13',
         ],
       },
       '2026-10-01': {
@@ -167,7 +174,7 @@ export class FableFlowApp {
         ],
         reflectionText:
           'First day of October. Three focused Pomodoros in the morning set the tone for the whole month.',
-        reflectionPhotos: ['assets/photos/sample-poodle.jpg?v=20261009_v12'],
+        reflectionPhotos: ['assets/photos/sample-poodle.jpg?v=20261009_v13'],
       },
       '2026-10-02': {
         dateKey: '2026-10-02',
@@ -181,7 +188,7 @@ export class FableFlowApp {
         ],
         reflectionText:
           'Wrapped up Friday afternoon early. The 3D perspective wrapping on the tomato dial feels tactile and natural.',
-        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v12'],
+        reflectionPhotos: ['assets/photos/sample-desk.jpg?v=20261009_v13'],
       },
       '2026-10-04': {
         dateKey: '2026-10-04',
@@ -190,7 +197,7 @@ export class FableFlowApp {
         monthKey: '2026-10',
         dayNum: 4,
         tasks: [
-          { id: 's1004-1', orderIndex: 1, title: 'Weekly grocery run & meal prep', isCompleted: true },
+          { id: 's1004-1', orderIndex: 1, title: 'Weekly grocery run & prep', isCompleted: true },
           { id: 's1004-2', orderIndex: 2, title: 'Plan Monday top priorities', isCompleted: true },
         ],
         reflectionText:
@@ -204,17 +211,15 @@ export class FableFlowApp {
         monthKey: '2026-10',
         dayNum: 5,
         tasks: [
-          { id: 's1005-1', orderIndex: 1, title: 'Finalize Q3 Financial Report', isCompleted: true },
-          { id: 's1005-2', orderIndex: 2, title: 'Review UX Mockups with Sarah', isCompleted: true },
-          { id: 's1005-3', orderIndex: 3, title: 'Pick up dry cleaning before 6 PM', isCompleted: false },
-          { id: 's1005-4', orderIndex: 4, title: 'Draft agenda for Tuesday standup', isCompleted: true },
-          { id: 's1005-5', orderIndex: 5, title: 'Read 20 pages of "The Creative Act"', isCompleted: false },
+          { id: 's1005-1', orderIndex: 1, title: 'Finalize Project Proposal', isCompleted: true },
+          { id: 's1005-2', orderIndex: 2, title: 'Meet Client for Coffee', isCompleted: true },
+          { id: 's1005-3', orderIndex: 3, title: 'Submit Weekly Report', isCompleted: false },
         ],
         reflectionText:
-          'Monday moved quickly. Knocked out the Q3 financial report and UX review before lunch, and left the evening open to unwind.',
+          'Monday moved quickly. Finalized the project proposal and met with the client over coffee before wrapping up the afternoon.',
         reflectionPhotos: [
-          'assets/photos/sample-poodle.jpg?v=20261009_v12',
-          'assets/photos/sample-desk.jpg?v=20261009_v12',
+          'assets/photos/sample-poodle.jpg?v=20261009_v13',
+          'assets/photos/sample-desk.jpg?v=20261009_v13',
         ],
       },
     };
@@ -235,8 +240,8 @@ export class FableFlowApp {
       cardShortDate: '06 OCT',
       reflectionText: DEFAULT_REFLECTION_OCT_06,
       reflectionPhotos: [
-        'assets/photos/sample-poodle.jpg?v=20261009_v12',
-        'assets/photos/sample-desk.jpg?v=20261009_v12',
+        'assets/photos/sample-poodle.jpg?v=20261009_v13',
+        'assets/photos/sample-desk.jpg?v=20261009_v13',
       ],
       archiveCards: this.getDefaultArchiveCards(),
       tasks: [
@@ -332,6 +337,7 @@ export class FableFlowApp {
         'fable_flow_phase1_beta_v2',
         'fable_flow_phase1_beta_v3',
         'fable_flow_phase1_beta_v4',
+        'fable_flow_phase2_mvp_v1',
       ].forEach((k) => localStorage.removeItem(k));
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -350,8 +356,8 @@ export class FableFlowApp {
           }
           if (!Array.isArray(parsed.reflectionPhotos)) {
             parsed.reflectionPhotos = [
-              'assets/photos/sample-poodle.jpg?v=20261009_v12',
-              'assets/photos/sample-desk.jpg?v=20261009_v12',
+              'assets/photos/sample-poodle.jpg?v=20261009_v13',
+              'assets/photos/sample-desk.jpg?v=20261009_v13',
             ];
           }
           if (!parsed.selectedStackDateKey) {
@@ -380,6 +386,8 @@ export class FableFlowApp {
   resetToMockupDefault() {
     localStorage.removeItem(STORAGE_KEY);
     this.state = this.getDefaultState();
+    this._todayFlipDeg = 0;
+    this._stackFlipDeg = 0;
     this.saveState();
     this.renderAll();
     this.showNotificationBanner('Restored clean default state with Example Task.');
@@ -536,6 +544,7 @@ export class FableFlowApp {
         this.sensory.playCardFlipSwoosh();
         this.state.activePillar = 'card';
         this.state.isCardFlipped = false;
+        this._todayFlipDeg = 0;
         this.saveState();
         this.renderAll();
       };
@@ -615,12 +624,13 @@ export class FableFlowApp {
       this.sensory.playStackRiffleTick();
       this.state.activePillar = 'stack';
       this.state.isStackCardFlipped = false;
+      this._stackFlipDeg = 0;
       this.saveState();
       this.renderAll();
     });
 
     this.els.cardFlipBtn.addEventListener('click', () => {
-      this.triggerCardFlip();
+      this.triggerCardFlip(-1);
     });
 
     this.els.cardPlusBtn.addEventListener('click', () => {
@@ -632,15 +642,18 @@ export class FableFlowApp {
     });
 
     this.els.addItemRow.addEventListener('click', () => {
+      if (this._justFinishedCardSwipe) return;
       this.openAddTaskModal();
     });
 
     // 2b. Matte Black Back of Card — Evening Reflection Journal & Photo Upload
     if (this.els.cardBackReflection) {
-      this.els.cardBackReflection.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-      });
       this.els.cardBackReflection.addEventListener('input', () => {
+        const clamped = this.clampReflectionInputText(this.els.cardBackReflection.value);
+        if (this.els.cardBackReflection.value !== clamped) {
+          this.els.cardBackReflection.value = clamped;
+          this.showTelemetryToast('Reflection limit reached (keeps text away from card edges)');
+        }
         this.state.reflectionText = this.els.cardBackReflection.value;
         this.adjustReflectionTypography(this.els.cardBackReflection);
         this.saveState();
@@ -710,7 +723,7 @@ export class FableFlowApp {
       }
     });
 
-    // 3. Card Surface Right -> Left Flip Gesture Detector (deltaX < -40px, ±35°)
+    // 3. Bidirectional Card Surface Flip Gesture Detector (flips both ways: Left->Right & Right->Left)
     this.bindCardSurfaceFlipGesture();
 
     // 4. Hero Tomato 3D Dial Horizontal Drag Gesture (Right->Left winds up, Left->Right unwinds)
@@ -765,6 +778,7 @@ export class FableFlowApp {
       this.els.demoBtnCard.addEventListener('click', () => {
         this.state.activePillar = 'card';
         this.state.isCardFlipped = false;
+        this._todayFlipDeg = 0;
         this.saveState();
         this.renderAll();
       });
@@ -773,6 +787,7 @@ export class FableFlowApp {
       this.els.demoBtnBack.addEventListener('click', () => {
         this.state.activePillar = 'card';
         this.state.isCardFlipped = true;
+        this._todayFlipDeg = -180;
         this.saveState();
         this.renderAll();
       });
@@ -797,6 +812,7 @@ export class FableFlowApp {
       this.els.demoBtnStack.addEventListener('click', () => {
         this.state.activePillar = 'stack';
         this.state.isStackCardFlipped = false;
+        this._stackFlipDeg = 0;
         this.saveState();
         this.renderAll();
       });
@@ -843,17 +859,11 @@ export class FableFlowApp {
     this.els.profileModalOverlay.classList.remove('hidden');
   }
 
-  /**
-   * Simulates the 5:00 AM daily boundary rollover:
-   * Archives Today's Card into the chronological Card Stack with zero unfinished-task guilt,
-   * resets all 6 tomatoes to idle for the new morning, and stamps a fresh Daily Card.
-   */
   simulateFiveAmRollover() {
     const currentKey = this.state.cardDateKey || '2026-10-06';
     const dayMatch = currentKey.match(/^2026-10-(\d{2})$/);
     const currentDayNum = dayMatch ? parseInt(dayMatch[1], 10) : 6;
 
-    // Save Today's Card into archiveCards
     this.state.archiveCards[currentKey] = {
       dateKey: currentKey,
       headerDate: this.state.cardHeaderDate,
@@ -890,6 +900,7 @@ export class FableFlowApp {
     this.state.cardHeaderDate = `${nextWeekday} — OCT ${nextDayPadded}`;
     this.state.cardShortDate = `${nextDayPadded} OCT`;
     this.state.isCardFlipped = false;
+    this._todayFlipDeg = 0;
     this.state.tasks = [
       {
         id: 'task-' + Date.now(),
@@ -902,7 +913,6 @@ export class FableFlowApp {
     this.state.reflectionText = '';
     this.state.reflectionPhotos = [];
 
-    // Reset all 6 tomatoes cleanly for the new day
     this.state.timers.forEach((s, idx) => {
       s.assignedTaskId = null;
       s.assignedTaskOrder = null;
@@ -924,29 +934,79 @@ export class FableFlowApp {
   }
 
   // =========================================================================
-  // ADAPTIVE TYPOGRAPHY & CLIENT-SIDE PHOTO COMPRESSION (<= 1600px)
+  // ADAPTIVE TYPOGRAPHY, WORD/CHAR CAPS & PHOTO COMPRESSION (<= 1600px)
   // =========================================================================
 
   /**
+   * Limits task input to at most MAX_TASK_WORDS (6 words) and MAX_TASK_CHARS (36 chars)
+   * so task items never crowd the card edges or overflow past 2 clean lines.
+   */
+  clampTaskInputText(rawText) {
+    let text = String(rawText || '').replace(/\s+/g, ' ');
+    const leadingTrimmed = text.trimStart();
+    if (leadingTrimmed) {
+      const words = leadingTrimmed.split(' ');
+      if (words.length > MAX_TASK_WORDS) {
+        text = words.slice(0, MAX_TASK_WORDS).join(' ');
+      }
+    }
+    if (text.length > MAX_TASK_CHARS) {
+      text = text.slice(0, MAX_TASK_CHARS);
+    }
+    return text;
+  }
+
+  /**
+   * Decreases task font size from 24px down to a minimum floor of 18px (17.5px when 5-6 tasks)
+   * and stops decreasing so long items remain crisp and well-spaced inside the card margins.
+   */
+  computeTaskFontSizePx(title, totalTasksCount = 1) {
+    const len = String(title || '').trim().length;
+    const crowdedOffset = totalTasksCount >= 5 ? 1.5 : 0.0;
+    if (len > 28) {
+      return Math.max(17.5, 18.5 - crowdedOffset * 0.5);
+    }
+    if (len > 20) {
+      return 21.5 - crowdedOffset;
+    }
+    return 24.5 - crowdedOffset;
+  }
+
+  /**
+   * Limits Evening Reflection text to MAX_REFLECTION_WORDS (65 words) and MAX_REFLECTION_CHARS (360 chars)
+   * so the reflection stops once the minimum font size floor is reached.
+   */
+  clampReflectionInputText(rawText) {
+    let text = String(rawText || '');
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length > MAX_REFLECTION_WORDS) {
+      text = words.slice(0, MAX_REFLECTION_WORDS).join(' ');
+    }
+    if (text.length > MAX_REFLECTION_CHARS) {
+      text = text.slice(0, MAX_REFLECTION_CHARS);
+    }
+    return text;
+  }
+
+  /**
    * Dynamically scales the Evening Reflection font size between 21px and a 13px minimum floor
-   * so short entries feel bold and editorial (matching 05-card-back.png) while longer entries
-   * fit comfortably before enabling vertical scroll at 13px.
+   * and stops decreasing once the floor is reached.
    */
   adjustReflectionTypography(textareaEl) {
     if (!textareaEl) return;
     const textLen = (textareaEl.value || '').length;
     let targetSize = 21;
-    if (textLen > 620) {
+    if (textLen > 315) {
       targetSize = 13;
-    } else if (textLen > 480) {
-      targetSize = 14.5;
-    } else if (textLen > 360) {
-      targetSize = 16.5;
-    } else if (textLen > 275) {
-      targetSize = 18.5;
+    } else if (textLen > 265) {
+      targetSize = 15;
+    } else if (textLen > 210) {
+      targetSize = 17;
+    } else if (textLen > 155) {
+      targetSize = 19;
     }
     textareaEl.style.fontSize = `${targetSize}px`;
-    textareaEl.style.overflowY = targetSize <= 13 ? 'auto' : 'hidden';
+    textareaEl.style.overflowY = 'hidden';
   }
 
   triggerPhotoAttachment(target = 'today') {
@@ -988,40 +1048,111 @@ export class FableFlowApp {
     });
   }
 
+  /**
+   * Bidirectional finger motion to flip Today's Card over both ways:
+   * - Swiping Right -> Left (dx < -36px) flips the card leftwards (-180°).
+   * - Swiping Left -> Right (dx > +36px) flips the card rightwards (+180°).
+   * Works whether started on the Front of the Card or anywhere on the Back of the Card
+   * (including across the reflection textarea or photo frames), with live 3D drag preview!
+   */
   bindCardSurfaceFlipGesture() {
+    const wrapper = this.els.card3DWrapper;
+    if (!wrapper) return;
+
     let startX = null;
     let startY = null;
+    let pointerId = null;
+    let isDraggingFlip = false;
 
-    this.els.card3DWrapper.addEventListener('pointerdown', (e) => {
-      if (
-        e.target.closest('.card-back-reflection-editor') ||
-        e.target.closest('.journal-photo-slot')
-      ) {
-        return;
-      }
+    wrapper.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.task-tomato-btn')) return;
       startX = e.clientX;
       startY = e.clientY;
+      pointerId = e.pointerId;
+      isDraggingFlip = false;
     });
 
-    this.els.card3DWrapper.addEventListener('pointerup', (e) => {
+    wrapper.addEventListener('pointermove', (e) => {
+      if (startX === null || startY === null) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (!isDraggingFlip && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+        isDraggingFlip = true;
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
+        try {
+          wrapper.setPointerCapture(pointerId);
+        } catch (_) {}
+      }
+
+      if (isDraggingFlip) {
+        if (e.cancelable) e.preventDefault();
+        const tiltOffset = Math.max(-55, Math.min(55, (dx / 240) * 55));
+        const liveDeg = this._todayFlipDeg + tiltOffset;
+        wrapper.style.transition = 'none';
+        wrapper.style.transform = `rotateY(${liveDeg.toFixed(1)}deg)`;
+      }
+    });
+
+    const endCardSwipe = (e) => {
       if (startX === null || startY === null) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
       startX = null;
       startY = null;
 
-      const classification = CardGestureMath.classifyGesture(dx, dy, false);
-      if (classification === 'flipCard') {
-        this.triggerCardFlip();
+      if (isDraggingFlip) {
+        this._justFinishedCardSwipe = true;
+        clearTimeout(this._swipeGuardTimer);
+        this._swipeGuardTimer = setTimeout(() => {
+          this._justFinishedCardSwipe = false;
+        }, 220);
+        try {
+          wrapper.releasePointerCapture(pointerId);
+        } catch (_) {}
       }
-    });
+      isDraggingFlip = false;
+      wrapper.style.transition = '';
+      wrapper.style.transform = '';
+
+      const classification = CardGestureMath.classifyGesture(dx, dy, false);
+      if (classification === 'flipCard' || (Math.abs(dx) >= 34 && Math.abs(dx) > Math.abs(dy) * 1.35)) {
+        const dir = dx >= 0 ? 1 : -1;
+        this.triggerCardFlip(dir);
+      } else {
+        this.applyCard3DRotation(wrapper, this.state.isCardFlipped, this._todayFlipDeg);
+      }
+    };
+
+    wrapper.addEventListener('pointerup', endCardSwipe);
+    wrapper.addEventListener('pointercancel', endCardSwipe);
   }
 
-  triggerCardFlip() {
+  applyCard3DRotation(wrapperEl, isFlipped, degValue) {
+    if (!wrapperEl) return;
+    wrapperEl.classList.toggle('is-flipped', Boolean(isFlipped));
+    wrapperEl.style.setProperty('--card-flip-deg', `${degValue}deg`);
+    wrapperEl.style.setProperty('--card-front-deg', `${degValue}deg`);
+  }
+
+  triggerCardFlip(direction = -1) {
+    const step = direction >= 0 ? 180 : -180;
+    this._todayFlipDeg += step;
     this.state.isCardFlipped = !this.state.isCardFlipped;
     this.sensory.playCardFlipSwoosh();
     this.saveState();
-    this.renderAll();
+    this.renderCardScreen();
+  }
+
+  triggerStackCardFlip(direction = -1) {
+    const step = direction >= 0 ? 180 : -180;
+    this._stackFlipDeg += step;
+    this.state.isStackCardFlipped = !this.state.isStackCardFlipped;
+    this.sensory.playCardFlipSwoosh();
+    this.saveState();
+    this.renderStackScreen();
   }
 
   // =========================================================================
@@ -1043,17 +1174,21 @@ export class FableFlowApp {
 
   selectStackDate(dateKey) {
     if (dateKey === this.state.cardDateKey) {
-      // Navigating to Today's date opens Today's active Card
       this.sensory.playStackRiffleTick();
       this.state.activePillar = 'card';
       this.state.isCardFlipped = false;
+      this._todayFlipDeg = 0;
       this.saveState();
       this.renderAll();
       return;
     }
     if (!this.state.archiveCards[dateKey]) return;
+    if (this.state.selectedStackDateKey === dateKey && this.state.activePillar === 'stack') {
+      return;
+    }
     this.state.selectedStackDateKey = dateKey;
     this.state.isStackCardFlipped = false;
+    this._stackFlipDeg = 0;
     this.sensory.playStackRiffleTick();
     this.saveState();
     this.renderAll();
@@ -1090,10 +1225,7 @@ export class FableFlowApp {
 
     if (this.els.stackBtnFlip) {
       this.els.stackBtnFlip.addEventListener('click', () => {
-        this.state.isStackCardFlipped = !this.state.isStackCardFlipped;
-        this.sensory.playCardFlipSwoosh();
-        this.saveState();
-        this.renderStackScreen();
+        this.triggerStackCardFlip(-1);
       });
     }
 
@@ -1117,54 +1249,133 @@ export class FableFlowApp {
 
     if (this.els.stackAddItemRow) {
       this.els.stackAddItemRow.addEventListener('click', () => {
+        if (this._justFinishedCardSwipe) return;
         this.openAddStackTaskModal();
       });
     }
 
     if (this.els.stackCardBackReflection) {
-      this.els.stackCardBackReflection.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-      });
       this.els.stackCardBackReflection.addEventListener('input', () => {
         const card = this.getSelectedStackCard();
         if (!card) return;
+        const clamped = this.clampReflectionInputText(this.els.stackCardBackReflection.value);
+        if (this.els.stackCardBackReflection.value !== clamped) {
+          this.els.stackCardBackReflection.value = clamped;
+        }
         card.reflectionText = this.els.stackCardBackReflection.value;
         this.adjustReflectionTypography(this.els.stackCardBackReflection);
         this.saveState();
       });
     }
 
-    // Flip gesture on archived card surface
-    if (this.els.stackCard3D) {
+    // 1. Scrub / Drag along the top #stack-date-strip to scroll through dates continuously
+    if (this.els.stackDateStrip) {
+      let isScrubbingStrip = false;
+      const pickDateFromPoint = (clientX, clientY) => {
+        const el = document.elementFromPoint(clientX, clientY);
+        const pill = el && el.closest ? el.closest('.stack-date-pill') : null;
+        if (pill && pill.dataset.dateKey && this.state.archiveCards[pill.dataset.dateKey]) {
+          this.selectStackDate(pill.dataset.dateKey);
+        }
+      };
+      this.els.stackDateStrip.addEventListener('pointerdown', (e) => {
+        isScrubbingStrip = true;
+        pickDateFromPoint(e.clientX, e.clientY);
+      });
+      this.els.stackDateStrip.addEventListener('pointermove', (e) => {
+        if (!isScrubbingStrip) return;
+        pickDateFromPoint(e.clientX, e.clientY);
+      });
+      window.addEventListener('pointerup', () => {
+        isScrubbingStrip = false;
+      });
+    }
+
+    // 2. Interactive Horizontal Drag / Swipe on #stack-carousel-stage to scroll through the Stack
+    //    OR flip the card (if swiped on the center of the card body)
+    if (this.els.stackCarouselStage) {
       let startX = null;
       let startY = null;
-      this.els.stackCard3D.addEventListener('pointerdown', (e) => {
-        if (
-          e.target.closest('.card-back-reflection-editor') ||
-          e.target.closest('.journal-photo-slot')
-        ) {
-          return;
-        }
+      let isDraggingCarousel = false;
+      let dragMode = 'scrollStack'; // 'scrollStack' | 'flipCard'
+      const centerPerspective = this.els.stackCarouselStage.querySelector(
+        '.stack-center-perspective'
+      );
+
+      this.els.stackCarouselStage.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.journal-photo-remove-btn')) return;
         startX = e.clientX;
         startY = e.clientY;
+        isDraggingCarousel = false;
+
+        // Dragging on the peeking side cards, header bar, or outer 22% edges scrolls the stack;
+        // dragging across the center card body when on Back (or Front whitespace) can also scroll or flip:
+        const stageRect = this.els.stackCarouselStage.getBoundingClientRect();
+        const relX = e.clientX - stageRect.left;
+        const isNearEdgeOrPeek =
+          Boolean(e.target.closest('.stack-peek-card')) ||
+          Boolean(e.target.closest('.card-header-bar')) ||
+          relX < stageRect.width * 0.24 ||
+          relX > stageRect.width * 0.76;
+
+        dragMode = isNearEdgeOrPeek ? 'scrollStack' : 'scrollStackOrFlip';
       });
-      this.els.stackCard3D.addEventListener('pointerup', (e) => {
+
+      this.els.stackCarouselStage.addEventListener('pointermove', (e) => {
+        if (startX === null || startY === null) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        if (!isDraggingCarousel && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+          isDraggingCarousel = true;
+          if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+          }
+        }
+
+        if (isDraggingCarousel && centerPerspective) {
+          const offset = Math.max(-110, Math.min(110, dx * 0.55));
+          centerPerspective.style.transition = 'none';
+          centerPerspective.style.transform = `translateX(${offset.toFixed(1)}px)`;
+        }
+      });
+
+      const endCarouselDrag = (e) => {
         if (startX === null || startY === null) return;
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         startX = null;
         startY = null;
-        const classification = CardGestureMath.classifyGesture(dx, dy, false);
-        if (classification === 'flipCard') {
-          this.state.isStackCardFlipped = !this.state.isStackCardFlipped;
-          this.sensory.playCardFlipSwoosh();
-          this.saveState();
-          this.renderStackScreen();
+
+        if (centerPerspective) {
+          centerPerspective.style.transition = '';
+          centerPerspective.style.transform = '';
         }
-      });
+
+        if (!isDraggingCarousel) return;
+        isDraggingCarousel = false;
+        this._justFinishedCardSwipe = true;
+        clearTimeout(this._swipeGuardTimer);
+        this._swipeGuardTimer = setTimeout(() => {
+          this._justFinishedCardSwipe = false;
+        }, 220);
+
+        if (Math.abs(dx) >= 32 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+          // Dragging right (dx > 0) brings in the left (previous) card;
+          // Dragging left (dx < 0) brings in the right (next) card!
+          if (dx > 0) {
+            this.stepStackCard(-1);
+          } else {
+            this.stepStackCard(1);
+          }
+        }
+      };
+
+      this.els.stackCarouselStage.addEventListener('pointerup', endCarouselDrag);
+      this.els.stackCarouselStage.addEventListener('pointercancel', endCarouselDrag);
     }
 
-    // Pinch-to-zoom out on Stack screen -> Monthly Calendar
+    // 3. Mouse Wheel / Trackpad Scrolling through the Stack + Pinch-to-Zoom Out to Calendar
     if (this.els.stackScreen) {
       this.els.stackScreen.addEventListener(
         'wheel',
@@ -1174,6 +1385,18 @@ export class FableFlowApp {
             this.state.activePillar = 'calendar';
             this.saveState();
             this.renderAll();
+            return;
+          }
+
+          // Smooth wheel/trackpad scrolling through the chronological stack of cards
+          const now = Date.now();
+          if (now - this._lastStackWheelTime < 170) return;
+          const dominantDelta =
+            Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          if (Math.abs(dominantDelta) > 14) {
+            e.preventDefault();
+            this._lastStackWheelTime = now;
+            this.stepStackCard(dominantDelta > 0 ? 1 : -1);
           }
         },
         { passive: false }
@@ -1247,6 +1470,7 @@ export class FableFlowApp {
       this.state.selectedStackDateKey =
         remainingKeys.length > 0 ? remainingKeys[remainingKeys.length - 1] : null;
       this.state.isStackCardFlipped = false;
+      this._stackFlipDeg = 0;
 
       this.sensory.playTrashDelete();
       this.saveState();
@@ -1832,7 +2056,6 @@ export class FableFlowApp {
     const isStack = pillar === 'stack';
     const isCalendar = pillar === 'calendar';
 
-    // Top bar morphs between 'FABLE / FLOW' (on Homepage) and 'Card | Timer' pill
     if (this.els.homeBrandTitle && this.els.topSegmentedPill) {
       this.els.homeBrandTitle.classList.toggle('hidden', !isHome);
       this.els.topSegmentedPill.classList.toggle('hidden', isHome);
@@ -1861,7 +2084,6 @@ export class FableFlowApp {
       this.els.calendarScreen.classList.toggle('hidden', !isCalendar);
     }
 
-    // Update evaluation quick-switcher active pills
     if (this.els.demoBtnHome) {
       this.els.demoBtnHome.classList.toggle('active-pill', isHome);
     }
@@ -1930,32 +2152,54 @@ export class FableFlowApp {
     if (this.els.cardBackDateHeader) {
       this.els.cardBackDateHeader.textContent = this.state.cardHeaderDate;
     }
-    this.els.card3DWrapper.classList.toggle('is-flipped', this.state.isCardFlipped);
 
-    // 1. Render Front of Today's Card (Tasks + Graphite Strikethrough + Mini Tomatoes)
+    if (this.state.isCardFlipped && Math.abs(this._todayFlipDeg % 360) !== 180) {
+      this._todayFlipDeg = -180;
+    } else if (!this.state.isCardFlipped && Math.abs(this._todayFlipDeg % 360) !== 0) {
+      this._todayFlipDeg = 0;
+    }
+    this.applyCard3DRotation(
+      this.els.card3DWrapper,
+      this.state.isCardFlipped,
+      this._todayFlipDeg
+    );
+
     const container = this.els.taskListContainer;
     container.innerHTML = '';
+
+    const totalTasks = this.state.tasks.length;
+    const rowVertPad = totalTasks >= 5 ? 6 : 9;
 
     this.state.tasks.forEach((task, idx) => {
       task.orderIndex = idx + 1;
       const row = document.createElement('div');
       row.className = 'task-row';
       row.dataset.taskId = task.id;
+      row.style.paddingTop = `${rowVertPad}px`;
+      row.style.paddingBottom = `${rowVertPad}px`;
+
+      const fontSizePx = this.computeTaskFontSizePx(task.title, totalTasks);
 
       const numSpan = document.createElement('span');
       numSpan.className = 'task-index';
+      numSpan.style.fontSize = `${fontSizePx}px`;
       numSpan.textContent = String(task.orderIndex).padStart(2, '0');
+
+      const titleWrap = document.createElement('div');
+      titleWrap.className = 'task-title-wrap';
 
       const titleSpan = document.createElement('span');
       titleSpan.className = 'task-title';
+      titleSpan.style.fontSize = `${fontSizePx}px`;
       titleSpan.textContent = task.title;
       titleSpan.title =
         'Click once to edit or delete • Drag Left → Right to strike through or erase';
+      titleWrap.appendChild(titleSpan);
 
       const strikeCanvas = document.createElement('canvas');
       strikeCanvas.className = 'pencil-strike-canvas';
-      strikeCanvas.width = 524;
-      strikeCanvas.height = 32;
+      strikeCanvas.width = 720;
+      strikeCanvas.height = 120;
 
       const tomatoBtn = document.createElement('button');
       tomatoBtn.className = 'task-tomato-btn';
@@ -1984,7 +2228,7 @@ export class FableFlowApp {
       });
 
       row.appendChild(numSpan);
-      row.appendChild(titleSpan);
+      row.appendChild(titleWrap);
       row.appendChild(strikeCanvas);
       row.appendChild(tomatoBtn);
 
@@ -2003,7 +2247,6 @@ export class FableFlowApp {
       this.els.addItemRow.classList.add('hidden');
     }
 
-    // 2. Render Back of Today's Card (Matte Black Reflection Journal + 0-2 Framed Photos)
     if (this.els.cardBackReflection) {
       if (this.els.cardBackReflection.value !== (this.state.reflectionText || '')) {
         this.els.cardBackReflection.value = this.state.reflectionText || '';
@@ -2018,9 +2261,6 @@ export class FableFlowApp {
     );
   }
 
-  /**
-   * Renders 0 to 2 framed photo slots at the bottom of a Matte Black Card back face.
-   */
   renderPhotoSlotsDOM(containerEl, photosArray, targetType) {
     if (!containerEl) return;
     containerEl.innerHTML = '';
@@ -2038,6 +2278,7 @@ export class FableFlowApp {
       addSlot.appendChild(label);
       addSlot.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (this._justFinishedCardSwipe) return;
         this.triggerPhotoAttachment(targetType);
       });
       containerEl.appendChild(addSlot);
@@ -2090,6 +2331,7 @@ export class FableFlowApp {
       secondSlot.appendChild(label);
       secondSlot.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (this._justFinishedCardSwipe) return;
         this.triggerPhotoAttachment(targetType);
       });
       containerEl.appendChild(secondSlot);
@@ -2103,7 +2345,6 @@ export class FableFlowApp {
     const selectedCard = this.getSelectedStackCard();
     const sortedKeys = this.getSortedArchiveKeys();
 
-    // 1. Render Top Date Strip (e.g. 'OCT 01 02 03 04 (05) 06')
     if (this.els.stackDateStrip) {
       this.els.stackDateStrip.innerHTML = '';
       const activeMonth =
@@ -2121,8 +2362,7 @@ export class FableFlowApp {
           const dKey = `2026-10-${dPadded}`;
           const hasCard =
             Boolean(this.state.archiveCards[dKey]) || dKey === this.state.cardDateKey;
-          const isSelected =
-            selectedCard && selectedCard.dateKey === dKey;
+          const isSelected = selectedCard && selectedCard.dateKey === dKey;
 
           const btn = document.createElement('button');
           btn.type = 'button';
@@ -2173,7 +2413,6 @@ export class FableFlowApp {
       return;
     }
 
-    // Update peeking left/right card states
     const curIdx = sortedKeys.indexOf(selectedCard.dateKey);
     if (this.els.stackPeekLeft) {
       this.els.stackPeekLeft.classList.toggle('disabled-peek', curIdx <= 0);
@@ -2185,11 +2424,17 @@ export class FableFlowApp {
       );
     }
 
-    // 2. Render Center Selected Archived Card (Front & Back, Retroactively Editable)
-    this.els.stackCard3D.classList.toggle(
-      'is-flipped',
-      Boolean(this.state.isStackCardFlipped)
+    if (this.state.isStackCardFlipped && Math.abs(this._stackFlipDeg % 360) !== 180) {
+      this._stackFlipDeg = -180;
+    } else if (!this.state.isStackCardFlipped && Math.abs(this._stackFlipDeg % 360) !== 0) {
+      this._stackFlipDeg = 0;
+    }
+    this.applyCard3DRotation(
+      this.els.stackCard3D,
+      this.state.isStackCardFlipped,
+      this._stackFlipDeg
     );
+
     this.els.stackCardDateHeader.textContent = selectedCard.headerDate;
     if (this.els.stackCardBackDateHeader) {
       this.els.stackCardBackDateHeader.textContent = selectedCard.headerDate;
@@ -2198,32 +2443,46 @@ export class FableFlowApp {
     const listEl = this.els.stackTaskListContainer;
     listEl.innerHTML = '';
 
-    (selectedCard.tasks || []).forEach((task, idx) => {
+    const stackTasks = selectedCard.tasks || [];
+    const totalTasks = stackTasks.length;
+    const rowVertPad = totalTasks >= 5 ? 6 : 9;
+
+    stackTasks.forEach((task, idx) => {
       task.orderIndex = idx + 1;
       const row = document.createElement('div');
       row.className = 'task-row';
       row.dataset.taskId = task.id;
+      row.style.paddingTop = `${rowVertPad}px`;
+      row.style.paddingBottom = `${rowVertPad}px`;
+
+      const fontSizePx = this.computeTaskFontSizePx(task.title, totalTasks);
 
       const numSpan = document.createElement('span');
       numSpan.className = 'task-index';
+      numSpan.style.fontSize = `${fontSizePx}px`;
       numSpan.textContent = String(task.orderIndex).padStart(2, '0');
+
+      const titleWrap = document.createElement('div');
+      titleWrap.className = 'task-title-wrap';
 
       const titleSpan = document.createElement('span');
       titleSpan.className = 'task-title';
+      titleSpan.style.fontSize = `${fontSizePx}px`;
       titleSpan.textContent = task.title;
       titleSpan.title =
         'Retroactive Edit: Click once to edit/delete • Drag Left → Right to strike through or erase';
+      titleWrap.appendChild(titleSpan);
 
       const strikeCanvas = document.createElement('canvas');
       strikeCanvas.className = 'pencil-strike-canvas';
-      strikeCanvas.width = 524;
-      strikeCanvas.height = 32;
+      strikeCanvas.width = 720;
+      strikeCanvas.height = 120;
 
       const spacer = document.createElement('span');
-      spacer.style.width = '30px';
+      spacer.style.width = '22px';
 
       row.appendChild(numSpan);
-      row.appendChild(titleSpan);
+      row.appendChild(titleWrap);
       row.appendChild(strikeCanvas);
       row.appendChild(spacer);
 
@@ -2239,7 +2498,7 @@ export class FableFlowApp {
     if (this.els.stackAddItemRow) {
       this.els.stackAddItemRow.classList.toggle(
         'hidden',
-        (selectedCard.tasks || []).length >= 6
+        stackTasks.length >= 6
       );
     }
 
@@ -2273,7 +2532,7 @@ export class FableFlowApp {
         monthKey: '2026-09',
         title: 'SEPTEMBER 2026',
         daysInMonth: 30,
-        startDayOfWeek: 2, // Sep 1, 2026 is Tuesday (0=Sun, 1=Mon, 2=Tue)
+        startDayOfWeek: 2, // Sep 1, 2026 is Tuesday
       },
       {
         monthKey: '2026-10',
@@ -2337,6 +2596,7 @@ export class FableFlowApp {
             this.sensory.playCardFlipSwoosh();
             this.state.activePillar = 'card';
             this.state.isCardFlipped = false;
+            this._todayFlipDeg = 0;
             this.saveState();
             this.renderAll();
           } else if (hasArchivedCard) {
@@ -2344,6 +2604,7 @@ export class FableFlowApp {
             this.state.selectedStackDateKey = dateKey;
             this.state.activePillar = 'stack';
             this.state.isStackCardFlipped = false;
+            this._stackFlipDeg = 0;
             this.saveState();
             this.renderAll();
           } else {
@@ -2360,59 +2621,138 @@ export class FableFlowApp {
   }
 
   /**
-   * Draws a straight horizontal dry-graphite pencil strikethrough between normalized [startProgress, endProgress].
+   * Computes the horizontal and vertical line segments for every wrapped line of text
+   * inside a `.task-row`, ensuring that:
+   * 1. Line 1 starts across the `01` task index and crosses out the full first line of text.
+   * 2. Line 2 (and any subsequent line) starts at the left edge of `.task-title` and crosses out
+   *    that line of text (matching Mockup 06-stack-detail.png).
+   * 3. No strikethrough line ever gets too close to the right edge of the card or the mini-tomato icon.
+   */
+  getTaskRowLineSegments(canvas) {
+    const rowEl = canvas.parentElement;
+    if (!rowEl) {
+      return [{ minX: 24, maxX: 260, centerY: 16 }];
+    }
+
+    const rowRect = rowEl.getBoundingClientRect();
+    const rowW = Math.max(280, rowRect.width || rowEl.clientWidth || 362);
+    const rowH = Math.max(36, rowRect.height || rowEl.clientHeight || 48);
+
+    const numSpan = rowEl.querySelector('.task-index');
+    const titleSpan = rowEl.querySelector('.task-title');
+    const tomatoBtn = rowEl.querySelector('.task-tomato-btn');
+
+    // Safe right boundary so strikethrough lines NEVER touch the mini-tomato or card edge
+    let maxSafeRightX = rowW - 30;
+    if (tomatoBtn && tomatoBtn.getBoundingClientRect().width > 0) {
+      const tomRect = tomatoBtn.getBoundingClientRect();
+      maxSafeRightX = Math.min(maxSafeRightX, tomRect.left - rowRect.left - 16);
+    }
+
+    const indexLeftX =
+      numSpan && numSpan.getBoundingClientRect().width > 0
+        ? Math.max(18, numSpan.getBoundingClientRect().left - rowRect.left - 3)
+        : 22;
+
+    if (titleSpan) {
+      const clientRects = Array.from(titleSpan.getClientRects()).filter(
+        (r) => r.width > 2 && r.height > 4
+      );
+      if (clientRects.length > 0) {
+        return clientRects.map((r, lineIdx) => {
+          const lineStartX =
+            lineIdx === 0
+              ? indexLeftX
+              : Math.max(58, r.left - rowRect.left - 3);
+          const rawEndX = r.right - rowRect.left + 14;
+          const lineEndX = Math.max(
+            lineStartX + 36,
+            Math.min(maxSafeRightX, rawEndX)
+          );
+          const lineCenterY = (r.top + r.bottom) * 0.5 - rowRect.top;
+          return {
+            minX: lineStartX,
+            maxX: lineEndX,
+            centerY: lineCenterY,
+          };
+        });
+      }
+    }
+
+    // Fallback when called before layout rects are populated
+    return [{ minX: indexLeftX, maxX: maxSafeRightX, centerY: rowH * 0.5 }];
+  }
+
+  /**
+   * Draws a straight horizontal dry-graphite pencil strikethrough across EVERY wrapped line
+   * of a task item between normalized [startProgress, endProgress].
    */
   drawGraphiteStroke(canvas, startProgress = 0.0, endProgress = 0.0) {
+    const rowEl = canvas.parentElement;
+    const cssW = Math.max(280, (rowEl && rowEl.clientWidth) || 362);
+    const cssH = Math.max(36, (rowEl && rowEl.clientHeight) || 48);
+
+    const dpr = 2;
+    const targetW = Math.round(cssW * dpr);
+    const targetH = Math.round(cssH * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+
     const ctx = canvas.getContext('2d');
-    const W = canvas.width; // 524
-    const H = canvas.height; // 32
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const sProg = Math.max(0.0, Math.min(1.0, startProgress));
     const eProg = Math.max(0.0, Math.min(1.0, endProgress));
     if (eProg - sProg <= 0.01) return;
 
-    const minX = 2;
-    const maxX = W - 6;
-    const totalSpan = maxX - minX;
-
-    const currentStartX = minX + totalSpan * sProg;
-    const currentEndX = minX + totalSpan * eProg;
-    const centerY = H * 0.5;
+    const lineSegments = this.getTaskRowLineSegments(canvas);
 
     ctx.save();
+    ctx.scale(dpr, dpr);
 
-    const grad = ctx.createLinearGradient(minX, centerY, maxX, centerY);
-    grad.addColorStop(0.0, 'rgba(65, 63, 60, 0.88)');
-    grad.addColorStop(0.68, 'rgba(72, 70, 66, 0.82)');
-    grad.addColorStop(0.88, 'rgba(110, 108, 104, 0.58)');
-    grad.addColorStop(1.0, 'rgba(150, 148, 144, 0.12)');
+    lineSegments.forEach((seg, segIdx) => {
+      const minX = seg.minX;
+      const maxX = seg.maxX;
+      const totalSpan = Math.max(20, maxX - minX);
+      const currentStartX = minX + totalSpan * sProg;
+      const currentEndX = minX + totalSpan * eProg;
+      const centerY = seg.centerY;
 
-    ctx.strokeStyle = grad;
-    ctx.lineWidth = 4.6;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(currentStartX, centerY);
-    ctx.lineTo(currentEndX, centerY);
-    ctx.stroke();
+      const grad = ctx.createLinearGradient(minX, centerY, maxX, centerY);
+      grad.addColorStop(0.0, 'rgba(65, 63, 60, 0.88)');
+      grad.addColorStop(0.72, 'rgba(72, 70, 66, 0.82)');
+      grad.addColorStop(0.90, 'rgba(110, 108, 104, 0.56)');
+      grad.addColorStop(1.0, 'rgba(150, 148, 144, 0.14)');
 
-    const numGrains = Math.floor(totalSpan * 1.6);
-    for (let i = 0; i < numGrains; i++) {
-      const t = i / Math.max(1, numGrains);
-      if (t < sProg || t > eProg) continue;
-      const gx = minX + t * totalSpan;
-      const hash1 = Math.sin(i * 12.9898 + 4.1) * 43758.5453;
-      const frac1 = hash1 - Math.floor(hash1);
-      const hash2 = Math.cos(i * 78.233 + 1.7) * 24634.6345;
-      const frac2 = hash2 - Math.floor(hash2);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2.35;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(currentStartX, centerY);
+      ctx.lineTo(currentEndX, centerY);
+      ctx.stroke();
 
-      const offsetY = (frac1 - 0.5) * 6.8;
-      const tailFade = t > 0.72 ? (1.0 - (t - 0.72) / 0.28) * 0.85 : 1.0;
-      const alpha = (0.22 + 0.36 * frac2) * tailFade;
+      const numGrains = Math.floor(totalSpan * 2.4);
+      for (let i = 0; i < numGrains; i++) {
+        const t = i / Math.max(1, numGrains);
+        if (t < sProg || t > eProg) continue;
+        const gx = minX + t * totalSpan;
+        const seed = i + segIdx * 137;
+        const hash1 = Math.sin(seed * 12.9898 + 4.1) * 43758.5453;
+        const frac1 = hash1 - Math.floor(hash1);
+        const hash2 = Math.cos(seed * 78.233 + 1.7) * 24634.6345;
+        const frac2 = hash2 - Math.floor(hash2);
 
-      ctx.fillStyle = `rgba(58, 56, 53, ${alpha.toFixed(3)})`;
-      ctx.fillRect(gx, centerY + offsetY - 0.9, 2.2, 1.8);
-    }
+        const offsetY = (frac1 - 0.5) * 3.4;
+        const tailFade = t > 0.74 ? (1.0 - (t - 0.74) / 0.26) * 0.85 : 1.0;
+        const alpha = (0.22 + 0.36 * frac2) * tailFade;
+
+        ctx.fillStyle = `rgba(58, 56, 53, ${alpha.toFixed(3)})`;
+        ctx.fillRect(gx, centerY + offsetY - 0.45, 1.15, 0.95);
+      }
+    });
 
     ctx.restore();
   }
@@ -2421,12 +2761,15 @@ export class FableFlowApp {
     let startX = null;
     let startY = null;
     let isTracking = false;
+    let startedAtLeftEdgeBezel = false;
 
     rowEl.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.task-tomato-btn')) return;
       e.stopPropagation(); // QA #1: Prevent bubbling to #daily-card-3d so Right->Left flip doesn't double-toggle
       startX = e.clientX;
       startY = e.clientY;
+      const rowRect = rowEl.getBoundingClientRect();
+      startedAtLeftEdgeBezel = e.clientX - rowRect.left < 22;
       isTracking = true;
       rowEl.setPointerCapture(e.pointerId);
     });
@@ -2435,6 +2778,16 @@ export class FableFlowApp {
       if (!isTracking || startX === null) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
+
+      if (startedAtLeftEdgeBezel || dx < -12) {
+        if (!isStackCard && this.els.card3DWrapper && Math.abs(dx) > Math.abs(dy) * 1.3) {
+          const tiltOffset = Math.max(-55, Math.min(55, (dx / 240) * 55));
+          const liveDeg = this._todayFlipDeg + tiltOffset;
+          this.els.card3DWrapper.style.transition = 'none';
+          this.els.card3DWrapper.style.transform = `rotateY(${liveDeg.toFixed(1)}deg)`;
+        }
+        return;
+      }
 
       const progress = CardGestureMath.strikethroughProgress(
         dx,
@@ -2458,6 +2811,11 @@ export class FableFlowApp {
         rowEl.releasePointerCapture(e.pointerId);
       } catch (_) {}
 
+      if (this.els.card3DWrapper) {
+        this.els.card3DWrapper.style.transition = '';
+        this.els.card3DWrapper.style.transform = '';
+      }
+
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
       startX = null;
@@ -2473,7 +2831,7 @@ export class FableFlowApp {
         return;
       }
 
-      const gesture = CardGestureMath.classifyGesture(dx, dy, true);
+      const gesture = CardGestureMath.classifyGesture(dx, dy, !startedAtLeftEdgeBezel);
       if (gesture === 'strikethrough') {
         task.isCompleted = !task.isCompleted;
         this.sensory.playPencilStrikethrough(!task.isCompleted);
@@ -2482,12 +2840,10 @@ export class FableFlowApp {
       } else if (gesture === 'flipCard') {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
         if (isStackCard) {
-          this.state.isStackCardFlipped = !this.state.isStackCardFlipped;
-          this.sensory.playCardFlipSwoosh();
-          this.saveState();
-          this.renderStackScreen();
+          // On Stack View, dragging horizontally scrolls to the previous/next card in the stack!
+          this.stepStackCard(dx > 0 ? -1 : 1);
         } else {
-          this.triggerCardFlip();
+          this.triggerCardFlip(dx >= 0 ? 1 : -1);
         }
       } else {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
@@ -2798,20 +3154,27 @@ export class FableFlowApp {
       this.showNotificationBanner('Maximum 6 tasks per Daily Card reached.');
       return;
     }
-    this.openInputModal('Add Task to Today’s Card', '', (val) => {
-      if (!val.trim()) return;
-      const newOrder = this.state.tasks.length + 1;
-      this.state.tasks.push({
-        id: 'task-' + Date.now(),
-        orderIndex: newOrder,
-        title: val.trim(),
-        isCompleted: false,
-        assignedQuadrant: null,
-      });
-      this.sensory.playMechanicalTick();
-      this.saveState();
-      this.renderAll();
-    });
+    this.openInputModal(
+      'Add Task (Max 6 words / 36 chars)',
+      '',
+      (val) => {
+        const cleanVal = this.clampTaskInputText(val).trim();
+        if (!cleanVal) return;
+        const newOrder = this.state.tasks.length + 1;
+        this.state.tasks.push({
+          id: 'task-' + Date.now(),
+          orderIndex: newOrder,
+          title: cleanVal,
+          isCompleted: false,
+          assignedQuadrant: null,
+        });
+        this.sensory.playMechanicalTick();
+        this.saveState();
+        this.renderAll();
+      },
+      null,
+      true
+    );
   }
 
   openAddStackTaskModal() {
@@ -2822,28 +3185,36 @@ export class FableFlowApp {
       this.showNotificationBanner('Maximum 6 tasks per Daily Card reached.');
       return;
     }
-    this.openInputModal(`Add Task to ${card.shortDate} Card`, '', (val) => {
-      if (!val.trim()) return;
-      card.tasks.push({
-        id: `${card.dateKey}-task-${Date.now()}`,
-        orderIndex: card.tasks.length + 1,
-        title: val.trim(),
-        isCompleted: false,
-      });
-      this.sensory.playMechanicalTick();
-      this.saveState();
-      this.renderStackScreen();
-    });
+    this.openInputModal(
+      `Add Task to ${card.shortDate} (Max 6 words / 36 chars)`,
+      '',
+      (val) => {
+        const cleanVal = this.clampTaskInputText(val).trim();
+        if (!cleanVal) return;
+        card.tasks.push({
+          id: `${card.dateKey}-task-${Date.now()}`,
+          orderIndex: card.tasks.length + 1,
+          title: cleanVal,
+          isCompleted: false,
+        });
+        this.sensory.playMechanicalTick();
+        this.saveState();
+        this.renderStackScreen();
+      },
+      null,
+      true
+    );
   }
 
   openEditStackTaskModal(task) {
     const card = this.getSelectedStackCard();
     if (!card) return;
     this.openInputModal(
-      `Edit ${card.shortDate} Task ${String(task.orderIndex).padStart(2, '0')}`,
+      `Edit ${card.shortDate} Task ${String(task.orderIndex).padStart(2, '0')} (Max 6 words)`,
       task.title,
       (val) => {
-        if (!val.trim()) {
+        const cleanVal = this.clampTaskInputText(val).trim();
+        if (!cleanVal) {
           card.tasks = card.tasks.filter((t) => t.id !== task.id);
           card.tasks.forEach((t, idx) => {
             t.orderIndex = idx + 1;
@@ -2853,7 +3224,7 @@ export class FableFlowApp {
           this.showNotificationBanner('Task removed from archived card');
           return;
         }
-        task.title = val.trim();
+        task.title = cleanVal;
         this.saveState();
         this.renderStackScreen();
       },
@@ -2865,20 +3236,22 @@ export class FableFlowApp {
         this.saveState();
         this.renderStackScreen();
         this.showNotificationBanner('Task removed from archived card');
-      }
+      },
+      true
     );
   }
 
   openEditTaskModal(task) {
     this.openInputModal(
-      `Edit Task ${String(task.orderIndex).padStart(2, '0')} (Leave empty or click Delete)`,
+      `Edit Task ${String(task.orderIndex).padStart(2, '0')} (Max 6 words / 36 chars)`,
       task.title,
       (val) => {
-        if (!val.trim()) {
+        const cleanVal = this.clampTaskInputText(val).trim();
+        if (!cleanVal) {
           this.confirmPermanentDeleteTask(task);
           return;
         }
-        task.title = val.trim();
+        task.title = cleanVal;
         for (const s of this.state.timers) {
           if (s.assignedTaskId === task.id) {
             s.customTitle = task.title;
@@ -2889,7 +3262,8 @@ export class FableFlowApp {
       },
       () => {
         this.confirmPermanentDeleteTask(task);
-      }
+      },
+      true
     );
   }
 
@@ -2944,20 +3318,40 @@ export class FableFlowApp {
 
   openCustomTitleModal(quadrant) {
     const current = this.state.timers[quadrant]?.customTitle || '';
-    this.openInputModal('Assign Custom Timer Title', current, (val) => {
-      if (!val.trim()) return;
-      this.assignCustomTitleToQuadrant(quadrant, val.trim());
-    });
+    this.openInputModal(
+      'Assign Custom Timer Title',
+      current,
+      (val) => {
+        const cleanVal = this.clampTaskInputText(val).trim();
+        if (!cleanVal) return;
+        this.assignCustomTitleToQuadrant(quadrant, cleanVal);
+      },
+      null,
+      true
+    );
   }
 
-  openInputModal(title, initialValue, onSave, onDelete = null) {
+  openInputModal(title, initialValue, onSave, onDelete = null, enforceTaskCap = true) {
     this.els.modalTitle.textContent = title;
     this.els.modalInput.value = initialValue;
+    this.els.modalInput.maxLength = enforceTaskCap ? MAX_TASK_CHARS : 48;
     if (this.els.modalDelete) {
       this.els.modalDelete.classList.toggle('hidden', !onDelete);
     }
     this.els.modalOverlay.classList.remove('hidden');
     setTimeout(() => this.els.modalInput.focus(), 30);
+
+    const onInput = () => {
+      if (!enforceTaskCap) return;
+      const clamped = this.clampTaskInputText(this.els.modalInput.value);
+      if (this.els.modalInput.value !== clamped) {
+        this.els.modalInput.value = clamped;
+        this.showTelemetryToast(`Task limit: max ${MAX_TASK_WORDS} words / ${MAX_TASK_CHARS} chars`);
+      }
+      const len = this.els.modalInput.value.length;
+      this.els.modalInput.style.fontSize = len > 26 ? '14.5px' : len > 18 ? '15.5px' : '16.5px';
+    };
+    onInput();
 
     const close = () => {
       this.els.modalOverlay.classList.add('hidden');
@@ -2983,6 +3377,7 @@ export class FableFlowApp {
         this.els.modalDelete.removeEventListener('click', handleDelete);
       }
       this.els.modalInput.removeEventListener('keydown', onKey);
+      this.els.modalInput.removeEventListener('input', onInput);
     };
 
     this.els.modalCancel.addEventListener('click', close);
@@ -2991,6 +3386,7 @@ export class FableFlowApp {
       this.els.modalDelete.addEventListener('click', handleDelete);
     }
     this.els.modalInput.addEventListener('keydown', onKey);
+    this.els.modalInput.addEventListener('input', onInput);
   }
 
   showTelemetryToast(msg) {

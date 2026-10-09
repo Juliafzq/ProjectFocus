@@ -14,6 +14,7 @@ export class CardGestureMath {
   static STRIKETHROUGH_MAX_ANGLE_DEGREES = 25.0;
 
   static FLIP_MAX_DELTA_X = -40.0;
+  static FLIP_MIN_POSITIVE_DELTA_X = 40.0;
   static FLIP_MAX_ANGLE_DEGREES = 35.0;
 
   /**
@@ -34,8 +35,13 @@ export class CardGestureMath {
       }
     }
 
-    // 2. Check Right -> Left Card Flip (deltaX < -40 px, angle within ±35°)
-    if (deltaX < CardGestureMath.FLIP_MAX_DELTA_X) {
+    // 2. Check Card Flip:
+    // - Right -> Left (deltaX < -40 px) always flips the card (even if started on a task row).
+    // - Left -> Right (deltaX > +40 px) ALSO flips the card when not striking through a task row
+    //   (e.g. on card header, whitespace, or anywhere on the Back of the Card), allowing two-way card flipping!
+    const isRightToLeftFlip = deltaX < CardGestureMath.FLIP_MAX_DELTA_X;
+    const isLeftToRightFlip = !isOnTaskRow && deltaX > Math.abs(CardGestureMath.FLIP_MAX_DELTA_X);
+    if (isRightToLeftFlip || isLeftToRightFlip) {
       const maxAllowedY =
         Math.abs(deltaX) *
         Math.tan((CardGestureMath.FLIP_MAX_ANGLE_DEGREES * Math.PI) / 180.0);

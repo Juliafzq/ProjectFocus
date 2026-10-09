@@ -86,12 +86,13 @@ html, body {
 }
 
 .home-brand-title {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #0B0B0B;
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  color: #3A3936;
   text-align: center;
   line-height: 1;
+  padding-left: 0.24em; /* optically center wide letter-spacing */
 }
 
 /* =========================================================================
@@ -103,7 +104,7 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 10px 28px 36px;
+  padding: 6px 28px 34px;
 }
 
 .home-objects-stage {
@@ -113,41 +114,38 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 54px;
+  gap: 50px;
 }
 
 .home-mini-card {
-  width: 256px;
-  height: 162px;
-  background-color: #FAF9F6;
-  border-radius: 13px;
-  padding: 6px;
+  width: 334px;
+  height: 222px;
+  background-color: #FBFAF6;
+  border-radius: 2px;
+  padding: 5px;
   box-shadow:
-    0 24px 46px rgba(22, 20, 16, 0.14),
-    0 5px 14px rgba(22, 20, 16, 0.06);
+    0 12px 26px rgba(22, 20, 16, 0.08),
+    0 2px 6px rgba(22, 20, 16, 0.04);
   cursor: pointer;
   transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease;
 }
 
 .home-mini-card:hover {
-  transform: translateY(-3px) scale(1.015);
+  transform: translateY(-2px) scale(1.01);
   box-shadow:
-    0 28px 52px rgba(22, 20, 16, 0.18),
-    0 6px 16px rgba(22, 20, 16, 0.08);
+    0 16px 32px rgba(22, 20, 16, 0.11),
+    0 4px 10px rgba(22, 20, 16, 0.05);
 }
 
 .home-mini-card:active {
-  transform: scale(0.985);
+  transform: scale(0.99);
 }
 
 .home-mini-card-inner {
   width: 100%;
   height: 100%;
-  border-radius: 8px;
-  border: 1.5px solid #232220;
-  box-shadow:
-    inset 0 0 0 2.5px #FAF9F6,
-    inset 0 0 0 3.5px #7B7973;
+  border-radius: 1px;
+  border: 1px solid #B4B5AE;
   padding: 15px 18px;
   display: flex;
   align-items: flex-start;
@@ -155,11 +153,11 @@ html, body {
 }
 
 .home-mini-date {
-  font-size: 24px;
-  font-weight: 800;
+  font-size: 35px;
+  font-weight: 700;
   letter-spacing: -0.025em;
-  color: #0D0D0D;
-  line-height: 1.05;
+  color: #121212;
+  line-height: 1;
 }
 
 .home-tomato-btn {
@@ -267,10 +265,15 @@ html, body {
   position: relative;
   transform-style: preserve-3d;
   transition: transform 0.58s cubic-bezier(0.22, 1, 0.36, 1);
+  touch-action: pan-y;
 }
 
 .daily-card-3d.is-flipped {
-  transform: rotateY(-180deg);
+  transform: rotateY(var(--card-flip-deg, -180deg));
+}
+
+.daily-card-3d:not(.is-flipped) {
+  transform: rotateY(var(--card-front-deg, 0deg));
 }
 
 .card-face {
@@ -431,7 +434,7 @@ html, body {
 .card-dot-grid-body {
   flex: 1;
   position: relative;
-  padding: 18px 0 16px;
+  padding: 16px 0 24px;
   background-color: #FFFFFF;
   background-image: none; /* Clean solid white index card surface (no dots) */
   overflow: hidden; /* Strictly zero vertical scroll */
@@ -440,47 +443,53 @@ html, body {
 .task-list-container {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .task-row {
   position: relative;
   display: grid;
-  grid-template-columns: 44px 1fr 38px;
+  grid-template-columns: 42px minmax(0, 1fr) 38px;
   align-items: start;
-  padding: 11px 24px 11px 26px;
+  padding: 9px 26px 9px 26px;
   cursor: ew-resize;
   touch-action: pan-y;
 }
 
 .task-index {
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 450;
   color: #0F0F0F;
   line-height: 1.24;
   font-variant-numeric: tabular-nums;
 }
 
+.task-title-wrap {
+  min-width: 0;
+  padding-right: 16px;
+  line-height: 1.24;
+}
+
 .task-title {
-  font-size: 25px;
+  display: inline;
+  font-size: 24px;
   font-weight: 450;
   color: #0F0F0F;
   line-height: 1.24;
-  padding-right: 12px;
   word-break: break-word;
 }
 
 /*
- * Realistic Graphite Pencil Strikethrough Canvas
- * Aligned straight horizontally across the middle of the first line of text ("02 Build Deck")
- * matching Mockup 04-card-front.png exactly.
+ * Realistic Multi-Line Graphite Pencil Strikethrough Canvas
+ * Spans the full height and width of .task-row so every wrapped line of a multi-line task
+ * is crossed out with its own horizontal dry-graphite stroke matching Mockup 06-stack-detail.png.
  */
 .pencil-strike-canvas {
   position: absolute;
-  left: 22px;
-  top: 19px;
-  width: 262px;
-  height: 16px;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   z-index: 4;
 }
@@ -1046,6 +1055,14 @@ html, body {
   justify-content: space-between;
   gap: 4px;
   flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  cursor: ew-resize;
+}
+
+.stack-date-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .stack-month-label {
@@ -1054,6 +1071,7 @@ html, body {
   color: #0D0D0D;
   letter-spacing: 0.01em;
   margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .stack-date-pill {
@@ -1070,6 +1088,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition: background-color 0.18s ease, color 0.18s ease, transform 0.14s ease;
 }
 
@@ -1097,6 +1116,12 @@ html, body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.stack-carousel-stage:active {
+  cursor: grabbing;
 }
 
 .stack-center-perspective {
@@ -1105,6 +1130,7 @@ html, body {
   perspective: 1400px;
   position: relative;
   z-index: 5;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .stack-card-3d {
