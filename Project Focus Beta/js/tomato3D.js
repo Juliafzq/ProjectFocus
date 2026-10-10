@@ -14,58 +14,58 @@ export const HEIRLOOM_PALETTE = {
   0: {
     name: 'Deep Crimson',
     hex: '#8B1E24',
-    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261009_v21',
-    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261009_v21',
-    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261009_v21',
+    heroImg: 'assets/tomatoes/hero-tomato-0.png?v=20261010_v26',
+    gridImg: 'assets/tomatoes/grid-tomato-0.png?v=20261010_v26',
+    miniImg: 'assets/tomatoes/mini-tomato-0.png?v=20261010_v26',
   },
   1: {
     name: 'Warm Terracotta',
     hex: '#C84B31',
-    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261009_v21',
-    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261009_v21',
-    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261009_v21',
+    heroImg: 'assets/tomatoes/hero-tomato-1.png?v=20261010_v26',
+    gridImg: 'assets/tomatoes/grid-tomato-1.png?v=20261010_v26',
+    miniImg: 'assets/tomatoes/mini-tomato-1.png?v=20261010_v26',
   },
   2: {
     name: 'Rich Dark Burgundy',
     hex: '#5E192A',
-    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261009_v21',
-    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261009_v21',
-    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261009_v21',
+    heroImg: 'assets/tomatoes/hero-tomato-2.png?v=20261010_v26',
+    gridImg: 'assets/tomatoes/grid-tomato-2.png?v=20261010_v26',
+    miniImg: 'assets/tomatoes/mini-tomato-2.png?v=20261010_v26',
   },
   3: {
     name: 'Sun-Ripened Coral',
     hex: '#D96B52',
-    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261009_v21',
-    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261009_v21',
-    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261009_v21',
+    heroImg: 'assets/tomatoes/hero-tomato-3.png?v=20261010_v26',
+    gridImg: 'assets/tomatoes/grid-tomato-3.png?v=20261010_v26',
+    miniImg: 'assets/tomatoes/mini-tomato-3.png?v=20261010_v26',
   },
   4: {
     name: 'Golden Persimmon',
     hex: '#C96A2B',
-    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261009_v21',
-    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261009_v21',
-    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261009_v21',
+    heroImg: 'assets/tomatoes/hero-tomato-4.png?v=20261010_v26',
+    gridImg: 'assets/tomatoes/grid-tomato-4.png?v=20261010_v26',
+    miniImg: 'assets/tomatoes/mini-tomato-4.png?v=20261010_v26',
   },
   5: {
     name: 'Spiced Garnet',
     hex: '#9E2A3B',
-    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261009_v21',
-    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261009_v21',
-    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261009_v21',
+    heroImg: 'assets/tomatoes/hero-tomato-5.png?v=20261010_v26',
+    gridImg: 'assets/tomatoes/grid-tomato-5.png?v=20261010_v26',
+    miniImg: 'assets/tomatoes/mini-tomato-5.png?v=20261010_v26',
   },
   completed: {
     name: 'Satin Silver Metallic',
     hex: '#C2C7CE',
-    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261009_v21',
-    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261009_v21',
-    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261009_v21',
+    heroImg: 'assets/tomatoes/hero-tomato-silver.png?v=20261010_v26',
+    gridImg: 'assets/tomatoes/grid-tomato-silver.png?v=20261010_v26',
+    miniImg: 'assets/tomatoes/mini-tomato-silver.png?v=20261010_v26',
   },
   unassigned: {
     name: 'Matte Neutral Grey',
     hex: '#8E8D8A',
-    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261009_v21',
-    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261009_v21',
-    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261009_v21',
+    heroImg: 'assets/tomatoes/hero-tomato-grey.png?v=20261010_v26',
+    gridImg: 'assets/tomatoes/grid-tomato-grey.png?v=20261010_v26',
+    miniImg: 'assets/tomatoes/mini-tomato-grey.png?v=20261010_v26',
   },
 };
 
@@ -261,7 +261,7 @@ export class HeroTomato3DView {
         const spg = Math.round(34 * sLight);
         const spb = Math.round(38 * sLight);
 
-        const rimFade = absU > 0.974 ? (0.996 - absU) / (0.996 - 0.974) : 1.0;
+        const rimFade = absU > 0.962 ? (0.986 - absU) / (0.986 - 0.962) : 1.0;
         const baseAlpha = 0.88 * Math.max(0.0, Math.min(1.0, rimFade));
 
         pixelIndices.push((by * this.bandW + bx) * 4);

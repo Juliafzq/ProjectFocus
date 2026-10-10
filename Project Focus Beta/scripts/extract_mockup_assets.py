@@ -414,10 +414,10 @@ def get_reference_silver_sphere():
 
 def sample_ref_sphere_metal(nx, ny):
     rw, rh, lum = get_reference_silver_sphere()
-    cx_s, cy_s, r_s = 261.0, 134.0, 86.0
+    cx_s, cy_s, r_s = 276.0, 151.0, 108.5
     rho = math.sqrt(nx * nx + ny * ny)
-    if rho > 0.96:
-        scale = 0.96 / rho
+    if rho > 0.98:
+        scale = 0.98 / rho
         nx *= scale
         ny *= scale
     fx = max(0.0, min(rw - 2.001, cx_s + nx * r_s))
@@ -442,15 +442,14 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
     """
     Transforms the studio-lit heirloom tomato into a satin-polished Silver Metallic
     tomato matching docs/mockup-images/silver-sphere-ref.png:
-    1. 100% natural, studio-anti-aliased 360-degree outer edges using Green-channel
-       absorption (capturing even the darkest shadowed bottom rim cleanly).
+    1. Razor-crisp 1.5px studio-anti-aliased 360-degree outer silhouette with zero
+       inner feather blur and zero red/warm color bleed into the background or shadow.
     2. Contour-aware spherical environment reflection sampled directly from the
-       reference silver sphere (bright upper dome reflection, soft mid-silver studio
-       horizon core, and bright tabletop bounce on the lower belly & sides).
-    3. Subtle heirloom 3D lobe & stem calyx sculpting with zero artificial stripe artifacts.
+       measured reference silver sphere (cx=276, cy=151, r=108.5).
+    3. Subtle heirloom 3D lobe & stem calyx sculpting with crisp 360-degree Fresnel rim.
     """
     out = bytearray(src_rgb)
-    rg_grid = [[0.0] * w for _ in range(h)]
+    sig_grid = [[0.0] * w for _ in range(h)]
     min_x, max_x = w, 0
     min_y, max_y = h, 0
 
@@ -459,9 +458,10 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
             i = (y * w + x) * 3
             r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
             rg = float(r - max(g, b))
-            rg_grid[y][x] = rg
-            is_tomato_core = (rg >= 18.0) or (rg >= 8.0 and g < 65)
-            if is_tomato_core:
+            # Boost dark bottom-rim tomato pixels (where g < 62 and rg >= 8) so the shadowed lower rim is 100% solid
+            sig = rg + (max(0.0, 62.0 - g) * 0.48 if rg >= 8.0 else 0.0)
+            sig_grid[y][x] = sig
+            if sig >= 22.0:
                 if x < min_x:
                     min_x = x
                 if x > max_x:
@@ -477,77 +477,30 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
     cy_body = min_y + 0.54 * span_y
     ry_body = max(1.0, 0.46 * span_y)
 
+    # Smooth sig_grid with one 3x3 [1,2,1; 2,4,2; 1,2,1]/16 kernel so 8x8 JPEG block steps on the
+    # dark bottom-right curve become a silky sub-pixel curve while staying razor-sharp (1.5px ramp)
+    sig_smooth = [row[:] for row in sig_grid]
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            sig_smooth[y][x] = (
+                4.0 * sig_grid[y][x]
+                + 2.0 * (sig_grid[y - 1][x] + sig_grid[y + 1][x] + sig_grid[y][x - 1] + sig_grid[y][x + 1])
+                + (sig_grid[y - 1][x - 1] + sig_grid[y - 1][x + 1] + sig_grid[y + 1][x - 1] + sig_grid[y + 1][x + 1])
+            ) / 16.0
+
+    # Tight 1.5px studio anti-aliased alpha ramp: sig <= 11.0 -> 0.0, sig >= 22.5 -> 1.0
     alpha_grid = [[0.0] * w for _ in range(h)]
-    bg_rgb_grid = [[None] * w for _ in range(h)]
     u_raw = [[None] * w for _ in range(h)]
 
     for y in range(h):
-        y0 = max(0, y - 6)
-        y1 = min(h - 1, y + 6)
         for x in range(w):
-            i = (y * w + x) * 3
-            r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
-            rg = rg_grid[y][x]
-            if rg <= 3.5 and g >= 145:
+            sig = sig_smooth[y][x]
+            if sig <= 11.0:
                 continue
-
-            x0 = max(0, x - 6)
-            x1 = min(w - 1, x + 6)
-            loc_max_rg = rg
-            min_in_g = float(g)
-            bg_r, bg_g, bg_b, bg_cnt = 0.0, 0.0, 0.0, 0
-            best_outside_g = -1.0
-            best_outside_rgb = None
-
-            for ny in range(y0, y1 + 1):
-                row_rg = rg_grid[ny]
-                for nx in range(x0, x1 + 1):
-                    v_rg = row_rg[nx]
-                    if v_rg > loc_max_rg:
-                        loc_max_rg = v_rg
-                    ni = (ny * w + nx) * 3
-                    nr_p, ng_p, nb_p = src_rgb[ni], src_rgb[ni + 1], src_rgb[ni + 2]
-                    if (v_rg >= 12.0 or (v_rg >= 7.0 and ng_p < 60)) and ng_p < min_in_g:
-                        min_in_g = float(ng_p)
-                    if v_rg <= 4.5 and ng_p >= 135:
-                        bg_r += nr_p
-                        bg_g += ng_p
-                        bg_b += nb_p
-                        bg_cnt += 1
-                    if v_rg <= 8.0 and ng_p > best_outside_g:
-                        best_outside_g = float(ng_p)
-                        lum_out = 0.32 * nr_p + 0.43 * ng_p + 0.25 * nb_p
-                        best_outside_rgb = (lum_out, lum_out, lum_out * 0.985)
-
-            if loc_max_rg < 14.0 and not (rg >= 6.0 and g < 85):
-                continue
-
-            if bg_cnt > 0:
-                cur_bg = (bg_r / bg_cnt, bg_g / bg_cnt, bg_b / bg_cnt)
-            elif best_outside_rgb is not None and best_outside_g >= 115:
-                cur_bg = best_outside_rgb
-            else:
-                cur_bg = (231.0, 232.0, 226.0)
-                alpha_grid[y][x] = 1.0
-                bg_rgb_grid[y][x] = cur_bg
-                is_pointer = is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 135 and g > 95)
-                if not is_pointer:
-                    u_raw[y][x] = max(0.0, min(1.0, ((r / 255.0) - 0.08) / 0.48))
-                continue
-
-            bg_rgb_grid[y][x] = cur_bg
-            denom_g = max(25.0, cur_bg[1] - (min_in_g + 3.0))
-            alpha_g = min(1.0, max(0.0, (cur_bg[1] - g) / denom_g))
-            hi_rg = max(14.0, 0.78 * loc_max_rg)
-            alpha_rg = min(1.0, max(0.0, (rg - 3.5) / (hi_rg - 3.5)))
-            alpha = max(alpha_g, alpha_rg)
+            alpha = min(1.0, max(0.0, (sig - 11.0) / (22.5 - 11.0)))
             alpha_grid[y][x] = alpha
 
-            is_pointer = is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 135 and g > 95)
-            if alpha >= 0.72 and not is_pointer:
-                u_raw[y][x] = max(0.0, min(1.0, ((r / 255.0) - 0.08) / 0.48))
-
-    # Measure row left/right bounds and column top/bottom bounds for contour-following reflection mapping
+    # Measure row left/right bounds and column top/bottom bounds from the crisp silhouette
     row_left = {}
     row_right = {}
     for y in range(h):
@@ -563,6 +516,103 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
         if ys:
             col_top[x] = float(ys[0])
             col_bot[x] = float(ys[-1])
+
+    # Compute exact Euclidean distance d_edge (in pixels) to the exterior silhouette (alpha < 0.35)
+    # so the 360-degree metallic Fresnel rim follows every organic lobe, stem, and curve of the tomato.
+    dist_edge = [[0.0] * w for _ in range(h)]
+    max_rim_px = 14 if is_hero else 8
+    for y in range(h):
+        for x in range(w):
+            if alpha_grid[y][x] <= 0.0:
+                continue
+            best_d2 = float(max_rim_px * max_rim_px)
+            if y in row_left:
+                d_row = min(abs(x - row_left[y]), abs(row_right[y] - x))
+                if d_row * d_row < best_d2:
+                    best_d2 = d_row * d_row
+            if x in col_top:
+                d_col = min(abs(y - col_top[x]), abs(col_bot[x] - y))
+                if d_col * d_col < best_d2:
+                    best_d2 = d_col * d_col
+            if best_d2 > 1.0:
+                r_search = min(max_rim_px, int(math.ceil(math.sqrt(best_d2))) + 1)
+                sy0, sy1 = max(0, y - r_search), min(h - 1, y + r_search)
+                sx0, sx1 = max(0, x - r_search), min(w - 1, x + r_search)
+                for ny in range(sy0, sy1 + 1):
+                    for nx in range(sx0, sx1 + 1):
+                        if alpha_grid[ny][nx] < 0.35:
+                            d2 = (x - nx) * (x - nx) + (y - ny) * (y - ny)
+                            if d2 < best_d2:
+                                best_d2 = float(d2)
+            dist_edge[y][x] = math.sqrt(best_d2)
+            # Only force alpha = 1.0 when at least 3.0px inside the silhouette in all 2D directions
+            if dist_edge[y][x] >= 3.0:
+                alpha_grid[y][x] = 1.0
+
+    for y in range(h):
+        for x in range(w):
+            alpha = alpha_grid[y][x]
+            if alpha >= 0.70:
+                i = (y * w + x) * 3
+                r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
+                is_pointer = is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 135 and g > 95)
+                if not is_pointer:
+                    u_raw[y][x] = max(0.0, min(1.0, ((r / 255.0) - 0.08) / 0.48))
+
+    # Build a 100% color-bleed-free studio background/shadow grid matching #E7E8E2 (231, 232, 226):
+    # Skip the 5px JPEG macroblock / red bounce-light collar around the tomato and inpaint + Gaussian-smooth it
+    bg_g_clean = [[None] * w for _ in range(h)]
+    near_mask = [[False] * w for _ in range(h)]
+    collar_r = 5 if is_hero else 3
+    for y in range(h):
+        for x in range(w):
+            if alpha_grid[y][x] > 0.08:
+                y0, y1 = max(0, y - collar_r), min(h - 1, y + collar_r)
+                x0, x1 = max(0, x - collar_r), min(w - 1, x + collar_r)
+                for ny in range(y0, y1 + 1):
+                    for nx in range(x0, x1 + 1):
+                        near_mask[ny][nx] = True
+
+    for y in range(h):
+        for x in range(w):
+            if not near_mask[y][x] and sig_grid[y][x] <= 3.5:
+                i = (y * w + x) * 3
+                bg_g_clean[y][x] = float(src_rgb[i + 1])
+
+    for _ in range(12):
+        nxt_bg = [row[:] for row in bg_g_clean]
+        for y in range(h):
+            y0, y1 = max(0, y - 2), min(h - 1, y + 2)
+            for x in range(w):
+                if bg_g_clean[y][x] is None:
+                    acc, cnt = 0.0, 0
+                    x0, x1 = max(0, x - 2), min(w - 1, x + 2)
+                    for ny in range(y0, y1 + 1):
+                        for nx in range(x0, x1 + 1):
+                            val = bg_g_clean[ny][nx]
+                            if val is not None:
+                                acc += val
+                                cnt += 1
+                    if cnt > 0:
+                        nxt_bg[y][x] = acc / cnt
+        bg_g_clean = nxt_bg
+
+    # Smooth the background/shadow within 16px of the tomato silhouette so zero JPEG block texture exists under the rim
+    for _ in range(4):
+        nxt_bg = [row[:] for row in bg_g_clean]
+        for y in range(2, h - 2):
+            for x in range(2, w - 2):
+                if alpha_grid[y][x] < 0.99:
+                    acc, cnt = 0.0, 0
+                    for dy in (-2, -1, 0, 1, 2):
+                        for dx in (-2, -1, 0, 1, 2):
+                            val = bg_g_clean[y + dy][x + dx]
+                            if val is not None:
+                                acc += val
+                                cnt += 1
+                    if cnt > 0:
+                        nxt_bg[y][x] = acc / cnt
+        bg_g_clean = nxt_bg
 
     # Smooth row_left/row_right and col_top/col_bot so the coordinate field is C-infinity smooth
     for _ in range(4):
@@ -622,27 +672,27 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
             i = (y * w + x) * 3
             r, g, b = src_rgb[i], src_rgb[i + 1], src_rgb[i + 2]
 
+            bg_g_val = bg_g_clean[y][x] if bg_g_clean[y][x] is not None else 232.0
+            bg_r = bg_g_val * (231.0 / 232.0)
+            bg_g = bg_g_val
+            bg_b = bg_g_val * (226.0 / 232.0)
+
             alpha = alpha_grid[y][x]
             if alpha <= 0.0 and not (is_hero and 314 <= x <= 348 and 298 <= y <= 336):
+                # Write neutralized studio background/shadow so zero warm/red bounce light remains
+                out[i] = max(0, min(255, int(round(bg_r))))
+                out[i + 1] = max(0, min(255, int(round(bg_g))))
+                out[i + 2] = max(0, min(255, int(round(bg_b))))
                 continue
 
             nx_ell = (x - cx) / rx
             ny_top = (y - min_y) / span_y
             by_ell = (y - cy_body) / ry_body
 
-            # Blend global elliptical coordinates with local contour coordinates so the
-            # spherical reflection wraps naturally around the tomato's organic silhouette
-            if y in row_left and (row_right[y] - row_left[y]) > 20.0:
-                nx_cnt = 2.0 * (x - row_left[y]) / (row_right[y] - row_left[y]) - 1.0
-                bx = 0.45 * nx_ell + 0.55 * nx_cnt
-            else:
-                bx = nx_ell
-
-            if x in col_top and (col_bot[x] - col_top[x]) > 20.0:
-                ny_cnt = 2.0 * (y - col_top[x]) / (col_bot[x] - col_top[x]) - 1.0
-                by = 0.52 * by_ell + 0.48 * ny_cnt
-            else:
-                by = by_ell
+            # Use clean, distortion-free spherical coordinates (nx_ell, by_ell) for environment reflection
+            # so there is zero pole pinching on the lower belly, while dist_edge handles the exact organic contour rim
+            bx = nx_ell
+            by = by_ell
 
             # 1. Sample exact studio reflection map from docs/mockup-images/silver-sphere-ref.png
             ref_env = sample_ref_sphere_metal(bx, by)
@@ -651,14 +701,12 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
             u_c = u_crisp[y][x] if u_crisp[y][x] is not None else 0.5
             lobe_relief = (u_c - 0.52) * 0.032
 
-            # 3. Clean 360-degree metallic rim definition against the #E7E8E2 (0.906) canvas background
-            rho_local = math.sqrt(min(1.25, bx * bx + by * by))
-            rim_t = 0.0
-            if rho_local > 0.74:
-                rim_t = min(1.0, (rho_local - 0.74) / 0.26) ** 1.45
+            # 3. Crisp 360-degree contour Fresnel rim definition using exact pixel distance to silhouette edge
+            d_edge = dist_edge[y][x]
+            rim_t = max(0.0, min(1.0, (max_rim_px - d_edge) / float(max_rim_px))) ** 1.35
 
             # 4. Ultra-fine pixel-level satin micro-grain (zero sine-wave stripes!)
-            satin_noise = rng.uniform(-0.0025, 0.0025)
+            satin_noise = rng.uniform(-0.0022, 0.0022)
 
             # Calyx / stem crown sculpting at top
             d_calyx = math.sqrt((nx_ell / 0.56) ** 2 + ((ny_top - 0.12) / 0.14) ** 2)
@@ -669,26 +717,31 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
             else:
                 w_calyx = 0.5 * (1.0 + math.cos(math.pi * (d_calyx - 0.72) / (1.15 - 0.72)))
 
-            # Equatorial seam line on Hero tomato
+            # Equatorial seam line on Hero tomato, tapered cleanly inside the left/right silhouette edges
             seam_darken = 1.0
             if is_hero:
                 seam_y_here = fit_seam_y(x + 54) - 536.0
                 dy_seam = y - seam_y_here
                 if -4.0 <= dy_seam <= 5.5:
                     seam_t = math.exp(-((dy_seam - 0.8) / 2.1) ** 2)
-                    seam_darken = 1.0 - 0.34 * seam_t
+                    edge_taper = min(1.0, max(0.0, (d_edge - 1.5) / 6.0))
+                    seam_darken = 1.0 - 0.34 * seam_t * edge_taper
 
             raw_body = ref_env + lobe_relief + satin_noise
-            # Soft, polished lower-contrast silver curve: darkest core ~0.50 (RGB ~128), brightest dome ~0.975 (RGB ~249)
-            polished_body = 0.50 + 0.475 * max(0.0, min(1.0, (raw_body - 0.35) / 0.64))
-            # Pull outer grazing rim gently toward crisp satin silver (0.745 / RGB ~190) so top-right shoulder never vanishes into #E7E8E2
-            if polished_body > 0.755 and rim_t > 0.0:
-                polished_body = (1.0 - 0.58 * rim_t) * polished_body + (0.58 * rim_t) * 0.755
+            # Soft, polished lower-contrast silver curve: darkest core ~0.48 (RGB ~122), brightest dome ~0.975 (RGB ~249)
+            polished_body = 0.48 + 0.495 * max(0.0, min(1.0, (raw_body - 0.32) / 0.66))
+            # Pull outer grazing rim gently toward crisp studio Fresnel silver (0.69 on top/sides, 0.58 on bottom shadow rim)
+            bot_weight = max(0.0, min(1.0, (by - 0.25) / 0.65))
+            rim_target = (1.0 - bot_weight) * 0.69 + bot_weight * 0.58
+            if rim_t > 0.0:
+                blend_rim = 0.65 * rim_t
+                polished_body = (1.0 - blend_rim) * polished_body + blend_rim * rim_target
             body_metal = polished_body * seam_darken
 
-            calyx_metal = 0.53 + 0.35 * (u_c ** 0.82) + 0.07 * max(0.0, ref_env - 0.75) + satin_noise
+            calyx_base = 0.53 + 0.35 * (u_c ** 0.82) + 0.07 * max(0.0, ref_env - 0.75) + satin_noise
+            calyx_metal = (1.0 - 0.55 * rim_t) * calyx_base + (0.55 * rim_t) * 0.68
             metal_v = w_calyx * calyx_metal + (1.0 - w_calyx) * body_metal
-            metal_v = max(0.47, min(0.978, metal_v))
+            metal_v = max(0.46, min(0.978, metal_v))
 
             if is_hero and (314 <= x <= 348) and (298 <= y <= 336) and (r > 130 and g > 75):
                 whiteness = min(1.0, max(0.0, (g - 75.0) / 140.0))
@@ -702,9 +755,8 @@ def recolor_silver_metallic(w, h, src_rgb, is_hero=False):
 
             mr = metal_v * 0.996 * 255.0
             mg = metal_v * 0.998 * 255.0
-            mb = min(255.0, metal_v * 1.003 * 255.0)
+            mb = min(255.0, metal_v * 1.002 * 255.0)
 
-            bg_r, bg_g, bg_b = bg_rgb_grid[y][x]
             out[i] = max(0, min(255, int(round((1.0 - alpha) * bg_r + alpha * mr))))
             out[i + 1] = max(0, min(255, int(round((1.0 - alpha) * bg_g + alpha * mg))))
             out[i + 2] = max(0, min(255, int(round((1.0 - alpha) * bg_b + alpha * mb))))
@@ -864,7 +916,9 @@ if __name__ == "__main__":
     # ============================================================================
     print("Extracting Homepage Tomato (01-home-page.png) & Back-of-Card Photos (05-card-back.png)...")
     w1, h1, rgb1 = read_ppm(os.path.join(ROOT, "docs/mockup-images/01-home-page.png"))
-    hmw, hmh, home_tomato = crop_rgb(w1, h1, rgb1, 54, 710, 754, 1310)
+    # Center crop horizontally around x=385 (the 0 tick mark & white triangle pointer apex in 01-home-page.png)
+    # so 385 - 35 = 350.0 sits on the exact 50% vertical center line of the 700x600 image
+    hmw, hmh, home_tomato = crop_rgb(w1, h1, rgb1, 35, 710, 735, 1310)
     feather_background_to_canvas_bg(hmw, hmh, home_tomato, target_bg=(231, 232, 226), margin=58)
     write_png(hmw, hmh, home_tomato, os.path.join(OUT_DIR, "home-tomato.png"))
 

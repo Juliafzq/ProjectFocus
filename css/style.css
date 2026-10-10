@@ -709,6 +709,7 @@ html, body {
   object-fit: contain;
   pointer-events: none;
   display: block;
+  transition: opacity 0.52s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .grid-tomato-silver-img {
@@ -716,6 +717,10 @@ html, body {
   inset: 0;
   opacity: 0;
   transition: opacity 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grid-tomato-wrap.is-silver-completed .grid-tomato-img:not(.grid-tomato-silver-img) {
+  opacity: 0;
 }
 
 .grid-tomato-wrap.is-silver-completed .grid-tomato-silver-img {
@@ -1692,13 +1697,13 @@ html, body {
 }
 
 /* =========================================================================
-   STACK CAROUSEL SCROLLING MOTION & BOUNDARY BOUNCE ANIMATIONS
+   STACK CAROUSEL SCROLLING MOTION, ZOOM SHRINK & RETROSPECTIVE EMPTY SLOT
    ========================================================================= */
 
 @keyframes stackSlideFromRight {
   0% {
-    transform: translateX(88px) scale(0.95);
-    opacity: 0.45;
+    transform: translateX(104%) scale(0.92);
+    opacity: 0.25;
   }
   100% {
     transform: translateX(0px) scale(1);
@@ -1708,8 +1713,8 @@ html, body {
 
 @keyframes stackSlideFromLeft {
   0% {
-    transform: translateX(-88px) scale(0.95);
-    opacity: 0.45;
+    transform: translateX(-104%) scale(0.92);
+    opacity: 0.25;
   }
   100% {
     transform: translateX(0px) scale(1);
@@ -1730,11 +1735,11 @@ html, body {
 }
 
 .stack-center-perspective.anim-slide-next {
-  animation: stackSlideFromRight 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: stackSlideFromRight 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .stack-center-perspective.anim-slide-prev {
-  animation: stackSlideFromLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: stackSlideFromLeft 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .stack-center-perspective.anim-bounce-prev {
@@ -1743,6 +1748,96 @@ html, body {
 
 .stack-center-perspective.anim-bounce-next {
   animation: stackBounceRightEdge 0.26s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Outgoing cloned card during two-card stack scrolling */
+.stack-outgoing-card-clone {
+  position: absolute !important;
+  top: clamp(4px, 1dvh, 8px);
+  bottom: clamp(4px, 1dvh, 8px);
+  left: 28px;
+  right: 28px;
+  width: auto !important;
+  height: auto !important;
+  max-height: 556px;
+  z-index: 4;
+  pointer-events: none !important;
+  will-change: transform, opacity;
+}
+
+/* Smooth Zoom-Out (Stack shrinks to reveal Calendar) & Zoom-In (Card expands from Calendar) */
+.stack-screen.is-zoom-transitioning {
+  position: absolute;
+  top: clamp(58px, 8.8dvh, 76px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: transparent !important;
+  pointer-events: none;
+}
+
+.stack-screen.is-zoom-transitioning .stack-bottom-bar,
+.stack-screen.is-zoom-transitioning .stack-peek-card {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Retrospective Empty Card Slot for Past Dates (Styled like .journal-photo-slot) */
+.stack-retro-empty-slot {
+  margin: 8px 26px 22px;
+  flex: 1;
+  min-height: 280px;
+  border-radius: 12px;
+  border: 1.5px dashed rgba(26, 25, 23, 0.26);
+  background: rgba(247, 246, 241, 0.65);
+  color: #4A4843;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 20px;
+  cursor: pointer;
+  text-align: center;
+  font-family: var(--font-sans);
+  transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.14s ease;
+}
+
+.stack-retro-empty-slot:hover {
+  background: rgba(239, 237, 230, 0.92);
+  border-color: rgba(17, 17, 17, 0.55);
+}
+
+.stack-retro-empty-slot:active {
+  transform: scale(0.985);
+}
+
+.stack-retro-plus-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1.4px solid rgba(26, 25, 23, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 400;
+  color: #1A1917;
+  margin-bottom: 2px;
+}
+
+.stack-retro-slot-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #1A1917;
+}
+
+.stack-retro-slot-sub {
+  font-size: 12.5px;
+  font-weight: 450;
+  color: #78756E;
 }
 
 /* =========================================================================

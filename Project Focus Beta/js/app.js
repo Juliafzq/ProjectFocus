@@ -20,10 +20,10 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261009_v25';
-import { CardGestureMath } from './cardGestureMath.js?v=20261009_v25';
-import { SensoryEngine } from './sensoryEngine.js?v=20261009_v25';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261009_v25';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261010_v26';
+import { CardGestureMath } from './cardGestureMath.js?v=20261010_v26';
+import { SensoryEngine } from './sensoryEngine.js?v=20261010_v26';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261010_v26';
 
 const STORAGE_KEY = 'fable_flow_phase2_mvp_v9';
 const NUM_GRID_SLOTS = 6;
@@ -575,7 +575,7 @@ export class FableFlowApp {
         const clamped = this.clampReflectionInputText(this.els.cardBackReflection.value);
         if (this.els.cardBackReflection.value !== clamped) {
           this.els.cardBackReflection.value = clamped;
-          this.showTelemetryToast('Reflection limit reached (keeps text away from card edges)');
+          this.showTelemetryToast('Reflection limit reached');
         }
         this.state.reflectionText = this.els.cardBackReflection.value;
         this.adjustReflectionTypography(this.els.cardBackReflection);
@@ -1192,13 +1192,130 @@ export class FableFlowApp {
     return Object.keys(this.state.archiveCards || {}).sort();
   }
 
+  formatDateMetadataForKey(dateKey) {
+    const fallbackKey = '2026-10-05';
+    const raw = typeof dateKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : fallbackKey;
+    const parts = raw.split('-');
+    const y = parseInt(parts[0], 10) || 2026;
+    const m = parseInt(parts[1], 10) || 10;
+    const d = parseInt(parts[2], 10) || 5;
+    const dPadded = String(d).padStart(2, '0');
+    const mPadded = String(m).padStart(2, '0');
+    const shortMonths = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const dt = new Date(y, m - 1, d);
+    const weekday = weekdays[dt.getDay()] || 'MONDAY';
+    const shortMonth = shortMonths[(m - 1 + 12) % 12] || 'OCT';
+    return {
+      dateKey: `${y}-${mPadded}-${dPadded}`,
+      monthKey: `${y}-${mPadded}`,
+      dayNum: d,
+      shortMonth,
+      headerDate: `${weekday} — ${shortMonth} ${dPadded}`,
+      shortDate: `${dPadded} ${shortMonth}`,
+    };
+  }
+
+  createRetrospectiveCardForDate(dateKey) {
+    const meta = this.formatDateMetadataForKey(dateKey || this.state.selectedStackDateKey);
+    if (!this.state.archiveCards) {
+      this.state.archiveCards = {};
+    }
+    if (!this.state.archiveCards[meta.dateKey]) {
+      this.state.archiveCards[meta.dateKey] = {
+        dateKey: meta.dateKey,
+        headerDate: meta.headerDate,
+        shortDate: meta.shortDate,
+        monthKey: meta.monthKey,
+        dayNum: meta.dayNum,
+        tasks: [],
+        reflectionText: '',
+        reflectionPhotos: [],
+      };
+    }
+    this.state.selectedStackDateKey = meta.dateKey;
+    this.state.activePillar = 'stack';
+    this.state.isStackCardFlipped = false;
+    this._stackFlipDeg = 0;
+    this.sensory.playCardFlipSwoosh();
+    this.saveState();
+    this.renderAll();
+    this.showTelemetryToast(`Card added for ${meta.shortMonth} ${String(meta.dayNum).padStart(2, '0')}`);
+  }
+
   getSelectedStackCard() {
     const keys = this.getSortedArchiveKeys();
-    if (keys.length === 0) return null;
-    if (!this.state.archiveCards[this.state.selectedStackDateKey]) {
-      this.state.selectedStackDateKey = keys[keys.length - 1];
+    const curKey = this.state.selectedStackDateKey;
+    if (curKey && this.state.archiveCards && this.state.archiveCards[curKey]) {
+      return this.state.archiveCards[curKey];
     }
-    return this.state.archiveCards[this.state.selectedStackDateKey] || null;
+    // If curKey is a valid past date explicitly selected (e.g. from Calendar or Date Strip),
+    // preserve selectedStackDateKey and return null so the retrospective "+ Add Card" slot renders!
+    const todayKey = this.state.cardDateKey || '2026-10-06';
+    if (curKey && /^\d{4}-\d{2}-\d{2}$/.test(curKey) && curKey < todayKey) {
+      return null;
+    }
+    if (keys.length > 0) {
+      this.state.selectedStackDateKey = keys[keys.length - 1];
+      return this.state.archiveCards[this.state.selectedStackDateKey] || null;
+    }
+    this.state.selectedStackDateKey = '2026-10-05';
+    return null;
+  }
+
+  _spawnOutgoingStackCardClone(direction = 1, initialOffsetPx = 0) {
+    if (!this.els.stackCarouselStage) return;
+    const centerPerspective = this.els.stackCarouselStage.querySelector(
+      '.stack-center-perspective'
+    );
+    if (!centerPerspective) return;
+
+    // Remove any existing outgoing clones first
+    this.els.stackCarouselStage
+      .querySelectorAll('.stack-outgoing-card-clone')
+      .forEach((el) => el.remove());
+
+    const clone = centerPerspective.cloneNode(true);
+    clone.classList.remove(
+      'stack-center-perspective',
+      'anim-slide-next',
+      'anim-slide-prev',
+      'anim-bounce-next',
+      'anim-bounce-prev'
+    );
+    clone.classList.add('stack-outgoing-card-clone');
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
+
+    // Copy canvas bitmaps (pencil strikethroughs) onto the cloned card
+    const origCanvases = centerPerspective.querySelectorAll('canvas');
+    const cloneCanvases = clone.querySelectorAll('canvas');
+    origCanvases.forEach((origC, idx) => {
+      const destC = cloneCanvases[idx];
+      if (destC && origC.width > 0 && origC.height > 0) {
+        destC.width = origC.width;
+        destC.height = origC.height;
+        const dCtx = destC.getContext('2d');
+        if (dCtx) dCtx.drawImage(origC, 0, 0);
+      }
+    });
+
+    clone.style.transition = 'none';
+    clone.style.transform = `translateX(${initialOffsetPx.toFixed(1)}px) scale(1)`;
+    clone.style.opacity = '1';
+    this.els.stackCarouselStage.appendChild(clone);
+
+    // Force reflow, then glide outgoing clone smoothly off-screen in the scroll direction
+    void clone.offsetWidth;
+    const exitX = direction >= 0 ? '-106%' : '106%';
+    clone.style.transition =
+      'transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1)';
+    clone.style.transform = `translateX(${exitX}) scale(0.92)`;
+    clone.style.opacity = '0';
+
+    setTimeout(() => {
+      if (clone.parentNode) clone.remove();
+    }, 390);
   }
 
   animateStackCardScroll(direction = 1) {
@@ -1208,6 +1325,9 @@ export class FableFlowApp {
     );
     if (!centerPerspective) return;
 
+    clearTimeout(this._stackSlideCleanupTimer);
+    centerPerspective.style.transition = '';
+    centerPerspective.style.transform = '';
     centerPerspective.classList.remove(
       'anim-slide-next',
       'anim-slide-prev',
@@ -1219,6 +1339,9 @@ export class FableFlowApp {
     centerPerspective.classList.add(
       direction >= 0 ? 'anim-slide-next' : 'anim-slide-prev'
     );
+    this._stackSlideCleanupTimer = setTimeout(() => {
+      centerPerspective.classList.remove('anim-slide-next', 'anim-slide-prev');
+    }, 370);
 
     if (this.els.stackDateStrip) {
       const activePill = this.els.stackDateStrip.querySelector('.stack-date-pill.active');
@@ -1235,6 +1358,7 @@ export class FableFlowApp {
     );
     if (!centerPerspective) return;
 
+    clearTimeout(this._stackSlideCleanupTimer);
     centerPerspective.classList.remove(
       'anim-slide-next',
       'anim-slide-prev',
@@ -1245,9 +1369,153 @@ export class FableFlowApp {
     centerPerspective.classList.add(
       direction >= 0 ? 'anim-bounce-next' : 'anim-bounce-prev'
     );
+    this._stackSlideCleanupTimer = setTimeout(() => {
+      centerPerspective.classList.remove('anim-bounce-next', 'anim-bounce-prev');
+    }, 280);
   }
 
-  selectStackDate(dateKey, explicitDirection = null) {
+  zoomOutStackToCalendar() {
+    if (this._isZoomTransitioning) return;
+    const stackEl = this.els.stackScreen;
+    const calEl = this.els.calendarScreen;
+    const centerPerspective =
+      this.els.stackCarouselStage &&
+      this.els.stackCarouselStage.querySelector('.stack-center-perspective');
+
+    if (!stackEl || !calEl || !centerPerspective || this.state.activePillar !== 'stack') {
+      this.state.activePillar = 'calendar';
+      this.saveState();
+      this.renderAll();
+      return;
+    }
+
+    this._isZoomTransitioning = true;
+    this.renderCalendarScreen();
+    calEl.classList.remove('hidden');
+    stackEl.classList.remove('hidden');
+    stackEl.classList.add('is-zoom-transitioning');
+
+    calEl.style.transition = 'none';
+    calEl.style.opacity = '0';
+    calEl.style.transform = 'scale(0.95)';
+
+    centerPerspective.classList.remove(
+      'anim-slide-next',
+      'anim-slide-prev',
+      'anim-bounce-next',
+      'anim-bounce-prev'
+    );
+    centerPerspective.style.transition = 'none';
+    centerPerspective.style.transform = 'scale(1)';
+    centerPerspective.style.opacity = '1';
+
+    void stackEl.offsetWidth;
+
+    const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+    centerPerspective.style.transition = `transform 0.36s ${ease}, opacity 0.32s ${ease}`;
+    centerPerspective.style.transform = 'scale(0.24)';
+    centerPerspective.style.opacity = '0';
+
+    if (this.els.stackDateStrip) {
+      this.els.stackDateStrip.style.transition = `opacity 0.24s ${ease}`;
+      this.els.stackDateStrip.style.opacity = '0';
+    }
+    if (this.els.stackPeekLeft) this.els.stackPeekLeft.style.opacity = '0';
+    if (this.els.stackPeekRight) this.els.stackPeekRight.style.opacity = '0';
+
+    calEl.style.transition = `transform 0.36s ${ease}, opacity 0.34s ${ease}`;
+    calEl.style.opacity = '1';
+    calEl.style.transform = 'scale(1)';
+
+    setTimeout(() => {
+      this._isZoomTransitioning = false;
+      stackEl.classList.remove('is-zoom-transitioning');
+      centerPerspective.style.transition = '';
+      centerPerspective.style.transform = '';
+      centerPerspective.style.opacity = '';
+      if (this.els.stackDateStrip) {
+        this.els.stackDateStrip.style.transition = '';
+        this.els.stackDateStrip.style.opacity = '';
+      }
+      if (this.els.stackPeekLeft) this.els.stackPeekLeft.style.opacity = '';
+      if (this.els.stackPeekRight) this.els.stackPeekRight.style.opacity = '';
+      calEl.style.transition = '';
+      calEl.style.opacity = '';
+      calEl.style.transform = '';
+
+      this.state.activePillar = 'calendar';
+      this.saveState();
+      this.renderAll();
+    }, 370);
+  }
+
+  zoomInCalendarToStack(dateKey = null) {
+    if (this._isZoomTransitioning) return;
+    if (dateKey) {
+      this.state.selectedStackDateKey = dateKey;
+    }
+    this.state.isStackCardFlipped = false;
+    this._stackFlipDeg = 0;
+
+    const stackEl = this.els.stackScreen;
+    const calEl = this.els.calendarScreen;
+    const centerPerspective =
+      this.els.stackCarouselStage &&
+      this.els.stackCarouselStage.querySelector('.stack-center-perspective');
+
+    const wasOnCalendar = this.state.activePillar === 'calendar';
+    this.state.activePillar = 'stack';
+    this.saveState();
+    this.renderAll();
+
+    if (!wasOnCalendar || !stackEl || !calEl || !centerPerspective) {
+      return;
+    }
+
+    this._isZoomTransitioning = true;
+    calEl.classList.remove('hidden');
+    stackEl.classList.remove('hidden');
+    stackEl.classList.add('is-zoom-transitioning');
+
+    centerPerspective.classList.remove(
+      'anim-slide-next',
+      'anim-slide-prev',
+      'anim-bounce-next',
+      'anim-bounce-prev'
+    );
+    centerPerspective.style.transition = 'none';
+    centerPerspective.style.transform = 'scale(0.28)';
+    centerPerspective.style.opacity = '0';
+
+    calEl.style.transition = 'none';
+    calEl.style.opacity = '1';
+    calEl.style.transform = 'scale(1)';
+
+    void stackEl.offsetWidth;
+
+    const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+    centerPerspective.style.transition = `transform 0.36s ${ease}, opacity 0.32s ${ease}`;
+    centerPerspective.style.transform = 'scale(1)';
+    centerPerspective.style.opacity = '1';
+
+    calEl.style.transition = `transform 0.36s ${ease}, opacity 0.32s ${ease}`;
+    calEl.style.opacity = '0';
+    calEl.style.transform = 'scale(0.95)';
+
+    setTimeout(() => {
+      this._isZoomTransitioning = false;
+      stackEl.classList.remove('is-zoom-transitioning');
+      centerPerspective.style.transition = '';
+      centerPerspective.style.transform = '';
+      centerPerspective.style.opacity = '';
+      calEl.style.transition = '';
+      calEl.style.opacity = '';
+      calEl.style.transform = '';
+      this.renderAll();
+    }, 370);
+  }
+
+  selectStackDate(dateKey, explicitDirection = null, initialOffsetPx = 0) {
     if (dateKey === this.state.cardDateKey) {
       this.sensory.playStackRiffleTick();
       this.state.activePillar = 'card';
@@ -1257,7 +1525,8 @@ export class FableFlowApp {
       this.renderAll();
       return;
     }
-    if (!this.state.archiveCards[dateKey]) return;
+    const todayKey = this.state.cardDateKey || '2026-10-06';
+    if (!this.state.archiveCards[dateKey] && dateKey > todayKey) return;
     if (this.state.selectedStackDateKey === dateKey && this.state.activePillar === 'stack') {
       return;
     }
@@ -1269,6 +1538,10 @@ export class FableFlowApp {
         ? 1
         : -1;
     const wasOnStack = this.state.activePillar === 'stack';
+
+    if (wasOnStack) {
+      this._spawnOutgoingStackCardClone(dir, initialOffsetPx);
+    }
 
     this.state.selectedStackDateKey = dateKey;
     this.state.isStackCardFlipped = false;
@@ -1282,13 +1555,24 @@ export class FableFlowApp {
     }
   }
 
-  stepStackCard(direction) {
-    const keys = this.getSortedArchiveKeys();
+  getNavigableStackDateKeys() {
+    const keySet = new Set(this.getSortedArchiveKeys());
+    if (
+      this.state.selectedStackDateKey &&
+      this.state.selectedStackDateKey !== this.state.cardDateKey
+    ) {
+      keySet.add(this.state.selectedStackDateKey);
+    }
+    return Array.from(keySet).sort();
+  }
+
+  stepStackCard(direction, initialOffsetPx = 0) {
+    const keys = this.getNavigableStackDateKeys();
     if (keys.length === 0) return;
     const idx = keys.indexOf(this.state.selectedStackDateKey);
     const nextIdx = Math.max(0, Math.min(keys.length - 1, idx + direction));
     if (nextIdx !== idx) {
-      this.selectStackDate(keys[nextIdx], direction);
+      this.selectStackDate(keys[nextIdx], direction, initialOffsetPx);
     } else {
       this.animateStackBoundaryBounce(direction);
     }
@@ -1307,9 +1591,7 @@ export class FableFlowApp {
     if (this.els.stackBtnZoomout) {
       this.els.stackBtnZoomout.addEventListener('click', () => {
         this.sensory.playMechanicalTick();
-        this.state.activePillar = 'calendar';
-        this.saveState();
-        this.renderAll();
+        this.zoomOutStackToCalendar();
       });
     }
 
@@ -1364,7 +1646,7 @@ export class FableFlowApp {
       const pickDateFromPoint = (clientX, clientY) => {
         const el = document.elementFromPoint(clientX, clientY);
         const pill = el && el.closest ? el.closest('.stack-date-pill') : null;
-        if (pill && pill.dataset.dateKey && this.state.archiveCards[pill.dataset.dateKey]) {
+        if (pill && pill.dataset.dateKey) {
           this.selectStackDate(pill.dataset.dateKey);
         }
       };
@@ -1419,6 +1701,7 @@ export class FableFlowApp {
         if (startX === null || startY === null) return;
         const dx = (e.clientX !== undefined ? e.clientX : startX) - startX;
         const dy = (e.clientY !== undefined ? e.clientY : startY) - startY;
+        const releaseOffset = Math.max(-110, Math.min(110, dx * 0.55));
         startX = null;
         startY = null;
 
@@ -1437,9 +1720,9 @@ export class FableFlowApp {
 
         if (Math.abs(dx) >= 24 && Math.abs(dx) > Math.abs(dy) * 1.15) {
           if (dx > 0) {
-            this.stepStackCard(-1);
+            this.stepStackCard(-1, releaseOffset);
           } else {
-            this.stepStackCard(1);
+            this.stepStackCard(1, releaseOffset);
           }
         }
       };
@@ -1455,15 +1738,13 @@ export class FableFlowApp {
         (e) => {
           if (e.ctrlKey && e.deltaY > 0) {
             e.preventDefault();
-            this.state.activePillar = 'calendar';
-            this.saveState();
-            this.renderAll();
+            this.zoomOutStackToCalendar();
             return;
           }
 
           // Smooth wheel/trackpad scrolling through the chronological stack of cards
           const now = Date.now();
-          if (now - this._lastStackWheelTime < 170) return;
+          if (now - this._lastStackWheelTime < 220) return;
           const dominantDelta =
             Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
           if (Math.abs(dominantDelta) > 14) {
@@ -1499,9 +1780,7 @@ export class FableFlowApp {
             if (curDist < pinchStartDist * 0.78) {
               pinchStartDist = null;
               this.sensory.playMechanicalTick();
-              this.state.activePillar = 'calendar';
-              this.saveState();
-              this.renderAll();
+              this.zoomOutStackToCalendar();
             }
           }
         },
@@ -1530,9 +1809,7 @@ export class FableFlowApp {
     if (this.els.calendarBtnZoomin) {
       this.els.calendarBtnZoomin.addEventListener('click', () => {
         this.sensory.playMechanicalTick();
-        this.state.activePillar = 'stack';
-        this.saveState();
-        this.renderAll();
+        this.zoomInCalendarToStack();
       });
     }
 
@@ -1542,9 +1819,7 @@ export class FableFlowApp {
         (e) => {
           if (e.ctrlKey && e.deltaY < 0) {
             e.preventDefault();
-            this.state.activePillar = 'stack';
-            this.saveState();
-            this.renderAll();
+            this.zoomInCalendarToStack();
           }
         },
         { passive: false }
@@ -1574,9 +1849,7 @@ export class FableFlowApp {
             if (curDist > spreadStartDist * 1.24) {
               spreadStartDist = null;
               this.sensory.playMechanicalTick();
-              this.state.activePillar = 'stack';
-              this.saveState();
-              this.renderAll();
+              this.zoomInCalendarToStack();
             }
           }
         },
@@ -1897,9 +2170,7 @@ export class FableFlowApp {
     }
 
     this.sensory.playDialRatchetNotch(true);
-    this.showTelemetryToast(
-      `Timer set to ${clampedMins} min (${OdometerDialPhysics.formatMockupReadout(slot.remainingSeconds)})`
-    );
+    this.showTelemetryToast(`Timer set to ${clampedMins} min`);
     this.saveState();
     this.renderAll();
   }
@@ -1957,7 +2228,7 @@ export class FableFlowApp {
               anyCompletedTransition = true;
               this.endTimerToSilver(slot.quadrant, true);
               this.showNotificationBanner(
-                `Pomodoro completed for "${(slot.customTitle || 'Timer').toUpperCase()}"! Tap Reset (↺) to reset tomato.`
+                `Timer completed: ${(slot.customTitle || 'Timer').toUpperCase()}`
               );
             }
           }
@@ -2075,7 +2346,7 @@ export class FableFlowApp {
 
     this.sensory.playCompletionChime();
     if (!completedNaturally) {
-      this.showTelemetryToast('Timer ended (Silver Metallic) — tap Reset (↺) to reset to 00:00');
+      this.showTelemetryToast('Timer ended');
     }
 
     this.saveState();
@@ -2116,13 +2387,13 @@ export class FableFlowApp {
       slot.mode = 'stopwatch';
       slot.remainingSeconds = 0;
       slot.angleDegrees = 0;
-      this.showTelemetryToast('Stopwatch Mode active (Tomato turns on minutes)');
+      this.showTelemetryToast('Stopwatch mode');
     } else {
       slot.mode = 'countdown';
       slot.configuredMinutes = 25;
       slot.remainingSeconds = 25 * 60;
       slot.angleDegrees = 25 * 6.0;
-      this.showTelemetryToast('Countdown Mode active');
+      this.showTelemetryToast('Countdown mode');
     }
     this.sensory.playDialRatchetNotch(true);
     this.saveState();
@@ -2212,7 +2483,7 @@ export class FableFlowApp {
     this.state.openDropdownQuadrant = null;
     this.state.isHeroDropdownOpen = false;
     this.sensory.playDialRatchetNotch(false);
-    this.showTelemetryToast('Tomato unassigned (returned to grey)');
+    this.showTelemetryToast('Tomato unassigned');
     this.saveState();
     this.renderAll();
   }
@@ -2564,11 +2835,15 @@ export class FableFlowApp {
   renderStackScreen() {
     const selectedCard = this.getSelectedStackCard();
     const sortedKeys = this.getSortedArchiveKeys();
+    const navKeys = this.getNavigableStackDateKeys();
+    const currentDateKey =
+      (selectedCard && selectedCard.dateKey) ||
+      this.state.selectedStackDateKey ||
+      '2026-10-05';
 
     if (this.els.stackDateStrip) {
       this.els.stackDateStrip.innerHTML = '';
-      const activeMonth =
-        selectedCard && selectedCard.monthKey === '2026-09' ? '2026-09' : '2026-10';
+      const activeMonth = currentDateKey.startsWith('2026-09') ? '2026-09' : '2026-10';
 
       const monthBtn = document.createElement('button');
       monthBtn.type = 'button';
@@ -2593,7 +2868,7 @@ export class FableFlowApp {
           const dKey = `2026-10-${dPadded}`;
           const hasCard =
             Boolean(this.state.archiveCards[dKey]) || dKey === this.state.cardDateKey;
-          const isSelected = selectedCard && selectedCard.dateKey === dKey;
+          const isSelected = currentDateKey === dKey;
 
           const btn = document.createElement('button');
           btn.type = 'button';
@@ -2603,26 +2878,26 @@ export class FableFlowApp {
           btn.textContent = dPadded;
           btn.dataset.dateKey = dKey;
           btn.addEventListener('click', () => {
-            if (dKey === this.state.cardDateKey) {
-              this.selectStackDate(dKey);
-            } else if (this.state.archiveCards[dKey]) {
-              this.selectStackDate(dKey);
-            } else {
-              this.showTelemetryToast(`No archived card on OCT ${dPadded}`);
-            }
+            this.selectStackDate(dKey);
           });
           this.els.stackDateStrip.appendChild(btn);
         });
       } else {
-        const sepKeys = sortedKeys.filter((k) => k.startsWith('2026-09-'));
+        const sepKeySet = new Set(sortedKeys.filter((k) => k.startsWith('2026-09-')));
+        if (currentDateKey.startsWith('2026-09-')) {
+          sepKeySet.add(currentDateKey);
+        }
+        const sepKeys = Array.from(sepKeySet).sort();
         sepKeys.forEach((dKey) => {
           const cardObj = this.state.archiveCards[dKey];
-          const dPadded = String(cardObj.dayNum).padStart(2, '0');
-          const isSelected = selectedCard && selectedCard.dateKey === dKey;
+          const metaObj = cardObj || this.formatDateMetadataForKey(dKey);
+          const dPadded = String(metaObj.dayNum).padStart(2, '0');
+          const isSelected = currentDateKey === dKey;
 
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'stack-date-pill has-card';
+          btn.className = 'stack-date-pill';
+          if (cardObj) btn.classList.add('has-card');
           if (isSelected) btn.classList.add('active');
           btn.textContent = dPadded;
           btn.dataset.dateKey = dKey;
@@ -2634,33 +2909,48 @@ export class FableFlowApp {
       }
     }
 
-    if (!selectedCard) {
-      if (this.els.stackPeekLeft) {
-        this.els.stackPeekLeft.classList.add('disabled-peek');
-      }
-      if (this.els.stackPeekRight) {
-        this.els.stackPeekRight.classList.add('disabled-peek');
-      }
-      if (this.state.isStackCardFlipped && Math.abs(this._stackFlipDeg % 360) !== 180) {
-        this._stackFlipDeg = -180;
-      } else if (!this.state.isStackCardFlipped && Math.abs(this._stackFlipDeg % 360) !== 0) {
-        this._stackFlipDeg = 0;
-      }
-      this.applyCard3DRotation(
-        this.els.stackCard3D,
-        this.state.isStackCardFlipped,
-        this._stackFlipDeg
+    const curNavIdx = navKeys.indexOf(currentDateKey);
+    if (this.els.stackPeekLeft) {
+      this.els.stackPeekLeft.classList.toggle('disabled-peek', curNavIdx <= 0);
+    }
+    if (this.els.stackPeekRight) {
+      this.els.stackPeekRight.classList.toggle(
+        'disabled-peek',
+        curNavIdx < 0 || curNavIdx >= navKeys.length - 1
       );
+    }
 
+    if (!selectedCard) {
+      this.state.isStackCardFlipped = false;
+      this._stackFlipDeg = 0;
+      this.applyCard3DRotation(this.els.stackCard3D, false, 0);
+      if (this.els.stackBtnFlip) this.els.stackBtnFlip.classList.add('hidden');
+      if (this.els.stackBtnTrash) this.els.stackBtnTrash.classList.add('hidden');
+
+      const meta = this.formatDateMetadataForKey(currentDateKey);
       if (this.els.stackCardDateHeader) {
-        this.els.stackCardDateHeader.textContent = 'NO ARCHIVED CARDS YET';
+        this.els.stackCardDateHeader.textContent = meta.headerDate;
       }
       if (this.els.stackCardBackDateHeader) {
-        this.els.stackCardBackDateHeader.textContent = 'NO ARCHIVED CARDS YET';
+        this.els.stackCardBackDateHeader.textContent = meta.headerDate;
       }
       if (this.els.stackTaskListContainer) {
-        this.els.stackTaskListContainer.innerHTML =
-          '<div class="stack-empty-hint" style="padding: 24px 30px; font-family: var(--font-serif); font-size: 19px; line-height: 1.45; color: #7C7974;">Past cards appear here automatically after each Daily Reset.</div>';
+        this.els.stackTaskListContainer.innerHTML = '';
+        const emptySlotBtn = document.createElement('button');
+        emptySlotBtn.type = 'button';
+        emptySlotBtn.className = 'stack-retro-empty-slot';
+        emptySlotBtn.id = 'stack-retro-add-card-btn';
+        const dPadded = String(meta.dayNum).padStart(2, '0');
+        emptySlotBtn.innerHTML = `
+          <span class="stack-retro-plus-icon">+</span>
+          <span class="stack-retro-slot-title">+ Add Card for ${meta.shortMonth} ${dPadded}</span>
+          <span class="stack-retro-slot-sub">Add daily to-dos &amp; reflection retrospectively</span>
+        `;
+        emptySlotBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.createRetrospectiveCardForDate(meta.dateKey);
+        });
+        this.els.stackTaskListContainer.appendChild(emptySlotBtn);
       }
       if (this.els.stackAddItemRow) {
         this.els.stackAddItemRow.classList.add('hidden');
@@ -2674,16 +2964,8 @@ export class FableFlowApp {
       return;
     }
 
-    const curIdx = sortedKeys.indexOf(selectedCard.dateKey);
-    if (this.els.stackPeekLeft) {
-      this.els.stackPeekLeft.classList.toggle('disabled-peek', curIdx <= 0);
-    }
-    if (this.els.stackPeekRight) {
-      this.els.stackPeekRight.classList.toggle(
-        'disabled-peek',
-        curIdx < 0 || curIdx >= sortedKeys.length - 1
-      );
-    }
+    if (this.els.stackBtnFlip) this.els.stackBtnFlip.classList.remove('hidden');
+    if (this.els.stackBtnTrash) this.els.stackBtnTrash.classList.remove('hidden');
 
     if (this.state.isStackCardFlipped && Math.abs(this._stackFlipDeg % 360) !== 180) {
       this._stackFlipDeg = -180;
@@ -2901,18 +3183,11 @@ export class FableFlowApp {
             this._todayFlipDeg = 0;
             this.saveState();
             this.renderAll();
-          } else if (hasArchivedCard) {
-            this.sensory.playStackRiffleTick();
-            this.state.selectedStackDateKey = dateKey;
-            this.state.activePillar = 'stack';
-            this.state.isStackCardFlipped = false;
-            this._stackFlipDeg = 0;
-            this.saveState();
-            this.renderAll();
           } else if (isFutureDate) {
-            this.showTelemetryToast(`Future date (${dateKey})`);
+            this.showTelemetryToast('Future date');
           } else {
-            this.showTelemetryToast(`No archived card for ${dateKey}`);
+            this.sensory.playStackRiffleTick();
+            this.zoomInCalendarToStack(dateKey);
           }
         });
 
@@ -3649,7 +3924,7 @@ export class FableFlowApp {
       }
       this.saveState();
       this.renderAll();
-      this.showNotificationBanner('Item permanently deleted & associated tomato reset');
+      this.showNotificationBanner('Task deleted');
     };
     const cleanup = () => {
       this.els.deleteModalCancel.removeEventListener('click', onCancel);
@@ -3703,7 +3978,7 @@ export class FableFlowApp {
       const clamped = this.clampTaskInputText(this.els.modalInput.value);
       if (this.els.modalInput.value !== clamped) {
         this.els.modalInput.value = clamped;
-        this.showTelemetryToast(`Task limit: max ${MAX_TASK_WORDS} words / ${MAX_TASK_CHARS} chars`);
+        this.showTelemetryToast('Task length limit reached');
       }
       const len = this.els.modalInput.value.length;
       this.els.modalInput.style.fontSize = len > 26 ? '14.5px' : len > 18 ? '15.5px' : '16.5px';
@@ -3857,7 +4132,7 @@ export class FableFlowApp {
 
   getGuidedTourSteps() {
     return [
-      // STEP 1: HOME PAGE
+      // STEP 1: HOME PAGE (Dots strictly aligned on vertical center line & 0 marker on tomato)
       {
         title: 'Tap Card or Tomato',
         desc: 'Open today’s card or focus timer',
@@ -3873,10 +4148,15 @@ export class FableFlowApp {
           const targetEl = isSecond ? this.els.homeTomatoBtn : this.els.homeMiniCard;
           const box = this.getElementBoxInTourOverlay(targetEl);
           if (!box) return;
-          // Fade on and off to catch the user's attention
+          const overlayEl = this.els.onboardingOverlay;
+          const overlayRect = overlayEl ? overlayEl.getBoundingClientRect() : null;
+          // Strictly align both dots on the exact vertical center line of the viewport
+          const centerX = overlayRect && overlayRect.width > 0 ? overlayRect.width * 0.5 : box.x;
+          // On the tomato, place the dot directly on the '0' marker (45.7% of tomato image height)
+          const targetY = isSecond ? box.top + box.height * 0.457 : box.y;
           const fade = 0.08 + 0.92 * Math.pow(Math.sin(subT * Math.PI), 1.15);
           const scale = 0.88 + 0.16 * Math.sin(subT * Math.PI);
-          this.setTourDotState(this.els.tourPageDot, box.x, box.y, fade, scale, true);
+          this.setTourDotState(this.els.tourPageDot, centerX, targetY, fade, scale, true);
           this.setTourDotState(this.els.tourPageDot2, null, null, 0);
         },
       },
@@ -4171,7 +4451,7 @@ export class FableFlowApp {
           this.setTourDotState(this.els.tourPageDot2, null, null, 0);
         },
       },
-      // STEP 7: STACK SCROLLING (Dot moves WITH the card scrolling to another card)
+      // STEP 7: STACK SCROLLING (Dot moves WITH the card scrolling smoothly to the next card)
       {
         title: 'Scroll Stack · Past Cards',
         desc: 'Swipe left or right to scroll through past cards',
@@ -4190,17 +4470,18 @@ export class FableFlowApp {
           const stageBox = this.getElementBoxInTourOverlay(this.els.stackCarouselStage);
           if (!centerPerspective || !stageBox) return;
 
-          const period = 2300;
+          const period = 2500;
           const cycleIdx = Math.floor(elapsedMs / period);
           const t = (elapsedMs % period) / period;
           // Alternate swiping left (to earlier card) and right (to later card)
           const swipeDir = cycleIdx % 2 === 0 ? -1 : 1;
-          const startX = stageBox.x - swipeDir * 58;
-          const endX = stageBox.x + swipeDir * 58;
+          const startX = stageBox.x - swipeDir * 64;
+          const endX = stageBox.x + swipeDir * 64;
           const centerY = stageBox.y - 8;
 
-          if (t < 0.15) {
-            const p = t / 0.15;
+          if (t < 0.14) {
+            const p = t / 0.14;
+            centerPerspective.classList.remove('anim-slide-next', 'anim-slide-prev');
             centerPerspective.style.transition = 'none';
             centerPerspective.style.transform = 'translateX(0px)';
             this.setTourDotState(
@@ -4211,35 +4492,33 @@ export class FableFlowApp {
               1.05 - 0.10 * p,
               false
             );
-          } else if (t < 0.64) {
+          } else if (t < 0.56) {
             // Dot moves horizontally AND the card moves WITH the dot!
-            const p = this.easeInOutCubic((t - 0.15) / 0.49);
+            const p = this.easeInOutCubic((t - 0.14) / 0.42);
             const dotX = startX + (endX - startX) * p;
-            const cardShiftX = swipeDir * p * 86;
+            const cardShiftX = swipeDir * p * 92;
+            centerPerspective.classList.remove('anim-slide-next', 'anim-slide-prev');
             centerPerspective.style.transition = 'none';
-            centerPerspective.style.transform = `translateX(${cardShiftX.toFixed(1)}px)`;
+            centerPerspective.style.transform = `translateX(${cardShiftX.toFixed(1)}px) scale(${(1 - p * 0.03).toFixed(3)})`;
             this.setTourDotState(this.els.tourPageDot, dotX, centerY, 1, 0.94, false);
           } else {
-            // Switch to the other card once at t >= 0.64 and play the card scroll slide animation
+            // Hand off to two-card slide transition once at t >= 0.56 without resetting transform!
             if (this._tourStackLastSwitchedCycle !== cycleIdx) {
               this._tourStackLastSwitchedCycle = cycleIdx;
-              centerPerspective.style.transition = '';
-              centerPerspective.style.transform = '';
-              this.state.selectedStackDateKey =
+              const nextKey =
                 this.state.selectedStackDateKey === '2026-10-05'
                   ? '2026-10-04'
                   : '2026-10-05';
-              this.renderStackScreen();
-              this.animateStackCardScroll(-swipeDir);
+              this.selectStackDate(nextKey, -swipeDir, Math.round(swipeDir * 92));
             }
-            const p = (t - 0.64) / 0.36;
-            const fadeOut = Math.max(0.06, 1 - p * 1.35);
+            const p = (t - 0.56) / 0.44;
+            const fadeOut = Math.max(0.06, 1 - p * 1.45);
             this.setTourDotState(this.els.tourPageDot, endX, centerY, fadeOut, 0.98, false);
           }
           this.setTourDotState(this.els.tourPageDot2, null, null, 0);
         },
       },
-      // STEP 8: ZOOM OUT TO CALENDAR (Two dots pinching together -> Monthly Calendar)
+      // STEP 8: ZOOM OUT TO CALENDAR (Card smoothly shrinks and disappears to reveal calendar)
       {
         title: 'Zoom Out · Monthly Calendar',
         desc: 'Pinch two fingers to zoom out to monthly calendar',
@@ -4251,54 +4530,81 @@ export class FableFlowApp {
           this.state.selectedStackDateKey = '2026-10-05';
         },
         animateFrame: (elapsedMs) => {
-          const period = 3400;
+          const period = 3500;
           const t = (elapsedMs % period) / period;
           const centerPerspective =
             this.els.stackCarouselStage &&
             this.els.stackCarouselStage.querySelector('.stack-center-perspective');
 
-          if (t < 0.50) {
-            // Phase A: On Stack View — Two dots pinch inward together while scaling the card down
+          if (t < 0.48) {
+            // Phase A: Keep Calendar rendered underneath while Stack card smoothly shrinks & fades out!
             if (this.state.activePillar !== 'stack') {
               this.state.activePillar = 'stack';
               this.renderAll();
+            }
+            if (this.els.calendarScreen) {
+              this.renderCalendarScreen();
+              this.els.calendarScreen.classList.remove('hidden');
+            }
+            if (this.els.stackScreen) {
+              this.els.stackScreen.classList.add('is-zoom-transitioning');
             }
             const stageBox = this.getElementBoxInTourOverlay(this.els.stackCarouselStage);
             if (!stageBox) return;
 
             const cx = stageBox.x;
             const cy = stageBox.y - 8;
-            let spread = 66;
-            let opacity = 1;
+            let spread = 68;
+            let dotOpacity = 1;
             let cardScale = 1;
+            let cardOpacity = 1;
+            let stripOpacity = 1;
+            let calOpacity = 0;
 
             if (t < 0.12) {
               const p = t / 0.12;
-              opacity = p;
-              spread = 66;
+              dotOpacity = p;
+              spread = 68;
               cardScale = 1;
-            } else if (t < 0.42) {
-              const p = this.easeInOutCubic((t - 0.12) / 0.30);
-              opacity = 1;
-              spread = 66 - p * 50; // Two dots pinch from ±66px inward to ±16px
-              cardScale = 1 - p * 0.15;
+              cardOpacity = 1;
+              stripOpacity = 1;
+              calOpacity = 0;
+            } else if (t < 0.44) {
+              const p = this.easeInOutCubic((t - 0.12) / 0.32);
+              dotOpacity = 1 - Math.max(0, (p - 0.72) / 0.28);
+              spread = 68 - p * 54; // Two dots pinch from ±68px inward to ±14px
+              cardScale = 1 - p * 0.76; // Card shrinks continuously from 1.0 -> 0.24
+              cardOpacity = 1 - Math.pow(p, 1.35); // Card fades out smoothly to reveal Calendar
+              stripOpacity = Math.max(0, 1 - p * 2.6);
+              calOpacity = Math.min(1, Math.max(0, (p - 0.18) / 0.82));
             } else {
-              const p = (t - 0.42) / 0.08;
-              opacity = 1 - p;
-              spread = 16;
-              cardScale = 0.85;
+              dotOpacity = 0;
+              spread = 14;
+              cardScale = 0.24;
+              cardOpacity = 0;
+              stripOpacity = 0;
+              calOpacity = 1;
             }
 
+            if (this.els.calendarScreen) {
+              this.els.calendarScreen.style.transition = 'none';
+              this.els.calendarScreen.style.opacity = `${calOpacity.toFixed(3)}`;
+            }
             if (centerPerspective) {
+              centerPerspective.classList.remove('anim-slide-next', 'anim-slide-prev');
               centerPerspective.style.transition = 'none';
               centerPerspective.style.transform = `scale(${cardScale.toFixed(3)})`;
+              centerPerspective.style.opacity = `${Math.max(0, cardOpacity).toFixed(3)}`;
+            }
+            if (this.els.stackDateStrip) {
+              this.els.stackDateStrip.style.opacity = `${stripOpacity.toFixed(3)}`;
             }
 
             this.setTourDotState(
               this.els.tourPageDot,
               cx - spread,
               cy - spread * 0.85,
-              opacity,
+              dotOpacity,
               0.94,
               false
             );
@@ -4306,15 +4612,26 @@ export class FableFlowApp {
               this.els.tourPageDot2,
               cx + spread,
               cy + spread * 0.85,
-              opacity,
+              dotOpacity,
               0.94,
               false
             );
           } else {
             // Phase B: Zoomed out to Monthly Calendar View — Single dot fades on and off on selected date
+            if (this.els.stackScreen) {
+              this.els.stackScreen.classList.remove('is-zoom-transitioning');
+            }
+            if (this.els.calendarScreen) {
+              this.els.calendarScreen.style.transition = '';
+              this.els.calendarScreen.style.opacity = '';
+            }
             if (centerPerspective) {
               centerPerspective.style.transition = '';
               centerPerspective.style.transform = '';
+              centerPerspective.style.opacity = '';
+            }
+            if (this.els.stackDateStrip) {
+              this.els.stackDateStrip.style.opacity = '';
             }
             if (this.state.activePillar !== 'calendar') {
               this.state.activePillar = 'calendar';
@@ -4328,7 +4645,7 @@ export class FableFlowApp {
               this.els.calendarMonthsContainer;
             const calBox = this.getElementBoxInTourOverlay(calCell);
             if (calBox) {
-              const calSubT = (t - 0.50) / 0.50;
+              const calSubT = (t - 0.48) / 0.52;
               const fade = 0.08 + 0.92 * Math.pow(Math.sin(calSubT * Math.PI), 1.15);
               const scale = 0.88 + 0.16 * Math.sin(calSubT * Math.PI);
               this.setTourDotState(this.els.tourPageDot, calBox.x, calBox.y, fade, scale, true);
@@ -4352,12 +4669,29 @@ export class FableFlowApp {
     if (this.els.card3DWrapper) {
       this.els.card3DWrapper.style.transition = '';
     }
+    if (this.els.stackScreen) {
+      this.els.stackScreen.classList.remove('is-zoom-transitioning');
+    }
+    if (this.els.calendarScreen) {
+      this.els.calendarScreen.style.transition = '';
+      this.els.calendarScreen.style.opacity = '';
+    }
+    if (this.els.stackDateStrip) {
+      this.els.stackDateStrip.style.opacity = '';
+    }
     const centerPerspective =
       this.els.stackCarouselStage &&
       this.els.stackCarouselStage.querySelector('.stack-center-perspective');
     if (centerPerspective) {
+      centerPerspective.classList.remove(
+        'anim-slide-next',
+        'anim-slide-prev',
+        'anim-bounce-next',
+        'anim-bounce-prev'
+      );
       centerPerspective.style.transition = '';
       centerPerspective.style.transform = '';
+      centerPerspective.style.opacity = '';
     }
   }
 
