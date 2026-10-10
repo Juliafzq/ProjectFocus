@@ -14,7 +14,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="css/style.css?v=20261010_v27" />
+  <link rel="stylesheet" href="css/style.css?v=20261010_v28" />
 </head>
 <body>
 
@@ -255,10 +255,11 @@
             <div class="card-face card-face-front">
               <div class="card-header-bar">
                 <h2 id="stack-card-date-header" class="card-date-title">MONDAY — OCT 05</h2>
+                <button type="button" id="stack-front-edit-btn" class="stack-card-edit-btn" aria-label="Edit past card">Edit</button>
               </div>
               <div class="card-dot-grid-body">
                 <div id="stack-task-list-container" class="task-list-container"></div>
-                <div id="stack-add-item-row" class="add-item-row">+ Add item</div>
+                <div id="stack-add-item-row" class="add-item-row hidden">+ Add item</div>
               </div>
             </div>
 
@@ -266,6 +267,7 @@
             <div class="card-face card-face-back">
               <div class="card-back-header-bar">
                 <h2 id="stack-card-back-date-header" class="card-back-date-title">MONDAY — OCT 05</h2>
+                <button type="button" id="stack-back-edit-btn" class="stack-card-edit-btn stack-card-edit-btn-dark" aria-label="Edit past card">Edit</button>
               </div>
               <div class="card-back-body">
                 <textarea
@@ -450,8 +452,14 @@
       </div>
     </div>
 
+    <!-- Full-Screen Photo Detail Lightbox Overlay -->
+    <div id="photo-lightbox-overlay" class="photo-lightbox-overlay hidden" role="dialog" aria-modal="true" aria-label="Photo Detail View">
+      <button type="button" id="photo-lightbox-close" class="photo-lightbox-close-btn" aria-label="Close photo detail">×</button>
+      <img id="photo-lightbox-img" class="photo-lightbox-img" src="" alt="Reflection photo in detail" />
+    </div>
+
   </main>
 
-  <script type="module" src="js/app.js?v=20261010_v27"></script>
+  <script type="module" src="js/app.js?v=20261010_v28"></script>
 </body>
 </html>

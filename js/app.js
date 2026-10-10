@@ -421,6 +421,8 @@ export class FableFlowApp {
       stackCard3D: document.getElementById('stack-card-3d'),
       stackCardDateHeader: document.getElementById('stack-card-date-header'),
       stackCardBackDateHeader: document.getElementById('stack-card-back-date-header'),
+      stackFrontEditBtn: document.getElementById('stack-front-edit-btn'),
+      stackBackEditBtn: document.getElementById('stack-back-edit-btn'),
       stackTaskListContainer: document.getElementById('stack-task-list-container'),
       stackAddItemRow: document.getElementById('stack-add-item-row'),
       stackCardBackReflection: document.getElementById('stack-card-back-reflection'),
@@ -429,6 +431,10 @@ export class FableFlowApp {
       stackBtnZoomout: document.getElementById('stack-btn-zoomout'),
       stackBtnFlip: document.getElementById('stack-btn-flip'),
       stackBtnTrash: document.getElementById('stack-btn-trash'),
+
+      photoLightboxOverlay: document.getElementById('photo-lightbox-overlay'),
+      photoLightboxImg: document.getElementById('photo-lightbox-img'),
+      photoLightboxClose: document.getElementById('photo-lightbox-close'),
 
       calendarMonthsContainer: document.getElementById('calendar-months-container'),
       calendarBtnReturn: document.getElementById('calendar-btn-return'),
@@ -623,6 +629,7 @@ export class FableFlowApp {
         this.sensory.playStackRiffleTick();
         this.state.activePillar = 'stack';
         this.state.isStackCardFlipped = false;
+        this.state.isStackEditMode = false;
         this._stackFlipDeg = 0;
         this.saveState();
         this.renderAll();
@@ -640,14 +647,14 @@ export class FableFlowApp {
         if (this.state.isCardFlipped) {
           this.triggerPhotoAttachment('today');
         } else {
-          this.openAddTaskModal();
+          this.startInlineAddTask(false);
         }
       });
     }
 
     this.els.addItemRow.addEventListener('click', () => {
       if (this._justFinishedCardSwipe) return;
-      this.openAddTaskModal();
+      this.startInlineAddTask(false);
     });
 
     // 2b. Matte Black Back of Card — Evening Reflection Journal & Photo Upload
@@ -998,7 +1005,9 @@ export class FableFlowApp {
       containerEl.closest('.card-body-tasks') ||
       containerEl;
     const indexNodes = Array.from(containerEl.querySelectorAll('.task-index'));
-    const titleNodes = Array.from(containerEl.querySelectorAll('.task-title'));
+    const titleNodes = Array.from(
+      containerEl.querySelectorAll('.task-title, .task-inline-input')
+    );
     const rowNodes = Array.from(containerEl.querySelectorAll('.task-row'));
 
     const applyUnifiedSize = (sizePx, padY) => {
@@ -1066,11 +1075,31 @@ export class FableFlowApp {
    */
   adjustReflectionTypography(textareaEl) {
     if (!textareaEl) return;
+    const bodyEl = textareaEl.closest('.card-back-body');
+    const isSinglePhoto =
+      bodyEl && bodyEl.classList.contains('single-photo-layout');
     const textLen = (textareaEl.value || '').length;
     let targetSize = 21;
     textareaEl.style.overflowY = 'hidden';
     textareaEl.style.fontSize = `${targetSize}px`;
 
+    if (isSinglePhoto && !textareaEl.classList.contains('empty-readonly')) {
+      const maxTextH =
+        bodyEl && bodyEl.clientHeight > 0
+          ? Math.floor(bodyEl.clientHeight * 0.46)
+          : 170;
+      textareaEl.style.height = 'auto';
+      while (textareaEl.scrollHeight > maxTextH && targetSize > 13) {
+        targetSize = Math.max(13, targetSize - 1);
+        textareaEl.style.fontSize = `${targetSize}px`;
+        textareaEl.style.height = 'auto';
+      }
+      const finalH = Math.max(36, Math.min(maxTextH, textareaEl.scrollHeight + 4));
+      textareaEl.style.height = `${finalH}px`;
+      return;
+    }
+
+    textareaEl.style.height = '';
     if (textareaEl.clientHeight > 0) {
       while (textareaEl.scrollHeight > textareaEl.clientHeight + 2 && targetSize > 13) {
         targetSize = Math.max(13, targetSize - 1);
@@ -1150,7 +1179,11 @@ export class FableFlowApp {
     wrapper.addEventListener('pointerdown', (e) => {
       if (
         e.target.closest('.task-tomato-btn') ||
-        e.target.closest('.journal-photo-remove-btn')
+        e.target.closest('.journal-photo-remove-btn') ||
+        e.target.closest('.journal-photo-add-second-pill') ||
+        e.target.closest('.stack-card-edit-btn') ||
+        e.target.closest('.task-inline-input') ||
+        e.target.closest('.task-inline-delete-btn')
       ) {
         return;
       }
@@ -1316,11 +1349,33 @@ export class FableFlowApp {
     this.state.selectedStackDateKey = meta.dateKey;
     this.state.activePillar = 'stack';
     this.state.isStackCardFlipped = false;
+    this.state.isStackEditMode = true;
     this._stackFlipDeg = 0;
     this.sensory.playCardFlipSwoosh();
     this.saveState();
     this.renderAll();
     this.showTelemetryToast(`Card added for ${meta.shortMonth} ${String(meta.dayNum).padStart(2, '0')}`);
+  }
+
+  toggleStackEditMode() {
+    this.state.isStackEditMode = !this.state.isStackEditMode;
+    this.sensory.playMechanicalTick();
+    this.saveState();
+    this.renderStackScreen();
+  }
+
+  openPhotoLightbox(photoSrc) {
+    if (!photoSrc || !this.els.photoLightboxOverlay || !this.els.photoLightboxImg) return;
+    this.els.photoLightboxImg.src = photoSrc;
+    this.els.photoLightboxOverlay.classList.remove('hidden');
+  }
+
+  closePhotoLightbox() {
+    if (!this.els.photoLightboxOverlay) return;
+    this.els.photoLightboxOverlay.classList.add('hidden');
+    if (this.els.photoLightboxImg) {
+      this.els.photoLightboxImg.src = '';
+    }
   }
 
   getSelectedStackCard() {
@@ -1627,6 +1682,7 @@ export class FableFlowApp {
 
     this.state.selectedStackDateKey = dateKey;
     this.state.isStackCardFlipped = false;
+    this.state.isStackEditMode = false;
     this._stackFlipDeg = 0;
     this.sensory.playStackRiffleTick();
     this.saveState();
@@ -1704,7 +1760,34 @@ export class FableFlowApp {
     if (this.els.stackAddItemRow) {
       this.els.stackAddItemRow.addEventListener('click', () => {
         if (this._justFinishedCardSwipe) return;
-        this.openAddStackTaskModal();
+        this.startInlineAddTask(true);
+      });
+    }
+
+    if (this.els.stackFrontEditBtn) {
+      this.els.stackFrontEditBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleStackEditMode();
+      });
+    }
+
+    if (this.els.stackBackEditBtn) {
+      this.els.stackBackEditBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleStackEditMode();
+      });
+    }
+
+    if (this.els.photoLightboxOverlay) {
+      this.els.photoLightboxOverlay.addEventListener('click', () => {
+        this.closePhotoLightbox();
+      });
+    }
+
+    if (this.els.photoLightboxClose) {
+      this.els.photoLightboxClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closePhotoLightbox();
       });
     }
 
@@ -2828,21 +2911,22 @@ export class FableFlowApp {
       this.fitUnifiedCardTaskTypography(container, this.els.addItemRow);
     });
 
-    if (this.els.cardBackReflection) {
-      if (this.els.cardBackReflection.value !== (this.state.reflectionText || '')) {
-        this.els.cardBackReflection.value = this.state.reflectionText || '';
-      }
-      this.adjustReflectionTypography(this.els.cardBackReflection);
-      requestAnimationFrame(() => {
-        this.adjustReflectionTypography(this.els.cardBackReflection);
-      });
-    }
-
     this.renderPhotoSlotsDOM(
       this.els.cardBackPhotos,
       this.state.reflectionPhotos || [],
       'today'
     );
+
+    if (this.els.cardBackReflection) {
+      if (this.els.cardBackReflection.value !== (this.state.reflectionText || '')) {
+        this.els.cardBackReflection.value = this.state.reflectionText || '';
+      }
+      this.els.cardBackReflection.classList.remove('empty-readonly');
+      this.adjustReflectionTypography(this.els.cardBackReflection);
+      requestAnimationFrame(() => {
+        this.adjustReflectionTypography(this.els.cardBackReflection);
+      });
+    }
   }
 
   renderPhotoSlotsDOM(containerEl, photosArray, targetType) {
@@ -2850,12 +2934,31 @@ export class FableFlowApp {
     containerEl.innerHTML = '';
 
     const photos = Array.isArray(photosArray) ? photosArray.slice(0, 2) : [];
+    const isStackViewMode = targetType === 'stack' && !this.state.isStackEditMode;
+    const bodyEl = containerEl.closest('.card-back-body');
+
+    // 1. If 0 photos on a Past Card when NOT in Edit mode: hide photo boxes completely
+    if (photos.length === 0 && isStackViewMode) {
+      containerEl.classList.add('hidden');
+      containerEl.classList.remove('empty-photos', 'single-photo-expanded');
+      if (bodyEl) bodyEl.classList.remove('single-photo-layout');
+      return;
+    }
+
+    containerEl.classList.remove('hidden');
     containerEl.classList.toggle('empty-photos', photos.length === 0);
+    // Expand single photo when there is only 1 picture (unless in Stack Edit mode where the 2nd add-photo box is shown)
+    const expandSinglePhoto =
+      photos.length === 1 && (isStackViewMode || targetType === 'today');
+    containerEl.classList.toggle('single-photo-expanded', expandSinglePhoto);
+    if (bodyEl) {
+      bodyEl.classList.toggle('single-photo-layout', expandSinglePhoto);
+    }
 
     if (photos.length === 0) {
       const addSlot = document.createElement('div');
       addSlot.className = 'journal-photo-slot';
-      addSlot.title = 'Click to attach a photo (compressed client-side to ≤ 1600px)';
+      addSlot.title = 'Click to attach a photo';
       const label = document.createElement('span');
       label.className = 'journal-photo-add-label';
       label.textContent = '+ Attach Photo (up to 2)';
@@ -2872,7 +2975,9 @@ export class FableFlowApp {
     photos.forEach((photoSrc, idx) => {
       const slot = document.createElement('div');
       slot.className = 'journal-photo-slot';
-      slot.title = 'Tap photo to replace, or tap × to remove';
+      slot.title = isStackViewMode
+        ? 'Tap photo to view in detail'
+        : 'Tap photo to view in detail, or tap × to remove';
 
       const img = document.createElement('img');
       img.className = 'journal-photo-img';
@@ -2883,36 +2988,55 @@ export class FableFlowApp {
       slot.addEventListener('click', (e) => {
         e.stopPropagation();
         if (this._justFinishedCardSwipe) return;
-        this.triggerPhotoAttachment(targetType, idx);
-      });
-
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'journal-photo-remove-btn';
-      removeBtn.setAttribute('aria-label', `Remove photo ${idx + 1}`);
-      removeBtn.title = 'Remove photo';
-      removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (targetType === 'stack') {
-          const card = this.getSelectedStackCard();
-          if (card && Array.isArray(card.reflectionPhotos)) {
-            card.reflectionPhotos.splice(idx, 1);
-            this.saveState();
-            this.renderStackScreen();
-          }
+        if (targetType === 'stack' && this.state.isStackEditMode) {
+          this.triggerPhotoAttachment(targetType, idx);
         } else {
-          this.state.reflectionPhotos.splice(idx, 1);
-          this.saveState();
-          this.renderCardScreen();
+          this.openPhotoLightbox(photoSrc);
         }
       });
-      slot.appendChild(removeBtn);
+
+      if (!isStackViewMode) {
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'journal-photo-remove-btn';
+        removeBtn.setAttribute('aria-label', `Remove photo ${idx + 1}`);
+        removeBtn.title = 'Remove photo';
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (targetType === 'stack') {
+            const card = this.getSelectedStackCard();
+            if (card && Array.isArray(card.reflectionPhotos)) {
+              card.reflectionPhotos.splice(idx, 1);
+              this.saveState();
+              this.renderStackScreen();
+            }
+          } else {
+            this.state.reflectionPhotos.splice(idx, 1);
+            this.saveState();
+            this.renderCardScreen();
+          }
+        });
+        slot.appendChild(removeBtn);
+
+        if (targetType === 'today' && photos.length === 1) {
+          const addSecondPill = document.createElement('button');
+          addSecondPill.type = 'button';
+          addSecondPill.className = 'journal-photo-add-second-pill';
+          addSecondPill.textContent = '+ 2nd Photo';
+          addSecondPill.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (this._justFinishedCardSwipe) return;
+            this.triggerPhotoAttachment(targetType);
+          });
+          slot.appendChild(addSecondPill);
+        }
+      }
 
       containerEl.appendChild(slot);
     });
 
-    if (photos.length === 1) {
+    if (photos.length === 1 && targetType === 'stack' && this.state.isStackEditMode) {
       const secondSlot = document.createElement('div');
       secondSlot.className = 'journal-photo-slot';
       secondSlot.title = 'Click to attach a second photo';
@@ -3041,10 +3165,13 @@ export class FableFlowApp {
 
     if (!selectedCard) {
       this.state.isStackCardFlipped = false;
+      this.state.isStackEditMode = false;
       this._stackFlipDeg = 0;
       this.applyCard3DRotation(this.els.stackCard3D, false, 0);
       if (this.els.stackBtnFlip) this.els.stackBtnFlip.classList.add('hidden');
       if (this.els.stackBtnTrash) this.els.stackBtnTrash.classList.add('hidden');
+      if (this.els.stackFrontEditBtn) this.els.stackFrontEditBtn.classList.add('hidden');
+      if (this.els.stackBackEditBtn) this.els.stackBackEditBtn.classList.add('hidden');
 
       const meta = this.formatDateMetadataForKey(currentDateKey);
       if (this.els.stackCardDateHeader) {
@@ -3085,6 +3212,17 @@ export class FableFlowApp {
 
     if (this.els.stackBtnFlip) this.els.stackBtnFlip.classList.remove('hidden');
     if (this.els.stackBtnTrash) this.els.stackBtnTrash.classList.remove('hidden');
+    const isEditing = Boolean(this.state.isStackEditMode);
+    if (this.els.stackFrontEditBtn) {
+      this.els.stackFrontEditBtn.classList.remove('hidden');
+      this.els.stackFrontEditBtn.textContent = isEditing ? 'Done' : 'Edit';
+      this.els.stackFrontEditBtn.classList.toggle('is-editing', isEditing);
+    }
+    if (this.els.stackBackEditBtn) {
+      this.els.stackBackEditBtn.classList.remove('hidden');
+      this.els.stackBackEditBtn.textContent = isEditing ? 'Done' : 'Edit';
+      this.els.stackBackEditBtn.classList.toggle('is-editing', isEditing);
+    }
 
     if (this.state.isStackCardFlipped && Math.abs(this._stackFlipDeg % 360) !== 180) {
       this._stackFlipDeg = -180;
@@ -3151,7 +3289,7 @@ export class FableFlowApp {
     if (this.els.stackAddItemRow) {
       this.els.stackAddItemRow.classList.toggle(
         'hidden',
-        stackTasks.length >= 6
+        !isEditing || stackTasks.length >= 6
       );
     }
 
@@ -3161,24 +3299,33 @@ export class FableFlowApp {
       this.fitUnifiedCardTaskTypography(listEl, this.els.stackAddItemRow);
     });
 
-    if (this.els.stackCardBackReflection) {
-      if (
-        this.els.stackCardBackReflection.value !==
-        (selectedCard.reflectionText || '')
-      ) {
-        this.els.stackCardBackReflection.value = selectedCard.reflectionText || '';
-      }
-      this.adjustReflectionTypography(this.els.stackCardBackReflection);
-      requestAnimationFrame(() => {
-        this.adjustReflectionTypography(this.els.stackCardBackReflection);
-      });
-    }
-
     this.renderPhotoSlotsDOM(
       this.els.stackCardBackPhotos,
       selectedCard.reflectionPhotos || [],
       'stack'
     );
+
+    if (this.els.stackCardBackReflection) {
+      const refText = selectedCard.reflectionText || '';
+      if (this.els.stackCardBackReflection.value !== refText) {
+        this.els.stackCardBackReflection.value = refText;
+      }
+      this.els.stackCardBackReflection.readOnly = !isEditing;
+      this.els.stackCardBackReflection.placeholder = isEditing
+        ? 'Write or update your reflection for this day...'
+        : '';
+      const hasPhotos =
+        Array.isArray(selectedCard.reflectionPhotos) &&
+        selectedCard.reflectionPhotos.length > 0;
+      this.els.stackCardBackReflection.classList.toggle(
+        'empty-readonly',
+        !isEditing && !refText.trim() && hasPhotos
+      );
+      this.adjustReflectionTypography(this.els.stackCardBackReflection);
+      requestAnimationFrame(() => {
+        this.adjustReflectionTypography(this.els.stackCardBackReflection);
+      });
+    }
   }
 
   /**
@@ -3463,7 +3610,13 @@ export class FableFlowApp {
     let startedAtLeftEdgeBezel = false;
 
     rowEl.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.task-tomato-btn')) return;
+      if (
+        e.target.closest('.task-tomato-btn') ||
+        e.target.closest('.task-inline-input') ||
+        e.target.closest('.task-inline-delete-btn')
+      ) {
+        return;
+      }
       e.stopPropagation(); // QA #1: Prevent bubbling to #daily-card-3d / #stack-card-3d so flip doesn't double-toggle
       startX = e.clientX;
       startY = e.clientY;
@@ -3541,9 +3694,11 @@ export class FableFlowApp {
       if (Math.abs(dx) < 6 && Math.abs(dy) < 6) {
         this.drawGraphiteStroke(strikeCanvas, 0.0, task.isCompleted ? 1.0 : 0.0);
         if (isStackCard) {
-          this.openEditStackTaskModal(task);
+          if (this.state.isStackEditMode) {
+            this.startInlineEditTask(rowEl, task, true);
+          }
         } else {
-          this.openEditTaskModal(task);
+          this.startInlineEditTask(rowEl, task, false);
         }
         return;
       }
@@ -3884,8 +4039,292 @@ export class FableFlowApp {
   }
 
   // =========================================================================
-  // MODALS FOR ADDING / EDITING TASKS (TODAY'S CARD & RETROACTIVE STACK)
+  // INLINE CARD TASK TYPING & EDITING (NO POPUP BOX ON CARD)
   // =========================================================================
+
+  startInlineAddTask(isStackCard = false) {
+    const card = isStackCard ? this.getSelectedStackCard() : null;
+    if (isStackCard && !card) return;
+    if (isStackCard && !Array.isArray(card.tasks)) card.tasks = [];
+
+    const tasksArr = isStackCard ? card.tasks : this.state.tasks;
+    if (tasksArr.length >= 6) {
+      this.showNotificationBanner('Maximum 6 tasks per card reached.');
+      return;
+    }
+
+    const container = isStackCard
+      ? this.els.stackTaskListContainer
+      : this.els.taskListContainer;
+    const addItemEl = isStackCard ? this.els.stackAddItemRow : this.els.addItemRow;
+    if (!container) return;
+
+    const existingInput = container.querySelector('.task-inline-input');
+    if (existingInput) {
+      existingInput.focus();
+      return;
+    }
+
+    const nextOrder = tasksArr.length + 1;
+    const row = document.createElement('div');
+    row.className = 'task-row task-row-inline-adding';
+    row.style.paddingTop = '9px';
+    row.style.paddingBottom = '9px';
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'task-index';
+    numSpan.textContent = String(nextOrder).padStart(2, '0');
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'task-title-wrap task-inline-edit-wrap';
+
+    const input = document.createElement('textarea');
+    input.rows = 1;
+    input.className = 'task-inline-input';
+    input.maxLength = MAX_TASK_CHARS;
+    input.placeholder = 'Type item...';
+    input.setAttribute('aria-label', 'Type task directly on card');
+
+    const syncHeight = () => {
+      input.style.height = 'auto';
+      input.style.height = `${input.scrollHeight}px`;
+    };
+
+    titleWrap.appendChild(input);
+    row.appendChild(numSpan);
+    row.appendChild(titleWrap);
+    container.appendChild(row);
+
+    if (addItemEl) {
+      addItemEl.classList.add('hidden');
+    }
+
+    this.fitUnifiedCardTaskTypography(container, addItemEl);
+    syncHeight();
+    setTimeout(() => {
+      syncHeight();
+      input.focus();
+    }, 10);
+
+    let finished = false;
+    const commitOrCancel = (shouldSave) => {
+      if (finished) return;
+      finished = true;
+      const cleanVal = this.clampTaskInputText(input.value).trim();
+      if (shouldSave && cleanVal) {
+        if (isStackCard) {
+          card.tasks.push({
+            id: `${card.dateKey}-task-${Date.now()}`,
+            orderIndex: card.tasks.length + 1,
+            title: cleanVal,
+            isCompleted: false,
+          });
+          this.sensory.playMechanicalTick();
+          this.saveState();
+          this.renderStackScreen();
+        } else {
+          this.state.tasks.push({
+            id: 'task-' + Date.now(),
+            orderIndex: this.state.tasks.length + 1,
+            title: cleanVal,
+            isCompleted: false,
+            assignedQuadrant: null,
+          });
+          this.sensory.playMechanicalTick();
+          this.saveState();
+          this.renderAll();
+        }
+      } else {
+        if (isStackCard) {
+          this.renderStackScreen();
+        } else {
+          this.renderCardScreen();
+        }
+      }
+    };
+
+    input.addEventListener('input', () => {
+      const clamped = this.clampTaskInputText(input.value.replace(/\r?\n/g, ' '));
+      if (input.value !== clamped) {
+        input.value = clamped;
+        this.showTelemetryToast('Task length limit reached');
+      }
+      syncHeight();
+      this.fitUnifiedCardTaskTypography(container, addItemEl);
+      syncHeight();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitOrCancel(true);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        commitOrCancel(false);
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      commitOrCancel(true);
+    });
+  }
+
+  startInlineEditTask(rowEl, task, isStackCard = false) {
+    if (!rowEl || !task) return;
+    const container = isStackCard
+      ? this.els.stackTaskListContainer
+      : this.els.taskListContainer;
+    const addItemEl = isStackCard ? this.els.stackAddItemRow : this.els.addItemRow;
+    if (!container) return;
+
+    if (rowEl.querySelector('.task-inline-input')) return;
+
+    const titleWrap = rowEl.querySelector('.task-title-wrap');
+    const strikeCanvas = rowEl.querySelector('.pencil-strike-canvas');
+    if (!titleWrap) return;
+
+    if (strikeCanvas) {
+      strikeCanvas.style.opacity = '0';
+    }
+
+    titleWrap.innerHTML = '';
+    titleWrap.classList.add('task-inline-edit-wrap');
+
+    const input = document.createElement('textarea');
+    input.rows = 1;
+    input.className = 'task-inline-input';
+    input.maxLength = MAX_TASK_CHARS;
+    input.value = task.title || '';
+    input.setAttribute('aria-label', 'Edit task directly on card');
+
+    const syncEditHeight = () => {
+      input.style.height = 'auto';
+      input.style.height = `${input.scrollHeight}px`;
+    };
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'task-inline-delete-btn';
+    delBtn.title = 'Delete item';
+    delBtn.setAttribute('aria-label', 'Delete item');
+    delBtn.textContent = '×';
+
+    titleWrap.appendChild(input);
+    titleWrap.appendChild(delBtn);
+
+    this.fitUnifiedCardTaskTypography(container, addItemEl);
+    syncEditHeight();
+    setTimeout(() => {
+      syncEditHeight();
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }, 10);
+
+    let finished = false;
+    const deleteThisTask = () => {
+      if (finished) return;
+      finished = true;
+      if (isStackCard) {
+        const card = this.getSelectedStackCard();
+        if (card && Array.isArray(card.tasks)) {
+          card.tasks = card.tasks.filter((t) => t.id !== task.id);
+          card.tasks.forEach((t, i) => {
+            t.orderIndex = i + 1;
+          });
+          this.saveState();
+          this.renderStackScreen();
+        }
+      } else {
+        this.state.tasks = this.state.tasks.filter((t) => t.id !== task.id);
+        this.state.tasks.forEach((t, i) => {
+          t.orderIndex = i + 1;
+        });
+        for (const s of this.state.timers) {
+          if (s.assignedTaskId === task.id) {
+            s.assignedTaskId = null;
+            s.assignedTaskOrder = null;
+            s.customTitle = null;
+            s.runState = 'idle';
+            s.remainingSeconds = 0;
+            s.configuredMinutes = 0;
+            s.angleDegrees = 0;
+            s.lastTickTimestamp = null;
+          } else if (s.assignedTaskId) {
+            const rem = this.state.tasks.find((t) => t.id === s.assignedTaskId);
+            if (rem) s.assignedTaskOrder = rem.orderIndex;
+          }
+        }
+        this.saveState();
+        this.renderAll();
+      }
+    };
+
+    const commitOrCancel = (shouldSave) => {
+      if (finished) return;
+      finished = true;
+      if (!shouldSave) {
+        if (isStackCard) this.renderStackScreen();
+        else this.renderCardScreen();
+        return;
+      }
+      const cleanVal = this.clampTaskInputText(input.value).trim();
+      if (!cleanVal) {
+        finished = false;
+        deleteThisTask();
+        return;
+      }
+      task.title = cleanVal;
+      if (!isStackCard) {
+        for (const s of this.state.timers) {
+          if (s.assignedTaskId === task.id) {
+            s.customTitle = task.title;
+          }
+        }
+        this.saveState();
+        this.renderAll();
+      } else {
+        this.saveState();
+        this.renderStackScreen();
+      }
+    };
+
+    delBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    delBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      deleteThisTask();
+    });
+
+    input.addEventListener('input', () => {
+      const clamped = this.clampTaskInputText(input.value.replace(/\r?\n/g, ' '));
+      if (input.value !== clamped) {
+        input.value = clamped;
+        this.showTelemetryToast('Task length limit reached');
+      }
+      syncEditHeight();
+      this.fitUnifiedCardTaskTypography(container, addItemEl);
+      syncEditHeight();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitOrCancel(true);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        commitOrCancel(false);
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      commitOrCancel(true);
+    });
+  }
 
   openAddTaskModal() {
     if (this.state.tasks.length >= 6) {
