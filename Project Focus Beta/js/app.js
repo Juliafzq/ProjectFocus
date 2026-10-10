@@ -20,12 +20,12 @@
  * 5. Monthly Calendar Zoom-Out View (07-calendar-view.png) & 5:00 AM Daily Rollover Engine.
  */
 
-import { OdometerDialPhysics } from './odometerPhysics.js?v=20261010_v26';
-import { CardGestureMath } from './cardGestureMath.js?v=20261010_v26';
-import { SensoryEngine } from './sensoryEngine.js?v=20261010_v26';
-import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261010_v26';
+import { OdometerDialPhysics } from './odometerPhysics.js?v=20261010_v27';
+import { CardGestureMath } from './cardGestureMath.js?v=20261010_v27';
+import { SensoryEngine } from './sensoryEngine.js?v=20261010_v27';
+import { HeroTomato3DView, GridTomatoRenderer } from './tomato3D.js?v=20261010_v27';
 
-const STORAGE_KEY = 'fable_flow_phase2_mvp_v9';
+const STORAGE_KEY = 'fable_flow_phase2_mvp_v10';
 const NUM_GRID_SLOTS = 6;
 
 const MAX_TASK_WORDS = 18;
@@ -67,11 +67,35 @@ export class FableFlowApp {
     return `${y}-${m}-${d}`;
   }
 
+  getOffsetDateKey(baseDateKey, deltaDays = -1) {
+    const fallback = this.getCurrentLogicalDateString(
+      this.state && typeof this.state.dailyResetHour === 'number'
+        ? this.state.dailyResetHour
+        : 5
+    );
+    const raw =
+      typeof baseDateKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(baseDateKey)
+        ? baseDateKey
+        : fallback;
+    const [yStr, mStr, dStr] = raw.split('-');
+    const dt = new Date(
+      parseInt(yStr, 10) || 2026,
+      (parseInt(mStr, 10) || 10) - 1,
+      (parseInt(dStr, 10) || 1) + deltaDays
+    );
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
   getDefaultArchiveCards() {
     return {};
   }
 
   getDefaultState() {
+    const todayKey = this.getCurrentLogicalDateString(5);
+    const todayMeta = this.formatDateMetadataForKey(todayKey);
     return {
       activePillar: 'card', // 'home' | 'card' | 'timer' | 'stack' | 'calendar'
       timerSubMode: 'grid', // 'grid' | 'hero'
@@ -81,14 +105,14 @@ export class FableFlowApp {
       isCardFlipped: false,
       isStackCardFlipped: false,
       selectedStackDateKey: null,
-      cardDateKey: '2026-10-06',
-      cardHeaderDate: 'TUESDAY — OCT 06',
-      cardShortDate: '06 OCT',
+      cardDateKey: todayMeta.dateKey,
+      cardHeaderDate: todayMeta.headerDate,
+      cardShortDate: todayMeta.shortDate,
       dailyResetHour: 5,
       isSilentMode: false,
       hasCompletedOnboarding: false,
       seenPageHints: {},
-      lastRolloverLogicalDate: this.getCurrentLogicalDateString(5),
+      lastRolloverLogicalDate: todayMeta.dateKey,
       reflectionText: '',
       reflectionPhotos: [],
       archiveCards: this.getDefaultArchiveCards(),
@@ -194,7 +218,10 @@ export class FableFlowApp {
         'fable_flow_phase2_mvp_v7',
         'fable_flow_phase2_mvp_v8',
       ].forEach((k) => localStorage.removeItem(k));
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw =
+        localStorage.getItem(STORAGE_KEY) ||
+        localStorage.getItem('fable_flow_phase2_mvp_v9');
+      localStorage.removeItem('fable_flow_phase2_mvp_v9');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (
@@ -215,25 +242,73 @@ export class FableFlowApp {
           if (!parsed.selectedStackDateKey) {
             parsed.selectedStackDateKey = null;
           }
-          if (!parsed.cardShortDate) {
-            parsed.cardShortDate = '06 OCT';
-          }
-          if (!parsed.cardDateKey) {
-            parsed.cardDateKey = '2026-10-06';
-          }
           if (typeof parsed.dailyResetHour !== 'number') {
             parsed.dailyResetHour = 5;
+          }
+          const currentLogicalKey = this.getCurrentLogicalDateString(parsed.dailyResetHour);
+          const todayMeta = this.formatDateMetadataForKey(currentLogicalKey);
+          if (!parsed.cardDateKey || parsed.cardDateKey !== currentLogicalKey) {
+            const prevKey = parsed.cardDateKey;
+            const hasCustomTasks =
+              Array.isArray(parsed.tasks) &&
+              (parsed.tasks.length !== 1 ||
+                parsed.tasks[0].title !== 'Example Task' ||
+                Boolean(parsed.tasks[0].isCompleted));
+            const hasReflection =
+              Boolean(parsed.reflectionText && parsed.reflectionText.trim()) ||
+              (Array.isArray(parsed.reflectionPhotos) && parsed.reflectionPhotos.length > 0);
+            if (
+              prevKey &&
+              /^\d{4}-\d{2}-\d{2}$/.test(prevKey) &&
+              prevKey < currentLogicalKey &&
+              parsed.lastRolloverLogicalDate &&
+              parsed.lastRolloverLogicalDate !== currentLogicalKey &&
+              (hasCustomTasks || hasReflection) &&
+              !parsed.archiveCards[prevKey]
+            ) {
+              const prevMeta = this.formatDateMetadataForKey(prevKey);
+              parsed.archiveCards[prevKey] = {
+                dateKey: prevMeta.dateKey,
+                headerDate: parsed.cardHeaderDate || prevMeta.headerDate,
+                shortDate: parsed.cardShortDate || prevMeta.shortDate,
+                monthKey: prevMeta.monthKey,
+                dayNum: prevMeta.dayNum,
+                tasks: parsed.tasks.map((t, idx) => ({
+                  id: `${prevKey}-task-${idx + 1}`,
+                  orderIndex: idx + 1,
+                  title: t.title,
+                  isCompleted: Boolean(t.isCompleted),
+                })),
+                reflectionText: parsed.reflectionText || '',
+                reflectionPhotos: Array.isArray(parsed.reflectionPhotos)
+                  ? [...parsed.reflectionPhotos]
+                  : [],
+              };
+              parsed.tasks = [
+                {
+                  id: 'task-' + Date.now(),
+                  orderIndex: 1,
+                  title: 'Example Task',
+                  isCompleted: false,
+                  assignedQuadrant: null,
+                },
+              ];
+              parsed.reflectionText = '';
+              parsed.reflectionPhotos = [];
+            }
+            parsed.cardDateKey = todayMeta.dateKey;
+            parsed.cardHeaderDate = todayMeta.headerDate;
+            parsed.cardShortDate = todayMeta.shortDate;
+          } else {
+            parsed.cardHeaderDate = todayMeta.headerDate;
+            parsed.cardShortDate = todayMeta.shortDate;
           }
           parsed.isSilentMode = Boolean(parsed.isSilentMode);
           parsed.hasCompletedOnboarding = Boolean(parsed.hasCompletedOnboarding);
           if (!parsed.seenPageHints || typeof parsed.seenPageHints !== 'object') {
             parsed.seenPageHints = {};
           }
-          if (!parsed.lastRolloverLogicalDate) {
-            parsed.lastRolloverLogicalDate = this.getCurrentLogicalDateString(
-              parsed.dailyResetHour
-            );
-          }
+          parsed.lastRolloverLogicalDate = currentLogicalKey;
           this.reconcileElapsedTimers(parsed);
           return parsed;
         }
@@ -515,8 +590,14 @@ export class FableFlowApp {
       this.els.profileResetTimeSelect.addEventListener('change', (e) => {
         const hourVal = Math.max(0, Math.min(23, parseInt(e.target.value, 10) || 0));
         this.state.dailyResetHour = hourVal;
-        this.state.lastRolloverLogicalDate = this.getCurrentLogicalDateString(hourVal);
+        const newLogicalKey = this.getCurrentLogicalDateString(hourVal);
+        const newMeta = this.formatDateMetadataForKey(newLogicalKey);
+        this.state.lastRolloverLogicalDate = newLogicalKey;
+        this.state.cardDateKey = newMeta.dateKey;
+        this.state.cardHeaderDate = newMeta.headerDate;
+        this.state.cardShortDate = newMeta.shortDate;
         this.saveState();
+        this.renderAll();
         const padded = String(hourVal).padStart(2, '0') + ':00';
         this.showTelemetryToast(`Daily reset time: ${padded}`);
       });
@@ -801,17 +882,17 @@ export class FableFlowApp {
     this.els.profileModalOverlay.classList.remove('hidden');
   }
 
-  simulateFiveAmRollover() {
-    const currentKey = this.state.cardDateKey || '2026-10-06';
-    const dayMatch = currentKey.match(/^2026-10-(\d{2})$/);
-    const currentDayNum = dayMatch ? parseInt(dayMatch[1], 10) : 6;
+  simulateFiveAmRollover(targetDateKey = null) {
+    const currentKey =
+      this.state.cardDateKey || this.getCurrentLogicalDateString(this.state.dailyResetHour);
+    const currentMeta = this.formatDateMetadataForKey(currentKey);
 
     this.state.archiveCards[currentKey] = {
-      dateKey: currentKey,
-      headerDate: this.state.cardHeaderDate,
-      shortDate: this.state.cardShortDate,
-      monthKey: '2026-10',
-      dayNum: currentDayNum,
+      dateKey: currentMeta.dateKey,
+      headerDate: this.state.cardHeaderDate || currentMeta.headerDate,
+      shortDate: this.state.cardShortDate || currentMeta.shortDate,
+      monthKey: currentMeta.monthKey,
+      dayNum: currentMeta.dayNum,
       tasks: this.state.tasks.map((t, idx) => ({
         id: `${currentKey}-task-${idx + 1}`,
         orderIndex: idx + 1,
@@ -824,23 +905,18 @@ export class FableFlowApp {
         : [],
     };
 
-    const nextDayNum = Math.min(31, currentDayNum + 1);
-    const nextDayPadded = String(nextDayNum).padStart(2, '0');
-    const weekdays = [
-      'WEDNESDAY',
-      'THURSDAY',
-      'FRIDAY',
-      'SATURDAY',
-      'SUNDAY',
-      'MONDAY',
-      'TUESDAY',
-    ];
-    const nextWeekday = weekdays[(nextDayNum - 7 + 70) % 7];
+    const nextKey =
+      targetDateKey && /^\d{4}-\d{2}-\d{2}$/.test(targetDateKey)
+        ? targetDateKey
+        : this.getOffsetDateKey(currentKey, 1);
+    const nextMeta = this.formatDateMetadataForKey(nextKey);
+    const nextDayPadded = String(nextMeta.dayNum).padStart(2, '0');
 
     this.state.selectedStackDateKey = currentKey;
-    this.state.cardDateKey = `2026-10-${nextDayPadded}`;
-    this.state.cardHeaderDate = `${nextWeekday} — OCT ${nextDayPadded}`;
-    this.state.cardShortDate = `${nextDayPadded} OCT`;
+    this.state.cardDateKey = nextMeta.dateKey;
+    this.state.cardHeaderDate = nextMeta.headerDate;
+    this.state.cardShortDate = nextMeta.shortDate;
+    this.state.lastRolloverLogicalDate = nextMeta.dateKey;
     this.state.isCardFlipped = false;
     this._todayFlipDeg = 0;
     this.state.tasks = [
@@ -871,7 +947,7 @@ export class FableFlowApp {
     this.saveState();
     this.renderAll();
     this.showNotificationBanner(
-      `5:00 AM Rollover: Archived ${currentKey} to Stack & created fresh card for OCT ${nextDayPadded}.`
+      `5:00 AM Rollover: Archived ${currentKey} to Stack & created fresh card for ${nextMeta.shortMonth} ${nextDayPadded}.`
     );
   }
 
@@ -1193,7 +1269,11 @@ export class FableFlowApp {
   }
 
   formatDateMetadataForKey(dateKey) {
-    const fallbackKey = '2026-10-05';
+    const fallbackKey = this.getCurrentLogicalDateString(
+      this.state && typeof this.state.dailyResetHour === 'number'
+        ? this.state.dailyResetHour
+        : 5
+    );
     const raw = typeof dateKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : fallbackKey;
     const parts = raw.split('-');
     const y = parseInt(parts[0], 10) || 2026;
@@ -1251,7 +1331,8 @@ export class FableFlowApp {
     }
     // If curKey is a valid past date explicitly selected (e.g. from Calendar or Date Strip),
     // preserve selectedStackDateKey and return null so the retrospective "+ Add Card" slot renders!
-    const todayKey = this.state.cardDateKey || '2026-10-06';
+    const todayKey =
+      this.state.cardDateKey || this.getCurrentLogicalDateString(this.state.dailyResetHour);
     if (curKey && /^\d{4}-\d{2}-\d{2}$/.test(curKey) && curKey < todayKey) {
       return null;
     }
@@ -1259,7 +1340,7 @@ export class FableFlowApp {
       this.state.selectedStackDateKey = keys[keys.length - 1];
       return this.state.archiveCards[this.state.selectedStackDateKey] || null;
     }
-    this.state.selectedStackDateKey = '2026-10-05';
+    this.state.selectedStackDateKey = this.getOffsetDateKey(todayKey, -1);
     return null;
   }
 
@@ -1525,7 +1606,8 @@ export class FableFlowApp {
       this.renderAll();
       return;
     }
-    const todayKey = this.state.cardDateKey || '2026-10-06';
+    const todayKey =
+      this.state.cardDateKey || this.getCurrentLogicalDateString(this.state.dailyResetHour);
     if (!this.state.archiveCards[dateKey] && dateKey > todayKey) return;
     if (this.state.selectedStackDateKey === dateKey && this.state.activePillar === 'stack') {
       return;
@@ -2198,15 +2280,33 @@ export class FableFlowApp {
 
   startWallClockTicker() {
     if (this.tickInterval) clearInterval(this.tickInterval);
-    this.tickInterval = setInterval(() => {
-      // QA #3: Automatically roll over the daily card when the configured dailyResetHour passes
+    const checkSystemDateRefresh = () => {
       const currentLogicalDate = this.getCurrentLogicalDateString(this.state.dailyResetHour);
       if (
-        this.state.lastRolloverLogicalDate &&
-        currentLogicalDate !== this.state.lastRolloverLogicalDate
+        (this.state.lastRolloverLogicalDate &&
+          currentLogicalDate !== this.state.lastRolloverLogicalDate) ||
+        this.state.cardDateKey !== currentLogicalDate
       ) {
         this.state.lastRolloverLogicalDate = currentLogicalDate;
-        this.simulateFiveAmRollover();
+        this.simulateFiveAmRollover(currentLogicalDate);
+        return true;
+      }
+      return false;
+    };
+
+    if (!this._boundVisibilityRefresh) {
+      this._boundVisibilityRefresh = () => {
+        if (document.visibilityState === 'visible') {
+          checkSystemDateRefresh();
+        }
+      };
+      document.addEventListener('visibilitychange', this._boundVisibilityRefresh);
+      window.addEventListener('focus', this._boundVisibilityRefresh);
+    }
+
+    this.tickInterval = setInterval(() => {
+      // QA #3: Automatically roll over / refresh the daily card when the system logical date advances
+      if (checkSystemDateRefresh()) {
         return;
       }
 
@@ -2836,36 +2936,45 @@ export class FableFlowApp {
     const selectedCard = this.getSelectedStackCard();
     const sortedKeys = this.getSortedArchiveKeys();
     const navKeys = this.getNavigableStackDateKeys();
+    const todayKey =
+      this.state.cardDateKey || this.getCurrentLogicalDateString(this.state.dailyResetHour);
+    const todayMeta = this.formatDateMetadataForKey(todayKey);
     const currentDateKey =
       (selectedCard && selectedCard.dateKey) ||
       this.state.selectedStackDateKey ||
-      '2026-10-05';
+      this.getOffsetDateKey(todayKey, -1);
+    const curMeta = this.formatDateMetadataForKey(currentDateKey);
 
     if (this.els.stackDateStrip) {
       this.els.stackDateStrip.innerHTML = '';
-      const activeMonth = currentDateKey.startsWith('2026-09') ? '2026-09' : '2026-10';
+      const activeMonth = curMeta.monthKey;
 
       const monthBtn = document.createElement('button');
       monthBtn.type = 'button';
       monthBtn.className = 'stack-month-label';
       monthBtn.title = 'Tap to switch between SEP and OCT';
-      monthBtn.textContent = activeMonth === '2026-09' ? 'SEP' : 'OCT';
+      monthBtn.textContent = curMeta.shortMonth;
       monthBtn.addEventListener('click', () => {
-        const targetMonth = activeMonth === '2026-09' ? '2026-10' : '2026-09';
+        const targetMonth = activeMonth === '2026-09' ? todayMeta.monthKey : '2026-09';
         const candidates = sortedKeys.filter((k) => k.startsWith(`${targetMonth}-`));
         if (candidates.length > 0) {
           this.selectStackDate(candidates[candidates.length - 1]);
-        } else if (targetMonth === '2026-10' && this.state.cardDateKey) {
+        } else if (targetMonth === todayMeta.monthKey && this.state.cardDateKey) {
           this.selectStackDate(this.state.cardDateKey);
+        } else if (targetMonth === '2026-09') {
+          this.selectStackDate('2026-09-30');
         }
       });
       this.els.stackDateStrip.appendChild(monthBtn);
 
-      if (activeMonth === '2026-10') {
-        const octDays = [1, 2, 3, 4, 5, 6];
-        octDays.forEach((d) => {
+      const pillsTrack = document.createElement('div');
+      pillsTrack.className = 'stack-date-pills-track';
+
+      if (activeMonth === todayMeta.monthKey) {
+        const maxDay = Math.max(todayMeta.dayNum, curMeta.dayNum);
+        for (let d = 1; d <= maxDay; d++) {
           const dPadded = String(d).padStart(2, '0');
-          const dKey = `2026-10-${dPadded}`;
+          const dKey = `${activeMonth}-${dPadded}`;
           const hasCard =
             Boolean(this.state.archiveCards[dKey]) || dKey === this.state.cardDateKey;
           const isSelected = currentDateKey === dKey;
@@ -2880,15 +2989,15 @@ export class FableFlowApp {
           btn.addEventListener('click', () => {
             this.selectStackDate(dKey);
           });
-          this.els.stackDateStrip.appendChild(btn);
-        });
-      } else {
-        const sepKeySet = new Set(sortedKeys.filter((k) => k.startsWith('2026-09-')));
-        if (currentDateKey.startsWith('2026-09-')) {
-          sepKeySet.add(currentDateKey);
+          pillsTrack.appendChild(btn);
         }
-        const sepKeys = Array.from(sepKeySet).sort();
-        sepKeys.forEach((dKey) => {
+      } else {
+        const monthKeySet = new Set(sortedKeys.filter((k) => k.startsWith(`${activeMonth}-`)));
+        if (currentDateKey.startsWith(`${activeMonth}-`)) {
+          monthKeySet.add(currentDateKey);
+        }
+        const monthKeys = Array.from(monthKeySet).sort();
+        monthKeys.forEach((dKey) => {
           const cardObj = this.state.archiveCards[dKey];
           const metaObj = cardObj || this.formatDateMetadataForKey(dKey);
           const dPadded = String(metaObj.dayNum).padStart(2, '0');
@@ -2904,9 +3013,19 @@ export class FableFlowApp {
           btn.addEventListener('click', () => {
             this.selectStackDate(dKey);
           });
-          this.els.stackDateStrip.appendChild(btn);
+          pillsTrack.appendChild(btn);
         });
       }
+
+      this.els.stackDateStrip.appendChild(pillsTrack);
+
+      requestAnimationFrame(() => {
+        if (!pillsTrack) return;
+        const activePill = pillsTrack.querySelector('.stack-date-pill.active');
+        if (activePill && typeof activePill.scrollIntoView === 'function') {
+          activePill.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
+        }
+      });
     }
 
     const curNavIdx = navKeys.indexOf(currentDateKey);
@@ -3087,7 +3206,8 @@ export class FableFlowApp {
     ];
 
     // Base range: SEPTEMBER 2026 through DECEMBER 2026, always guaranteeing 2 additional months after current card month
-    const activeDateKey = this.state.cardDateKey || '2026-10-06';
+    const activeDateKey =
+      this.state.cardDateKey || this.getCurrentLogicalDateString(this.state.dailyResetHour);
     const [curYearStr, curMonthStr] = activeDateKey.split('-');
     const curYear = parseInt(curYearStr, 10) || 2026;
     const curMonthIdx = (parseInt(curMonthStr, 10) || 10) - 1;
@@ -4036,36 +4156,45 @@ export class FableFlowApp {
         selectedStackDateKey: this.state.selectedStackDateKey,
       };
     }
+    const todayKey =
+      this.state.cardDateKey || this.getCurrentLogicalDateString(this.state.dailyResetHour);
+    const yesterdayKey = this.getOffsetDateKey(todayKey, -1);
+    const twoDaysAgoKey = this.getOffsetDateKey(todayKey, -2);
+    this._tourYesterdayKey = yesterdayKey;
+    this._tourTwoDaysAgoKey = twoDaysAgoKey;
+
     const keys = Object.keys(this.state.archiveCards || {});
     if (keys.length < 2) {
+      const twoDaysMeta = this.formatDateMetadataForKey(twoDaysAgoKey);
+      const yesterdayMeta = this.formatDateMetadataForKey(yesterdayKey);
       this.state.archiveCards = {
         ...this.state.archiveCards,
-        '2026-10-04': {
-          dateKey: '2026-10-04',
-          headerDate: 'SUNDAY — OCT 04',
-          shortDate: '04 OCT',
-          monthKey: '2026-10',
-          dayNum: 4,
+        [twoDaysAgoKey]: {
+          dateKey: twoDaysMeta.dateKey,
+          headerDate: twoDaysMeta.headerDate,
+          shortDate: twoDaysMeta.shortDate,
+          monthKey: twoDaysMeta.monthKey,
+          dayNum: twoDaysMeta.dayNum,
           tasks: [
             {
-              id: 'tour-oct04-1',
+              id: `tour-${twoDaysAgoKey}-1`,
               orderIndex: 1,
               title: 'Sketch weekend notes',
               isCompleted: true,
             },
           ],
-          reflectionText: 'Quiet Sunday afternoon reading.',
+          reflectionText: 'Quiet afternoon reading.',
           reflectionPhotos: [],
         },
-        '2026-10-05': {
-          dateKey: '2026-10-05',
-          headerDate: 'MONDAY — OCT 05',
-          shortDate: '05 OCT',
-          monthKey: '2026-10',
-          dayNum: 5,
+        [yesterdayKey]: {
+          dateKey: yesterdayMeta.dateKey,
+          headerDate: yesterdayMeta.headerDate,
+          shortDate: yesterdayMeta.shortDate,
+          monthKey: yesterdayMeta.monthKey,
+          dayNum: yesterdayMeta.dayNum,
           tasks: [
             {
-              id: 'tour-oct05-1',
+              id: `tour-${yesterdayKey}-1`,
               orderIndex: 1,
               title: 'Example Task',
               isCompleted: true,
@@ -4076,7 +4205,7 @@ export class FableFlowApp {
         },
       };
       if (!this.state.selectedStackDateKey || !this.state.archiveCards[this.state.selectedStackDateKey]) {
-        this.state.selectedStackDateKey = '2026-10-05';
+        this.state.selectedStackDateKey = yesterdayKey;
       }
     }
   }
@@ -4460,7 +4589,9 @@ export class FableFlowApp {
           this.state.activePillar = 'stack';
           this.state.isStackCardFlipped = false;
           this._stackFlipDeg = 0;
-          this.state.selectedStackDateKey = '2026-10-05';
+          this.state.selectedStackDateKey =
+            this._tourYesterdayKey ||
+            this.getOffsetDateKey(this.state.cardDateKey, -1);
           this._tourStackLastSwitchedCycle = -1;
         },
         animateFrame: (elapsedMs) => {
@@ -4505,10 +4636,16 @@ export class FableFlowApp {
             // Hand off to two-card slide transition once at t >= 0.56 without resetting transform!
             if (this._tourStackLastSwitchedCycle !== cycleIdx) {
               this._tourStackLastSwitchedCycle = cycleIdx;
+              const yesterdayKey =
+                this._tourYesterdayKey ||
+                this.getOffsetDateKey(this.state.cardDateKey, -1);
+              const twoDaysAgoKey =
+                this._tourTwoDaysAgoKey ||
+                this.getOffsetDateKey(this.state.cardDateKey, -2);
               const nextKey =
-                this.state.selectedStackDateKey === '2026-10-05'
-                  ? '2026-10-04'
-                  : '2026-10-05';
+                this.state.selectedStackDateKey === yesterdayKey
+                  ? twoDaysAgoKey
+                  : yesterdayKey;
               this.selectStackDate(nextKey, -swipeDir, Math.round(swipeDir * 92));
             }
             const p = (t - 0.56) / 0.44;
@@ -4527,7 +4664,9 @@ export class FableFlowApp {
           this.state.activePillar = 'stack';
           this.state.isStackCardFlipped = false;
           this._stackFlipDeg = 0;
-          this.state.selectedStackDateKey = '2026-10-05';
+          this.state.selectedStackDateKey =
+            this._tourYesterdayKey ||
+            this.getOffsetDateKey(this.state.cardDateKey, -1);
         },
         animateFrame: (elapsedMs) => {
           const period = 3500;

@@ -1169,16 +1169,26 @@ html, body {
   padding: 6px 26px 8px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
   touch-action: pan-x;
   cursor: ew-resize;
 }
 
-.stack-date-strip::-webkit-scrollbar {
+.stack-date-pills-track {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.stack-date-pills-track::-webkit-scrollbar {
   display: none;
 }
 
@@ -1190,7 +1200,7 @@ html, body {
   font-weight: 800;
   color: #0D0D0D;
   letter-spacing: 0.01em;
-  margin-right: 4px;
+  margin-right: 2px;
   padding: 4px 6px;
   border-radius: 6px;
   cursor: pointer;
